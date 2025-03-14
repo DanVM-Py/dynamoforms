@@ -9,7 +9,215 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      form_responses: {
+        Row: {
+          form_id: string
+          id: string
+          response_data: Json
+          submitted_at: string
+          user_id: string
+        }
+        Insert: {
+          form_id: string
+          id?: string
+          response_data?: Json
+          submitted_at?: string
+          user_id: string
+        }
+        Update: {
+          form_id?: string
+          id?: string
+          response_data?: Json
+          submitted_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_responses_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_responses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forms: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          schema: Json
+          status: Database["public"]["Enums"]["form_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          schema?: Json
+          status?: Database["public"]["Enums"]["form_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          schema?: Json
+          status?: Database["public"]["Enums"]["form_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forms_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          metadata: Json | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["notification_status"]
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          metadata?: Json | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          metadata?: Json | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
+          title?: string
+          type?: Database["public"]["Enums"]["notification_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string | null
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          name?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          assigned_to: string
+          created_at: string
+          description: string | null
+          due_date: string | null
+          form_id: string | null
+          form_response_id: string | null
+          id: string
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          form_id?: string | null
+          form_response_id?: string | null
+          id?: string
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          form_id?: string | null
+          form_response_id?: string | null
+          id?: string
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_form_response_id_fkey"
+            columns: ["form_response_id"]
+            isOneToOne: false
+            referencedRelation: "form_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +226,11 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      form_status: "draft" | "active" | "closed"
+      notification_status: "sent" | "failed" | "retrying"
+      notification_type: "email" | "whatsapp"
+      task_status: "pending" | "in_progress" | "completed"
+      user_role: "admin" | "user" | "approver"
     }
     CompositeTypes: {
       [_ in never]: never
