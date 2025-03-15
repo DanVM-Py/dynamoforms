@@ -2,8 +2,9 @@
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Image, X, Upload } from "lucide-react";
+import { Image, X, Upload, Loader2 } from "lucide-react";
 import { uploadFileToStorage } from "@/utils/fileUploadUtils";
+import { useToast } from "@/components/ui/use-toast";
 
 interface ImageUploadFieldProps {
   label: string;
@@ -22,6 +23,7 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
   value,
   readOnly = false,
 }) => {
+  const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(value || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,13 +34,21 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
     
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Por favor, selecciona un archivo de imagen válido.');
+      toast({
+        title: "Tipo de archivo no válido",
+        description: "Por favor, selecciona un archivo de imagen válido.",
+        variant: "destructive"
+      });
       return;
     }
     
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('El tamaño del archivo no debe exceder 5MB.');
+      toast({
+        title: "Archivo demasiado grande",
+        description: "El tamaño del archivo no debe exceder 5MB.",
+        variant: "destructive"
+      });
       return;
     }
     
@@ -58,9 +68,18 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
       // Set the remote URL as preview
       setPreviewUrl(fileUrl);
       onChange(fileUrl);
+      
+      toast({
+        title: "Imagen subida correctamente",
+        description: "La imagen se ha subido y guardado correctamente.",
+      });
     } catch (error) {
       console.error('Error uploading image:', error);
-      alert('Error al subir la imagen. Por favor, inténtelo de nuevo.');
+      toast({
+        title: "Error al subir la imagen",
+        description: "Por favor, inténtelo de nuevo.",
+        variant: "destructive"
+      });
       setPreviewUrl(null);
     } finally {
       setIsUploading(false);
@@ -120,22 +139,30 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <Image className="h-10 w-10 text-gray-400 mb-2" />
-            <p className="text-sm text-gray-500">
-              {isUploading ? 'Subiendo imagen...' : 'Haz clic para subir imagen'}
-            </p>
-            {!readOnly && (
-              <Button 
-                type="button"
-                variant="ghost" 
-                size="sm"
-                className="mt-2"
-                onClick={triggerFileInput}
-                disabled={isUploading}
-              >
-                <Upload className="mr-1 h-4 w-4" />
-                Seleccionar archivo
-              </Button>
+            {isUploading ? (
+              <>
+                <Loader2 className="h-10 w-10 text-dynamo-500 animate-spin mb-2" />
+                <p className="text-sm text-gray-500">Subiendo imagen...</p>
+              </>
+            ) : (
+              <>
+                <Image className="h-10 w-10 text-gray-400 mb-2" />
+                <p className="text-sm text-gray-500">
+                  {readOnly ? "No hay imagen" : "Haz clic para subir imagen"}
+                </p>
+                {!readOnly && (
+                  <Button 
+                    type="button"
+                    variant="ghost" 
+                    size="sm"
+                    className="mt-2"
+                    onClick={triggerFileInput}
+                  >
+                    <Upload className="mr-1 h-4 w-4" />
+                    Seleccionar archivo
+                  </Button>
+                )}
+              </>
             )}
           </div>
         )}
