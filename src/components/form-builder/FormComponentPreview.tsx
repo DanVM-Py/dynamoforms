@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Image as ImageIcon, PenTool, Calendar, Clock, Hash, Mail, Phone, Info } from "lucide-react";
+import { MapPin, Image as ImageIcon, PenTool, Calendar, Clock, Hash, Mail, Phone, Info, File, Files } from "lucide-react";
 import { FormComponent } from "./FormBuilder";
 
 interface FormComponentPreviewProps {
@@ -168,15 +168,61 @@ export const FormComponentPreview: React.FC<FormComponentPreviewProps> = ({ comp
         </div>
       );
       
-    case 'image':
+    case 'image_single':
+    case 'image_multiple':
       return (
         <div className="space-y-1">
           {renderLabel()}
           <div className="border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center justify-center bg-gray-50 h-40">
             <ImageIcon className="h-10 w-10 text-gray-400 mb-2" />
-            <p className="text-sm text-gray-500">Subir imagen</p>
+            <p className="text-sm text-gray-500">
+              {type === 'image_single' ? 'Subir imagen' : `Subir imágenes (máx. ${component.maxImages || 5})`}
+            </p>
             <p className="text-xs text-gray-400 mt-1">Se guardará en almacenamiento seguro</p>
           </div>
+          {component.includeText && (
+            <div className="mt-2">
+              <Label htmlFor={`${component.id}-description`} className="text-sm">Descripción de la imagen</Label>
+              <Input 
+                id={`${component.id}-description`}
+                placeholder="Añadir descripción..."
+                className="mt-1"
+                readOnly
+              />
+            </div>
+          )}
+          {renderHelpText()}
+        </div>
+      );
+      
+    case 'file_single':
+    case 'file_multiple':
+      return (
+        <div className="space-y-1">
+          {renderLabel()}
+          <div className="border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center justify-center bg-gray-50 h-40">
+            {type === 'file_single' ? 
+              <File className="h-10 w-10 text-gray-400 mb-2" /> :
+              <Files className="h-10 w-10 text-gray-400 mb-2" />
+            }
+            <p className="text-sm text-gray-500">
+              {type === 'file_single' ? 'Subir archivo' : `Subir archivos (máx. ${component.maxFiles || 5})`}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Formatos permitidos: {(component.acceptedFileTypes || ['.pdf', '.docx']).join(', ')}
+            </p>
+          </div>
+          {component.includeText && (
+            <div className="mt-2">
+              <Label htmlFor={`${component.id}-description`} className="text-sm">Descripción del archivo</Label>
+              <Input 
+                id={`${component.id}-description`}
+                placeholder="Añadir descripción..."
+                className="mt-1"
+                readOnly
+              />
+            </div>
+          )}
           {renderHelpText()}
         </div>
       );

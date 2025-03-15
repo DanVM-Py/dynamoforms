@@ -33,7 +33,9 @@ import {
   Signature,
   MapPinned,
   List,
-  Info
+  Info,
+  File,
+  Files
 } from "lucide-react";
 
 interface ComponentToolbarProps {
@@ -107,6 +109,24 @@ export const ComponentToolbar: React.FC<ComponentToolbarProps> = ({ onAddCompone
             <DropdownMenuItem onClick={() => onAddComponent("image_multiple")}>
               <Images className="mr-2 h-4 w-4" />
               <span>Múltiples Imágenes</span>
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        
+        {/* Cargar Archivos */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <Files className="mr-2 h-4 w-4" />
+            <span>Cargar Archivos</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuItem onClick={() => onAddComponent("file_single")}>
+              <File className="mr-2 h-4 w-4" />
+              <span>Archivo Único</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onAddComponent("file_multiple")}>
+              <Files className="mr-2 h-4 w-4" />
+              <span>Múltiples Archivos</span>
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>

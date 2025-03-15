@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,46 +23,76 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { FormGroup } from "./FormBuilder";
-
-interface FormComponent {
-  id: string;
-  type: string;
-  label: string;
-  required: boolean;
-  options?: { label: string; value: string }[];
-  placeholder?: string;
-  helpText?: string;
-  maxLength?: number;
-  maxImages?: number;
-  includeText?: boolean;
-  selectionType?: 'single' | 'multiple';
-  content?: string;
-  groupId?: string;
-}
+import { FormComponent, FormGroup } from "./FormBuilder";
 
 interface FormComponentEditorProps {
   component: FormComponent;
   onSave: (component: FormComponent) => void;
   onCancel: () => void;
   groups?: FormGroup[];
+  allComponents?: FormComponent[]; // Para mostrar opciones en componentes condicionales
 }
 
 export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
   component,
   onSave,
   onCancel,
-  groups = []
+  groups = [],
+  allComponents = []
 }) => {
   const [editedComponent, setEditedComponent] = useState<FormComponent>({
     ...component,
     maxLength: component.maxLength || (component.type === 'text' ? 300 : component.type === 'textarea' ? 1000 : undefined),
     maxImages: component.maxImages || 1,
+    maxFiles: component.maxFiles || 1,
     includeText: component.includeText || false,
     selectionType: component.selectionType || 'single',
     content: component.content || '',
-    groupId: component.groupId || undefined
+    groupId: component.groupId || undefined,
+    acceptedFileTypes: component.acceptedFileTypes || ['.pdf', '.docx', '.jpg', '.png']
   });
+  
+  // Para componentes condicionales
+  const [showWhenCondition, setShowWhenCondition] = useState<'equals' | 'not-equals'>(
+    component.conditionalDisplay?.showWhen || 'equals'
+  );
+  const [selectedControllingComponent, setSelectedControllingComponent] = useState<string>(
+    component.conditionalDisplay?.controlledBy || ''
+  );
+  const [conditionalValue, setConditionalValue] = useState<string>(
+    component.conditionalDisplay?.value || ''
+  );
+  const [hasConditionalDisplay, setHasConditionalDisplay] = useState<boolean>(
+    !!component.conditionalDisplay
+  );
+
+  // Opciones disponibles para el componente controlador
+  const [availableOptions, setAvailableOptions] = useState<{ label: string; value: string }[]>([]);
+
+  // Efecto para actualizar las opciones disponibles cuando cambia el componente controlador
+  useEffect(() => {
+    if (selectedControllingComponent) {
+      const controllingComp = allComponents.find(c => c.id === selectedControllingComponent);
+      if (controllingComp && controllingComp.options) {
+        setAvailableOptions(controllingComp.options);
+        // Si no hay un valor condicional seleccionado y hay opciones disponibles, seleccionar el primero
+        if (!conditionalValue && controllingComp.options.length > 0) {
+          setConditionalValue(controllingComp.options[0].value);
+        }
+      } else {
+        setAvailableOptions([]);
+      }
+    } else {
+      setAvailableOptions([]);
+    }
+  }, [selectedControllingComponent, allComponents]);
+
+  // Obtener componentes que pueden ser controladores (solo selects, radios y checkboxes)
+  const eligibleControllingComponents = allComponents.filter(c => 
+    (c.type === 'select' || c.type === 'radio' || c.type === 'checkbox') && 
+    c.id !== component.id && 
+    c.options?.length > 0
+  );
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -131,6 +161,21 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
     }
   };
 
+  const handleAcceptedFileTypesChange = (fileType: string, checked: boolean) => {
+    const currentTypes = editedComponent.acceptedFileTypes || [];
+    let newTypes;
+    
+    if (checked) {
+      // Añadir el tipo si no está ya en la lista
+      newTypes = currentTypes.includes(fileType) ? currentTypes : [...currentTypes, fileType];
+    } else {
+      // Quitar el tipo de la lista
+      newTypes = currentTypes.filter(type => type !== fileType);
+    }
+    
+    setEditedComponent(prev => ({ ...prev, acceptedFileTypes: newTypes }));
+  };
+
   const handleComponentTypeChange = (type: string) => {
     // Reset component-specific settings when type changes
     const updatedComponent: FormComponent = {
@@ -148,6 +193,12 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
       maxImages: ['image_single', 'image_multiple'].includes(type) 
         ? (type === 'image_single' ? 1 : 5) 
         : undefined,
+      maxFiles: ['file_single', 'file_multiple'].includes(type)
+        ? (type === 'file_single' ? 1 : 5)
+        : undefined,
+      acceptedFileTypes: ['file_single', 'file_multiple'].includes(type)
+        ? (editedComponent.acceptedFileTypes || ['.pdf', '.docx', '.jpg', '.png'])
+        : undefined,
       includeText: ['image_single', 'image_multiple'].includes(type) 
         ? editedComponent.includeText 
         : undefined,
@@ -160,11 +211,36 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
     
     setEditedComponent(updatedComponent);
   };
+
+  // Manejo de condiciones
+  const handleSaveWithConditions = () => {
+    let updatedComponent = { ...editedComponent };
+    
+    if (hasConditionalDisplay && selectedControllingComponent && conditionalValue) {
+      updatedComponent.conditionalDisplay = {
+        controlledBy: selectedControllingComponent,
+        showWhen: showWhenCondition,
+        value: conditionalValue
+      };
+    } else {
+      // Si no tiene condiciones, eliminar el objeto conditionalDisplay si existe
+      if (updatedComponent.conditionalDisplay) {
+        const { conditionalDisplay, ...rest } = updatedComponent;
+        updatedComponent = rest;
+      }
+    }
+    
+    onSave(updatedComponent);
+  };
   
   const needsOptions = ['select', 'radio', 'checkbox'].includes(editedComponent.type);
   const isTextField = ['text', 'textarea'].includes(editedComponent.type);
   const isImageField = ['image_single', 'image_multiple'].includes(editedComponent.type);
+  const isFileField = ['file_single', 'file_multiple'].includes(editedComponent.type);
   const isInfoTextField = editedComponent.type === 'info_text';
+  
+  // Verificar si el componente puede tener condiciones (no permitir para info_text)
+  const canHaveConditions = editedComponent.type !== 'info_text';
   
   return (
     <Card className="border-2 border-primary">
@@ -182,6 +258,9 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
             <TabsList className="mb-4 w-full">
               <TabsTrigger value="general" className="flex-1">Configuración General</TabsTrigger>
               <TabsTrigger value="specific" className="flex-1">Configuración Específica</TabsTrigger>
+              {canHaveConditions && (
+                <TabsTrigger value="conditional" className="flex-1">Condiciones</TabsTrigger>
+              )}
             </TabsList>
             
             <TabsContent value="general" className="space-y-4">
@@ -202,6 +281,8 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
                     <SelectItem value="checkbox">Opciones Múltiples</SelectItem>
                     <SelectItem value="image_single">Imagen Única</SelectItem>
                     <SelectItem value="image_multiple">Múltiples Imágenes</SelectItem>
+                    <SelectItem value="file_single">Archivo Único</SelectItem>
+                    <SelectItem value="file_multiple">Múltiples Archivos</SelectItem>
                     <SelectItem value="signature">Firma</SelectItem>
                     <SelectItem value="location">Geolocalización</SelectItem>
                     <SelectItem value="info_text">Texto Informativo</SelectItem>
@@ -356,6 +437,91 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
                   </div>
                 </div>
               )}
+
+              {isFileField && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="maxFiles">Cantidad máxima de archivos</Label>
+                    <Input 
+                      id="maxFiles"
+                      type="number"
+                      value={editedComponent.maxFiles || 1}
+                      onChange={(e) => handleNumberChange(e, 'maxFiles')}
+                      min={1}
+                      max={10}
+                      disabled={editedComponent.type === 'file_single'}
+                    />
+                    {editedComponent.type === 'file_single' && (
+                      <p className="text-xs text-gray-500">
+                        Este tipo de componente solo permite un archivo.
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Tipos de archivos permitidos</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex items-center space-x-2">
+                        <Switch 
+                          id="pdf"
+                          checked={editedComponent.acceptedFileTypes?.includes('.pdf') || false}
+                          onCheckedChange={(checked) => handleAcceptedFileTypesChange('.pdf', checked)}
+                        />
+                        <Label htmlFor="pdf">PDF (.pdf)</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch 
+                          id="docx"
+                          checked={editedComponent.acceptedFileTypes?.includes('.docx') || false}
+                          onCheckedChange={(checked) => handleAcceptedFileTypesChange('.docx', checked)}
+                        />
+                        <Label htmlFor="docx">Word (.docx)</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch 
+                          id="jpg"
+                          checked={editedComponent.acceptedFileTypes?.includes('.jpg') || false}
+                          onCheckedChange={(checked) => handleAcceptedFileTypesChange('.jpg', checked)}
+                        />
+                        <Label htmlFor="jpg">Imagen JPG (.jpg)</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch 
+                          id="png"
+                          checked={editedComponent.acceptedFileTypes?.includes('.png') || false}
+                          onCheckedChange={(checked) => handleAcceptedFileTypesChange('.png', checked)}
+                        />
+                        <Label htmlFor="png">Imagen PNG (.png)</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch 
+                          id="xlsx"
+                          checked={editedComponent.acceptedFileTypes?.includes('.xlsx') || false}
+                          onCheckedChange={(checked) => handleAcceptedFileTypesChange('.xlsx', checked)}
+                        />
+                        <Label htmlFor="xlsx">Excel (.xlsx)</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch 
+                          id="txt"
+                          checked={editedComponent.acceptedFileTypes?.includes('.txt') || false}
+                          onCheckedChange={(checked) => handleAcceptedFileTypesChange('.txt', checked)}
+                        />
+                        <Label htmlFor="txt">Texto (.txt)</Label>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Switch 
+                      id="includeText"
+                      checked={editedComponent.includeText}
+                      onCheckedChange={(checked) => handleSwitchChange(checked, 'includeText')}
+                    />
+                    <Label htmlFor="includeText">Incluir campo de texto con el archivo</Label>
+                  </div>
+                </div>
+              )}
               
               {needsOptions && (
                 <div className="space-y-4">
@@ -450,6 +616,99 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
                 </div>
               )}
             </TabsContent>
+
+            {canHaveConditions && (
+              <TabsContent value="conditional" className="space-y-4">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch 
+                      id="hasConditionalDisplay"
+                      checked={hasConditionalDisplay}
+                      onCheckedChange={setHasConditionalDisplay}
+                    />
+                    <Label htmlFor="hasConditionalDisplay">Este componente se muestra condicionalmente</Label>
+                  </div>
+                  
+                  {hasConditionalDisplay && (
+                    <>
+                      {eligibleControllingComponents.length === 0 ? (
+                        <div className="p-4 border border-yellow-200 bg-yellow-50 rounded-md">
+                          <p className="text-yellow-700 text-sm">
+                            No hay componentes de selección (radio, checkbox, lista) disponibles para controlar 
+                            este componente. Primero añade alguno de estos componentes al formulario.
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="controllingComponent">Componente que controla la visualización</Label>
+                            <Select
+                              value={selectedControllingComponent}
+                              onValueChange={setSelectedControllingComponent}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Seleccionar componente" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {eligibleControllingComponents.map(comp => (
+                                  <SelectItem key={comp.id} value={comp.id}>
+                                    {comp.label} ({comp.type})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-gray-500">
+                              Selecciona el componente que determinará si este se muestra o no
+                            </p>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label>Condición</Label>
+                            <RadioGroup 
+                              value={showWhenCondition} 
+                              onValueChange={(val) => setShowWhenCondition(val as 'equals' | 'not-equals')}
+                              className="flex flex-col space-y-1"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="equals" id="equals" />
+                                <Label htmlFor="equals">Mostrar cuando es igual a</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="not-equals" id="not-equals" />
+                                <Label htmlFor="not-equals">Mostrar cuando NO es igual a</Label>
+                              </div>
+                            </RadioGroup>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="conditionalValue">Valor</Label>
+                            <Select
+                              value={conditionalValue}
+                              onValueChange={setConditionalValue}
+                              disabled={availableOptions.length === 0}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Seleccionar valor" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableOptions.map(option => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-gray-500">
+                              Selecciona el valor que debe tener el componente controlador
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         </ScrollArea>
       </CardContent>
@@ -457,7 +716,7 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
         <Button variant="outline" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button onClick={() => onSave(editedComponent)}>
+        <Button onClick={canHaveConditions ? handleSaveWithConditions : () => onSave(editedComponent)}>
           <Save className="h-4 w-4 mr-2" />
           Guardar
         </Button>

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,13 @@ export interface FormComponent {
   selectionType?: 'single' | 'multiple';
   content?: string; // Para componente de texto indicativo
   groupId?: string; // Identificador del grupo al que pertenece
+  conditionalDisplay?: {
+    controlledBy: string; // ID del componente que controla la visualización
+    showWhen: 'equals' | 'not-equals'; // Tipo de condición
+    value: string; // Valor esperado para mostrar este componente
+  };
+  maxFiles?: number; // Límite de archivos para componentes tipo archivo
+  acceptedFileTypes?: string[]; // Tipos de archivos aceptados (pdf, docx, etc)
 }
 
 export interface FormGroup {
@@ -97,6 +105,16 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
       newComponent.maxImages = 5;
     }
 
+    if (componentType === 'file_single') {
+      newComponent.maxFiles = 1;
+      newComponent.acceptedFileTypes = ['.pdf', '.docx', '.jpg', '.png'];
+    }
+    
+    if (componentType === 'file_multiple') {
+      newComponent.maxFiles = 5;
+      newComponent.acceptedFileTypes = ['.pdf', '.docx', '.jpg', '.png'];
+    }
+
     if (componentType === 'info_text') {
       newComponent.content = 'Texto informativo para los usuarios del formulario';
       newComponent.required = false;
@@ -130,6 +148,8 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
       case 'checkbox': return 'Opciones Múltiples';
       case 'image_single': return 'Imagen Única';
       case 'image_multiple': return 'Múltiples Imágenes';
+      case 'file_single': return 'Archivo Único';
+      case 'file_multiple': return 'Múltiples Archivos';
       case 'signature': return 'Firma';
       case 'location': return 'Ubicación';
       case 'info_text': return 'Texto Informativo';
@@ -162,9 +182,20 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
   };
 
   const handleDeleteComponent = (componentId: string) => {
+    // Primero, necesitamos eliminar cualquier dependencia condicional que otros componentes tengan en este
+    const updatedComponents = formSchema.components.map(component => {
+      if (component.conditionalDisplay?.controlledBy === componentId) {
+        // Si este componente está siendo controlado por el que se elimina, quitamos la condición
+        const { conditionalDisplay, ...rest } = component;
+        return rest;
+      }
+      return component;
+    });
+    
+    // Luego eliminamos el componente
     onChange({
       ...formSchema,
-      components: formSchema.components.filter(c => c.id !== componentId)
+      components: updatedComponents.filter(c => c.id !== componentId)
     });
   };
 
@@ -357,6 +388,11 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
                     (Obligatorio)
                   </span>
                 )}
+                {component.conditionalDisplay && (
+                  <span className="ml-2 text-xs text-blue-500">
+                    (Condicional)
+                  </span>
+                )}
               </div>
               <div className="flex space-x-2">
                 <Button 
@@ -395,7 +431,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
               <Plus className="mr-2 h-4 w-4" />
               Agregar Grupo
             </Button>
-            <Button onClick={handleAddNewComponent} className="bg-dynamo-600 hover:bg-dynamo-700">
+            <Button onClick={(e) => handleAddNewComponent(e)} className="bg-dynamo-600 hover:bg-dynamo-700">
               <Plus className="mr-2 h-4 w-4" />
               Agregar Componente
             </Button>
@@ -404,7 +440,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
         </CardHeader>
         <CardContent>
           {formSchema.components.length === 0 && formSchema.groups.length === 0 ? (
-            <EmptyState onAddComponent={handleAddNewComponent} />
+            <EmptyState onAddComponent={(e) => handleAddNewComponent(e)} />
           ) : (
             <DragDropContext onDragEnd={handleDragEnd}>
               <div className="space-y-6">
@@ -422,7 +458,6 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
                           key={group.id} 
                           draggableId={group.id} 
                           index={index}
-                          type="group"
                         >
                           {(providedDraggable) => (
                             <div
@@ -551,6 +586,11 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
                                       (Obligatorio)
                                     </span>
                                   )}
+                                  {component.conditionalDisplay && (
+                                    <span className="ml-2 text-xs text-blue-500">
+                                      (Condicional)
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex space-x-2">
                                   <Button 
@@ -652,9 +692,9 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
             setShowComponentEditor(false);
           }}
           groups={formSchema.groups}
+          allComponents={formSchema.components}
         />
       )}
     </div>
   );
 };
-

@@ -133,6 +133,39 @@ const FormEdit = () => {
     setForm(prev => ({ ...prev, schema: updatedSchema }));
   };
 
+  // Filtrar componentes para la vista previa según condiciones
+  const getFilteredComponents = () => {
+    // Si no hay componentes, devolver un array vacío
+    if (!form.schema.components.length) {
+      return [];
+    }
+    
+    // Copiar los componentes para no modificar el original
+    const components = [...form.schema.components];
+    
+    // Para cada componente, verificar si tiene una condición y si esa condición se cumple
+    return components.filter(component => {
+      // Si no tiene condición, se muestra siempre
+      if (!component.conditionalDisplay) {
+        return true;
+      }
+      
+      // Encontrar el componente que controla este
+      const controllingComponent = components.find(
+        c => c.id === component.conditionalDisplay?.controlledBy
+      );
+      
+      // Si no se encuentra el componente controlador, no mostrar
+      if (!controllingComponent) {
+        return false;
+      }
+      
+      // En vista previa, asumimos que el valor controlador siempre es la primera opción
+      // La lógica real se aplicará en el FormRenderer
+      return true;
+    });
+  };
+
   return (
     <PageContainer>
       <div className="flex items-center mb-6">
