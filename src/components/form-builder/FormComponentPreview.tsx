@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Image as ImageIcon, PenTool, Calendar, Clock, Hash, Mail, Phone } from "lucide-react";
+import { MapPin, Image as ImageIcon, PenTool, Calendar, Clock, Hash, Mail, Phone, Info } from "lucide-react";
 import { FormComponent } from "./FormBuilder";
 
 interface FormComponentPreviewProps {
@@ -14,7 +14,7 @@ interface FormComponentPreviewProps {
 }
 
 export const FormComponentPreview: React.FC<FormComponentPreviewProps> = ({ component }) => {
-  const { type, label, required, options, placeholder, helpText } = component;
+  const { type, label, required, options, placeholder, helpText, content } = component;
   
   const renderLabel = () => (
     <Label className="mb-2 block">
@@ -204,6 +204,19 @@ export const FormComponentPreview: React.FC<FormComponentPreviewProps> = ({ comp
             <p className="text-xs text-gray-400 mt-1">Haz click para elegir en el mapa</p>
           </div>
           {renderHelpText()}
+        </div>
+      );
+      
+    case 'info_text':
+      return (
+        <div className="p-4 bg-gray-50 border rounded-md">
+          <div className="flex items-start mb-2">
+            <Info className="h-5 w-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+            <h3 className="font-medium">{label}</h3>
+          </div>
+          <div className="mt-2 pl-7 whitespace-pre-line text-gray-700">
+            {content || "Texto informativo para los usuarios del formulario"}
+          </div>
         </div>
       );
       

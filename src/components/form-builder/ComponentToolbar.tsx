@@ -32,7 +32,8 @@ import {
   Images,
   Signature,
   MapPinned,
-  List
+  List,
+  Info
 } from "lucide-react";
 
 interface ComponentToolbarProps {
@@ -120,6 +121,12 @@ export const ComponentToolbar: React.FC<ComponentToolbarProps> = ({ onAddCompone
         <DropdownMenuItem onClick={() => onAddComponent("location")}>
           <MapPinned className="mr-2 h-4 w-4" />
           <span>Geolocalización</span>
+        </DropdownMenuItem>
+        
+        {/* Texto Informativo */}
+        <DropdownMenuItem onClick={() => onAddComponent("info_text")}>
+          <Info className="mr-2 h-4 w-4" />
+          <span>Texto Informativo</span>
         </DropdownMenuItem>
         
         <DropdownMenuSeparator />

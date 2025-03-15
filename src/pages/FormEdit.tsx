@@ -27,7 +27,7 @@ const FormEdit = () => {
     title: "",
     description: "",
     status: "draft",
-    schema: { components: [] } as FormSchema
+    schema: { components: [], groups: [] } as FormSchema
   });
 
   useEffect(() => {
@@ -49,7 +49,7 @@ const FormEdit = () => {
       if (error) throw error;
       
       if (data) {
-        // Ensure schema has components array
+        // Ensure schema has components array and groups array
         let formSchema: FormSchema;
         
         if (data.schema && typeof data.schema === 'object') {
@@ -57,11 +57,14 @@ const FormEdit = () => {
           formSchema = {
             components: Array.isArray((data.schema as any).components) 
               ? (data.schema as any).components 
+              : [],
+            groups: Array.isArray((data.schema as any).groups)
+              ? (data.schema as any).groups
               : []
           };
         } else {
           // Default empty schema
-          formSchema = { components: [] };
+          formSchema = { components: [], groups: [] };
         }
         
         setForm({

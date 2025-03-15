@@ -14,7 +14,9 @@ import { FormComponent, FormSchema } from "../form-builder/FormBuilder";
 import { uploadBase64Image } from "@/utils/fileUploadUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown, ChevronRight, Info } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface FormRendererProps {
   formId: string;
@@ -33,6 +35,21 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
+    // Inicializar todos los grupos como expandidos por defecto
+    const initialState: Record<string, boolean> = {};
+    schema.groups?.forEach(group => {
+      initialState[group.id] = group.expanded !== false; // Verdadero por defecto a menos que se especifique lo contrario
+    });
+    return initialState;
+  });
+  
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupId]: !prev[groupId]
+    }));
+  };
   
   const handleInputChange = (componentId: string, value: any) => {
     setFormValues((prev) => ({
@@ -139,7 +156,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
   };
   
   const renderFormComponent = (component: FormComponent) => {
-    const { id, type, label, required, options, placeholder, helpText } = component;
+    const { id, type, label, required, options, placeholder, helpText, content } = component;
     const value = formValues[id];
     const error = errors[id];
     
@@ -350,6 +367,19 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
             {error && <p className="text-red-500 text-xs">{error}</p>}
           </div>
         );
+
+      case 'info_text':
+        return (
+          <div key={id} className="p-4 bg-gray-50 border rounded-md mb-4">
+            <div className="flex items-start mb-2">
+              <Info className="h-5 w-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+              <h3 className="font-medium">{label}</h3>
+            </div>
+            <div className="mt-2 pl-7 whitespace-pre-line text-gray-700">
+              {content || "Texto informativo para los usuarios del formulario"}
+            </div>
+          </div>
+        );
         
       default:
         return (
@@ -359,10 +389,61 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
         );
     }
   };
-  
+
+  // Agrupar componentes por grupo
+  const groupedComponents: Record<string, FormComponent[]> = {};
+  const ungroupedComponents: FormComponent[] = [];
+
+  // Inicializar grupos vacíos
+  schema.groups?.forEach(group => {
+    groupedComponents[group.id] = [];
+  });
+
+  // Asignar componentes a sus respectivos grupos
+  schema.components.forEach(component => {
+    if (component.groupId && groupedComponents[component.groupId]) {
+      groupedComponents[component.groupId].push(component);
+    } else {
+      ungroupedComponents.push(component);
+    }
+  });
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {schema.components.map(renderFormComponent)}
+      {/* Renderizar componentes agrupados */}
+      {schema.groups?.map(group => (
+        <Collapsible 
+          key={group.id} 
+          open={expandedGroups[group.id]} 
+          className="border rounded-md overflow-hidden mb-6"
+        >
+          <CardHeader className="py-3 px-4 bg-gray-50 cursor-pointer border-b" onClick={() => toggleGroup(group.id)}>
+            <div className="flex items-center">
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="p-0 mr-2">
+                  {expandedGroups[group.id] ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CardTitle className="text-md font-medium">{group.title}</CardTitle>
+            </div>
+            {group.description && <p className="text-sm text-gray-500 mt-1">{group.description}</p>}
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="p-4 space-y-4">
+              {groupedComponents[group.id].map(renderFormComponent)}
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
+      ))}
+
+      {/* Renderizar componentes sin grupo */}
+      <div className="space-y-4">
+        {ungroupedComponents.map(renderFormComponent)}
+      </div>
       
       {!readOnly && (
         <Button 

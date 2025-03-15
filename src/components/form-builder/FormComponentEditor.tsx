@@ -23,6 +23,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { FormGroup } from "./FormBuilder";
 
 interface FormComponent {
   id: string;
@@ -36,25 +37,31 @@ interface FormComponent {
   maxImages?: number;
   includeText?: boolean;
   selectionType?: 'single' | 'multiple';
+  content?: string;
+  groupId?: string;
 }
 
 interface FormComponentEditorProps {
   component: FormComponent;
   onSave: (component: FormComponent) => void;
   onCancel: () => void;
+  groups?: FormGroup[];
 }
 
 export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
   component,
   onSave,
   onCancel,
+  groups = []
 }) => {
   const [editedComponent, setEditedComponent] = useState<FormComponent>({
     ...component,
     maxLength: component.maxLength || (component.type === 'text' ? 300 : component.type === 'textarea' ? 1000 : undefined),
     maxImages: component.maxImages || 1,
     includeText: component.includeText || false,
-    selectionType: component.selectionType || 'single'
+    selectionType: component.selectionType || 'single',
+    content: component.content || '',
+    groupId: component.groupId || undefined
   });
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -116,6 +123,14 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
     setEditedComponent(prev => ({...prev, [field]: checked}));
   };
 
+  const handleGroupChange = (groupId: string) => {
+    if (groupId === "none") {
+      setEditedComponent(prev => ({ ...prev, groupId: undefined }));
+    } else {
+      setEditedComponent(prev => ({ ...prev, groupId }));
+    }
+  };
+
   const handleComponentTypeChange = (type: string) => {
     // Reset component-specific settings when type changes
     const updatedComponent: FormComponent = {
@@ -139,7 +154,8 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
       placeholder: ['text', 'textarea', 'email', 'number', 'phone'].includes(type) 
         ? editedComponent.placeholder 
         : undefined,
-      selectionType: type === 'checkbox' ? 'multiple' : undefined
+      selectionType: type === 'checkbox' ? 'multiple' : undefined,
+      content: type === 'info_text' ? (editedComponent.content || 'Texto informativo para los usuarios del formulario') : undefined
     };
     
     setEditedComponent(updatedComponent);
@@ -148,6 +164,7 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
   const needsOptions = ['select', 'radio', 'checkbox'].includes(editedComponent.type);
   const isTextField = ['text', 'textarea'].includes(editedComponent.type);
   const isImageField = ['image_single', 'image_multiple'].includes(editedComponent.type);
+  const isInfoTextField = editedComponent.type === 'info_text';
   
   return (
     <Card className="border-2 border-primary">
@@ -187,6 +204,7 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
                     <SelectItem value="image_multiple">Múltiples Imágenes</SelectItem>
                     <SelectItem value="signature">Firma</SelectItem>
                     <SelectItem value="location">Geolocalización</SelectItem>
+                    <SelectItem value="info_text">Texto Informativo</SelectItem>
                     <SelectItem value="number">Número</SelectItem>
                     <SelectItem value="date">Fecha</SelectItem>
                     <SelectItem value="time">Hora</SelectItem>
@@ -207,29 +225,77 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
                 />
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="helpText">Texto de ayuda para el usuario</Label>
-                <Textarea 
-                  id="helpText"
-                  name="helpText"
-                  value={editedComponent.helpText || ''}
-                  onChange={handleChange}
-                  placeholder="Información adicional para ayudar al usuario a completar este campo"
-                  rows={3}
-                />
-              </div>
+              {!isInfoTextField && (
+                <div className="space-y-2">
+                  <Label htmlFor="helpText">Texto de ayuda para el usuario</Label>
+                  <Textarea 
+                    id="helpText"
+                    name="helpText"
+                    value={editedComponent.helpText || ''}
+                    onChange={handleChange}
+                    placeholder="Información adicional para ayudar al usuario a completar este campo"
+                    rows={3}
+                  />
+                </div>
+              )}
               
-              <div className="flex items-center space-x-2 pt-2">
-                <Switch 
-                  id="required"
-                  checked={editedComponent.required}
-                  onCheckedChange={handleRequiredChange}
-                />
-                <Label htmlFor="required">Campo obligatorio</Label>
-              </div>
+              {groups.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="groupId">Grupo</Label>
+                  <Select
+                    value={editedComponent.groupId || "none"}
+                    onValueChange={handleGroupChange}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Seleccionar grupo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin grupo</SelectItem>
+                      {groups.map(group => (
+                        <SelectItem key={group.id} value={group.id}>
+                          {group.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500">
+                    Asigna este componente a un grupo para organizarlo mejor
+                  </p>
+                </div>
+              )}
+              
+              {!isInfoTextField && (
+                <div className="flex items-center space-x-2 pt-2">
+                  <Switch 
+                    id="required"
+                    checked={editedComponent.required}
+                    onCheckedChange={handleRequiredChange}
+                  />
+                  <Label htmlFor="required">Campo obligatorio</Label>
+                </div>
+              )}
             </TabsContent>
             
             <TabsContent value="specific" className="space-y-4">
+              {isInfoTextField && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="content">Contenido del texto informativo</Label>
+                    <Textarea 
+                      id="content"
+                      name="content"
+                      value={editedComponent.content || ''}
+                      onChange={handleChange}
+                      placeholder="Escribe aquí el texto informativo o instructivo"
+                      rows={8}
+                    />
+                    <p className="text-xs text-gray-500">
+                      Este texto se mostrará en el formulario como información o instrucciones para los usuarios.
+                    </p>
+                  </div>
+                </div>
+              )}
+              
               {isTextField && (
                 <div className="space-y-4">
                   <div className="space-y-2">
