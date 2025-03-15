@@ -1,7 +1,8 @@
+
 import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
-import { Building2, FileText, Home, Menu, PanelLeftClose, Bell, CheckSquare, User, Users, LogOut } from 'lucide-react';
+import { Building2, FileText, Home, Menu, PanelLeftClose, Bell, CheckSquare, User, Users, LogOut, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 
@@ -11,7 +12,12 @@ export function Sidebar() {
   const isMobile = useWindowWidth() < 768;
   const location = useLocation();
   const navigate = useNavigate();
+  const params = useParams();
   const { user, userProfile, isGlobalAdmin, isProjectAdmin, signOut } = useAuth();
+  
+  // Get the current project ID from the URL if available
+  const projectId = params.projectId || 
+    (location.pathname.includes('/projects/') ? location.pathname.split('/projects/')[1]?.split('/')[0] : null);
 
   useEffect(() => {
     setIsExpanded(!isMobile);
@@ -44,8 +50,8 @@ export function Sidebar() {
     }
   };
 
-  const MenuItem = ({ icon: Icon, text, to }: { icon: any; text: string; to: string }) => {
-    const isActive = location.pathname === to;
+  const MenuItem = ({ icon: Icon, text, to, isActive: customActive }: { icon: any; text: string; to: string; isActive?: boolean }) => {
+    const isActive = customActive !== undefined ? customActive : location.pathname === to;
     return (
       <Link
         to={to}
@@ -129,6 +135,16 @@ export function Sidebar() {
           
           {/* Todos los usuarios pueden ver el enlace a Formularios */}
           <MenuItem icon={FileText} text="Formularios" to="/forms" />
+          
+          {/* Mostrar enlace de Roles si estamos en un proyecto y el usuario es admin */}
+          {projectId && (isProjectAdmin || isGlobalAdmin) && (
+            <MenuItem 
+              icon={Settings} 
+              text="Roles del Proyecto" 
+              to={`/projects/${projectId}/roles`}
+              isActive={location.pathname.includes(`/projects/${projectId}/roles`)}
+            />
+          )}
           
           {/* Todos los usuarios ven tareas y notificaciones */}
           <MenuItem icon={CheckSquare} text="Tareas" to="/tasks" />

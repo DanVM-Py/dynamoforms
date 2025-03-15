@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Plus, RefreshCw, Users, Pencil, Trash2 } from "lucide-react";
+import { Building2, Plus, RefreshCw, Users, Pencil, Trash2, PenLine, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +27,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
 interface Project {
   id: string;
@@ -251,6 +251,77 @@ const Projects = () => {
     return user ? user.name : 'Usuario desconocido';
   };
 
+  const ProjectCard = ({ project, onDelete, onEdit }: ProjectCardProps) => {
+    return (
+      <Card className="w-full">
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-start">
+            <CardTitle className="text-xl">{project.name}</CardTitle>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onEdit(project)}>
+                  <PenLine className="h-4 w-4 mr-2" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => window.location.href = `/projects/${project.id}/roles`}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Administrar Roles
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onDelete(project)}>
+                  <Trash2 className="h-4 w-4" />
+                  Eliminar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <CardDescription className="mt-2">
+            {project.description || "Sin descripción"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-sm space-y-2">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Creado:</span>
+              <span>{project.created_at}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Formularios:</span>
+              <span>{formCounts[project.id] || 0}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Administradores:</span>
+              <span>{projectAdmins[project.id]?.length || 0}</span>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="border-t pt-4">
+          <div className="w-full">
+            <div className="flex items-center mb-2">
+              <Users className="h-4 w-4 mr-2 text-gray-500" />
+              <span className="text-sm font-medium">Administradores</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {projectAdmins[project.id]?.map(adminId => (
+                <Badge key={adminId} variant="secondary">
+                  {getUserNameById(adminId)}
+                </Badge>
+              ))}
+              {(!projectAdmins[project.id] || projectAdmins[project.id].length === 0) && (
+                <span className="text-sm text-gray-500">No hay administradores asignados</span>
+              )}
+            </div>
+          </div>
+        </CardFooter>
+      </Card>
+    );
+  };
+
   // Si no es administrador global, no mostrar esta página
   if (!isGlobalAdmin) {
     return (
@@ -362,63 +433,7 @@ const Projects = () => {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {projects.length > 0 ? (
             projects.map((project) => (
-              <Card key={project.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="p-2 bg-dynamo-50 rounded-md">
-                        <Building2 className="h-4 w-4 text-dynamo-600" />
-                      </div>
-                      <CardTitle className="text-lg">{project.name}</CardTitle>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <CardDescription className="mt-2">
-                    {project.description || "Sin descripción"}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Creado:</span>
-                      <span>{project.created_at}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Formularios:</span>
-                      <span>{formCounts[project.id] || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Administradores:</span>
-                      <span>{projectAdmins[project.id]?.length || 0}</span>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="border-t pt-4">
-                  <div className="w-full">
-                    <div className="flex items-center mb-2">
-                      <Users className="h-4 w-4 mr-2 text-gray-500" />
-                      <span className="text-sm font-medium">Administradores</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {projectAdmins[project.id]?.map(adminId => (
-                        <Badge key={adminId} variant="secondary">
-                          {getUserNameById(adminId)}
-                        </Badge>
-                      ))}
-                      {(!projectAdmins[project.id] || projectAdmins[project.id].length === 0) && (
-                        <span className="text-sm text-gray-500">No hay administradores asignados</span>
-                      )}
-                    </div>
-                  </div>
-                </CardFooter>
-              </Card>
+              <ProjectCard key={project.id} project={project} onDelete={() => {}} onEdit={() => {}} />
             ))
           ) : (
             <div className="col-span-full text-center p-8">

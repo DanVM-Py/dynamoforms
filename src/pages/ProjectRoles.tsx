@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -112,7 +113,7 @@ const ProjectRoles = () => {
         
       if (error) throw error;
       
-      setRoles(data || []);
+      setRoles(data || [] as Role[]);
     } catch (error) {
       console.error('Error fetching roles:', error);
       toast({
@@ -131,8 +132,8 @@ const ProjectRoles = () => {
         .from('user_roles')
         .select(`
           *,
-          profiles:user_id (name, email),
-          roles:role_id (name)
+          profiles!user_id(name, email),
+          roles!role_id(name)
         `)
         .eq('project_id', projectId);
         
