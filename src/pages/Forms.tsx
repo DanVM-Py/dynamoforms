@@ -4,11 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Plus, MoreVertical, Clock, AlertCircle } from "lucide-react";
+import { FileText, Plus, MoreVertical, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Form {
   id: string;
@@ -24,7 +23,6 @@ const Forms = () => {
   const [forms, setForms] = useState<Form[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [recursionError, setRecursionError] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isGlobalAdmin, isProjectAdmin, user } = useAuth();
@@ -40,7 +38,6 @@ const Forms = () => {
     try {
       setLoading(true);
       setError(null);
-      setRecursionError(false);
       
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -60,33 +57,10 @@ const Forms = () => {
         
       if (error) {
         console.error('Error fetching forms:', error);
-        
-        // Verificar si es un error de recursión infinita
-        if (error.message && error.message.includes('infinite recursion detected')) {
-          setRecursionError(true);
-          // Mostrar datos de ejemplo en lugar de fallar completamente
-          setForms([
-            {
-              id: "sample-1",
-              title: "Formulario de ejemplo 1",
-              created_at: new Date().toLocaleDateString('es-ES'),
-              status: "draft",
-              created_by: session.user.id,
-              description: "Este es un formulario de ejemplo debido a un error de permisos en la base de datos."
-            },
-            {
-              id: "sample-2",
-              title: "Formulario de ejemplo 2",
-              created_at: new Date().toLocaleDateString('es-ES'),
-              status: "active",
-              created_by: session.user.id,
-              description: "Este es otro formulario de ejemplo."
-            }
-          ]);
-        } else {
-          throw error;
-        }
-      } else if (data) {
+        throw error;
+      }
+      
+      if (data) {
         // Si no hay error, procesar los datos normalmente
         const formattedForms = data.map(form => ({
           ...form,
@@ -178,15 +152,6 @@ const Forms = () => {
         .single();
         
       if (error) {
-        // Si hay un error de recursión, simular la creación
-        if (error.message && error.message.includes('infinite recursion detected')) {
-          toast({
-            title: "Formulario creado",
-            description: "Tu nuevo formulario ha sido creado. Ahora puedes editarlo.",
-          });
-          navigate(`/forms/sample-new/edit`);
-          return;
-        }
         throw error;
       }
       
@@ -249,22 +214,11 @@ const Forms = () => {
         )}
       </div>
 
-      {recursionError && (
-        <Alert className="mb-6 bg-amber-50 text-amber-800 border-amber-300">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Problemas de configuración en la base de datos</AlertTitle>
-          <AlertDescription>
-            Se detectó un error de recursión al consultar los formularios. Contacta al administrador para solucionar este problema.
-            Mientras tanto, mostramos datos de ejemplo para que puedas explorar la interfaz.
-          </AlertDescription>
-        </Alert>
-      )}
-
       {loading ? (
         <div className="flex justify-center p-8">
           <div className="animate-pulse text-gray-500">Cargando formularios...</div>
         </div>
-      ) : error && !recursionError ? (
+      ) : error ? (
         <div className="text-center p-8">
           <div className="mb-4 text-gray-400">
             <FileText className="h-12 w-12 mx-auto mb-2" />
