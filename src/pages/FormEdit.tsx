@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -144,11 +143,10 @@ const FormEdit = () => {
         
       if (error) throw error;
       
-      // Transform the data
       const transformedData = data.map(item => ({
         ...item,
         role_name: item.roles?.name
-      }));
+      })) as FormRole[];
       
       setFormRoles(transformedData);
     } catch (error) {
@@ -279,9 +277,9 @@ const FormEdit = () => {
       const { data, error } = await supabase
         .from('form_roles')
         .insert({
-          form_id: formId,
+          form_id: formId!,
           role_id: selectedRole,
-          created_by: userId
+          created_by: userId!
         })
         .select(`
           *,
@@ -302,7 +300,7 @@ const FormEdit = () => {
         return;
       }
       
-      const newFormRole = {
+      const newFormRole: FormRole = {
         ...data,
         role_name: data.roles?.name
       };

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -139,13 +138,12 @@ const ProjectRoles = () => {
         
       if (error) throw error;
       
-      // Transform the data
       const transformedData = data.map(item => ({
         ...item,
         user_name: item.profiles?.name,
         user_email: item.profiles?.email,
         role_name: item.roles?.name
-      }));
+      })) as UserRole[];
       
       setUserRoles(transformedData);
     } catch (error) {
@@ -281,10 +279,8 @@ const ProjectRoles = () => {
         return;
       }
       
-      // Refresh user roles
       fetchUserRoles();
       
-      // Reset selections
       setSelectedUser("");
       setSelectedRole("");
       

@@ -20,6 +20,27 @@ import ProjectRoles from "./pages/ProjectRoles";
 import PublicFormView from "./pages/PublicFormView";
 import PublicFormSuccess from "./pages/PublicFormSuccess";
 
+// Create a custom Supabase client with the extended types
+import { createClient } from '@supabase/supabase-js';
+import { ExtendedDatabase } from "@/types/supabase";
+
+const SUPABASE_URL = "https://dgnjoqgfccxdlteiptfv.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRnbmpvcWdmY2N4ZGx0ZWlwdGZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE5OTQxNDMsImV4cCI6MjA1NzU3MDE0M30.WaKEJL_VuJL9osWDEIc5NUUWekD-90Hbavya5S_5uIg";
+
+// Add this to make the extended client available globally
+export const extendedSupabase = createClient<ExtendedDatabase>(
+  SUPABASE_URL, 
+  SUPABASE_PUBLISHABLE_KEY, 
+  {
+    auth: {
+      storageKey: 'dynamo-app-auth-token-v3',
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    }
+  }
+);
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
