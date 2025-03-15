@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, Trash2, GripVertical, Plus, ChevronDown, ChevronRight, X } from "lucide-react";
+import { Save, Trash2, GripVertical, Plus, ChevronDown, ChevronRight, X, Copy } from "lucide-react";
 import { ComponentToolbar } from "./ComponentToolbar";
 import { FormComponentEditor } from "./FormComponentEditor";
 import { EmptyState } from "./EmptyState";
@@ -12,6 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
 
 export interface FormComponent {
   id: string;
@@ -64,6 +65,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
   const [editingComponent, setEditingComponent] = useState<FormComponent | null>(null);
   const [showComponentEditor, setShowComponentEditor] = useState(false);
   const [editingGroup, setEditingGroup] = useState<{ id: string; title: string; description?: string } | null>(null);
+  const { toast } = useToast();
 
   // Inicializar el schema con un array de grupos si no existe
   const formSchema = {
@@ -160,6 +162,30 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
   const handleEditComponent = (component: FormComponent) => {
     setEditingComponent({...component});
     setShowComponentEditor(true);
+  };
+
+  const handleCopyComponent = (component: FormComponent) => {
+    // Crear una copia profunda del componente
+    const componentCopy: FormComponent = JSON.parse(JSON.stringify(component));
+    
+    // Generar un nuevo ID único
+    componentCopy.id = `comp-${Date.now()}`;
+    
+    // Añadir " (copia)" al final de la etiqueta
+    componentCopy.label = `${componentCopy.label} (copia)`;
+    
+    // Añadir el componente copiado al schema
+    const updatedComponents = [...formSchema.components, componentCopy];
+    
+    onChange({
+      ...formSchema,
+      components: updatedComponents
+    });
+    
+    toast({
+      title: "Componente copiado",
+      description: `Se creó una copia de "${component.label}"`,
+    });
   };
 
   const handleSaveComponent = (component: FormComponent) => {
@@ -398,6 +424,14 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
                 <Button 
                   variant="ghost" 
                   size="sm" 
+                  onClick={() => handleCopyComponent(component)}
+                  title="Duplicar componente"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
                   onClick={() => handleEditComponent(component)}
                 >
                   Editar
@@ -431,7 +465,10 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
               <Plus className="mr-2 h-4 w-4" />
               Agregar Grupo
             </Button>
-            <Button onClick={(e) => handleAddNewComponent(e)} className="bg-dynamo-600 hover:bg-dynamo-700">
+            <Button
+              onClick={(e) => handleAddNewComponent(e)}
+              className="bg-dynamo-600 hover:bg-dynamo-700"
+            >
               <Plus className="mr-2 h-4 w-4" />
               Agregar Componente
             </Button>
@@ -440,7 +477,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
         </CardHeader>
         <CardContent>
           {formSchema.components.length === 0 && formSchema.groups.length === 0 ? (
-            <EmptyState onAddComponent={(e) => handleAddNewComponent(e)} />
+            <EmptyState onAddComponent={handleAddNewComponent} />
           ) : (
             <DragDropContext onDragEnd={handleDragEnd}>
               <div className="space-y-6">
@@ -593,6 +630,14 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
                                   )}
                                 </div>
                                 <div className="flex space-x-2">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => handleCopyComponent(component)}
+                                    title="Duplicar componente"
+                                  >
+                                    <Copy className="h-4 w-4" />
+                                  </Button>
                                   <Button 
                                     variant="ghost" 
                                     size="sm" 
