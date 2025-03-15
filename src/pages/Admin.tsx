@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -204,8 +203,12 @@ export default function Admin() {
       setAuthError(null);
 
       // Call the function we created in SQL to create a global admin
-      // Fix for the error: Explicitly type the RPC call result
-      const { data: result, error } = await customSupabase.rpc<any>(
+      // Fix for the error: Provide both type parameters that rpc expects
+      const { data: result, error } = await customSupabase.rpc<any, {
+        email: string;
+        password: string;
+        name: string;
+      }>(
         "create_global_admin",
         {
           email: data.email,
