@@ -50,26 +50,29 @@ const ProtectedRoute = ({
     );
   }
 
-  // Profile check - if a role is required but profile isn't loaded
-  if ((requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover) && !userProfile) {
+  // If we're not loading and there's still no profile, we should redirect to auth
+  // But skip this check for routes that don't require specific roles
+  if ((requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover) && !userProfile && !loading) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Role-based access checks
-  if (requireGlobalAdmin && !isGlobalAdmin) {
-    return <Navigate to="/" replace />;
-  }
+  // Role-based access checks - only if we have a profile
+  if (userProfile) {
+    if (requireGlobalAdmin && !isGlobalAdmin) {
+      return <Navigate to="/" replace />;
+    }
 
-  if (requireProjectAdmin && !isProjectAdmin && !isGlobalAdmin) {
-    return <Navigate to="/" replace />;
-  }
+    if (requireProjectAdmin && !isProjectAdmin && !isGlobalAdmin) {
+      return <Navigate to="/" replace />;
+    }
 
-  if (requireRegularUser && (isGlobalAdmin || isProjectAdmin)) {
-    return <Navigate to="/" replace />;
-  }
+    if (requireRegularUser && (isGlobalAdmin || isProjectAdmin)) {
+      return <Navigate to="/" replace />;
+    }
 
-  if (requireApprover && !isApprover && !isGlobalAdmin) {
-    return <Navigate to="/" replace />;
+    if (requireApprover && !isApprover && !isGlobalAdmin) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return <>{children}</>;

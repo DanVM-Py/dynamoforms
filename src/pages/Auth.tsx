@@ -74,6 +74,9 @@ export default function Auth() {
 
       if (error) throw error;
 
+      // Successfully authenticated - this will trigger the onAuthStateChange event
+      // which will load the user profile
+
       toast({
         title: "Inicio de sesión exitoso",
         description: "Has iniciado sesión correctamente",

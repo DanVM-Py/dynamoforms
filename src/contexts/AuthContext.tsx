@@ -70,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       console.log("Fetching user profile for user ID:", userId);
       
+      // First attempt to get the profile
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -78,19 +79,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
       if (error) {
         console.error("Error fetching user profile:", error);
-        
-        // Try to create profile if it doesn't exist
-        if (error.code === 'PGRST116' || !data) {
-          await createUserProfile(userId);
-          return;
-        }
-        
-        toast({
-          title: "Error de perfil",
-          description: "No se pudo cargar el perfil de usuario. Por favor, inténtalo de nuevo.",
-          variant: "destructive"
-        });
         setLoading(false);
+        
+        // Only show the toast for authentication errors, not for missing profiles
+        if (error.code !== 'PGRST116') {
+          toast({
+            title: "Error de perfil",
+            description: "No se pudo cargar el perfil de usuario. Por favor, inténtalo de nuevo.",
+            variant: "destructive"
+          });
+        }
         return;
       }
       
@@ -117,55 +115,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log("Project admin status:", projectAdminData && projectAdminData.length > 0);
         }
       } else {
-        console.log("No user profile found for this user. Attempting to create one.");
-        await createUserProfile(userId);
+        // Profile doesn't exist - this is normal for new users
+        console.log("No user profile found for this user. Authentication will proceed without profile data.");
+        setUserProfile(null);
       }
     } catch (error) {
       console.error("Error in user profile workflow:", error);
-      setLoading(false);
-    }
-  };
-
-  const createUserProfile = async (userId: string) => {
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData.user) {
-        console.log("Creating new profile for user:", userData.user.email);
-        
-        const { error: createError } = await supabase
-          .from("profiles")
-          .insert([{ 
-            id: userId, 
-            email: userData.user.email, 
-            name: userData.user.user_metadata?.name || userData.user.email?.split('@')[0] || 'Usuario',
-            role: 'user' 
-          }]);
-        
-        if (createError) {
-          console.error("Error creating user profile:", createError);
-          
-          if (createError.message.includes("violates row-level security policy")) {
-            toast({
-              title: "Error de acceso",
-              description: "Tu usuario necesita ser creado por un administrador. Por favor, contacta al administrador del sistema.",
-              variant: "destructive"
-            });
-          } else {
-            toast({
-              title: "Error de registro",
-              description: "No se pudo crear el perfil de usuario. Por favor, contacta al administrador.",
-              variant: "destructive"
-            });
-          }
-        } else {
-          console.log("Profile created successfully, retrieving it now");
-          // Wait a moment for the changes to propagate
-          setTimeout(() => fetchUserProfile(userId), 1000);
-          return;
-        }
-      }
-    } catch (error) {
-      console.error("Error creating user profile:", error);
     } finally {
       setLoading(false);
     }
