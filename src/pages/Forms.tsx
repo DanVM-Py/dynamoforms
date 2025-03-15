@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
 
 interface Form {
   id: string;
@@ -42,6 +43,9 @@ const Forms = () => {
   // Add state for delete confirmation dialog
   const [formToDelete, setFormToDelete] = useState<Form | null>(null);
   const [deleting, setDeleting] = useState(false);
+  
+  // Add state for the form being toggled
+  const [togglingStatus, setTogglingStatus] = useState<string | null>(null);
 
   useEffect(() => {
     fetchForms();
@@ -362,6 +366,46 @@ const Forms = () => {
     navigate(`/forms/${formId}/responses`);
   };
 
+  // Add a function to toggle form status
+  const toggleFormStatus = async (form: Form) => {
+    try {
+      setTogglingStatus(form.id);
+      
+      // Toggle between 'draft' and 'active'
+      const newStatus = form.status === 'draft' ? 'active' : 'draft';
+      
+      const { error } = await supabase
+        .from('forms')
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', form.id);
+        
+      if (error) throw error;
+      
+      // Update the local state
+      setForms(forms.map(f => 
+        f.id === form.id ? { ...f, status: newStatus } : f
+      ));
+      
+      toast({
+        title: "Estado actualizado",
+        description: `El formulario ahora está ${newStatus === 'active' ? 'activo' : 'en borrador'}.`,
+      });
+      
+    } catch (error: any) {
+      console.error('Error al cambiar el estado del formulario:', error);
+      toast({
+        title: "Error al actualizar estado",
+        description: error?.message || "No se pudo actualizar el estado del formulario.",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingStatus(null);
+    }
+  };
+
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'active': return "Activo";
@@ -451,11 +495,22 @@ const Forms = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-sm">
-                    <div className="flex justify-between mb-1">
+                    <div className="flex justify-between mb-1 items-center">
                       <span className="text-muted-foreground">Estado:</span>
-                      <span className={form.status === "active" ? "text-green-600" : "text-gray-500"}>
-                        {getStatusLabel(form.status)}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className={form.status === "active" ? "text-green-600" : "text-gray-500"}>
+                          {getStatusLabel(form.status)}
+                        </span>
+                        {canCreateForms && (
+                          <Switch
+                            checked={form.status === "active"}
+                            onCheckedChange={() => toggleFormStatus(form)}
+                            disabled={togglingStatus === form.id}
+                            aria-label="Toggle form status"
+                            className="data-[state=checked]:bg-green-500"
+                          />
+                        )}
+                      </div>
                     </div>
                     <div className="flex justify-between mb-1">
                       <span className="text-muted-foreground">Respuestas:</span>

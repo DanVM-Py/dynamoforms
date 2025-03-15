@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -13,6 +12,7 @@ import { FormBuilder, FormSchema } from "@/components/form-builder/FormBuilder";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { FormRenderer } from "@/components/form-renderer/FormRenderer";
+import { Switch } from "@/components/ui/switch";
 
 const FormEdit = () => {
   const { formId } = useParams();
@@ -124,6 +124,43 @@ const FormEdit = () => {
     }
   };
 
+  const toggleFormStatus = async () => {
+    try {
+      setSaving(true);
+      
+      // Toggle between 'draft' and 'active'
+      const newStatus = form.status === 'draft' ? 'active' : 'draft';
+      
+      const { error } = await supabase
+        .from('forms')
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', form.id);
+        
+      if (error) throw error;
+      
+      // Update the local state
+      setForm(prev => ({ ...prev, status: newStatus }));
+      
+      toast({
+        title: "Estado actualizado",
+        description: `El formulario ahora está ${newStatus === 'active' ? 'activo' : 'en borrador'}.`,
+      });
+      
+    } catch (error: any) {
+      console.error('Error al cambiar el estado del formulario:', error);
+      toast({
+        title: "Error al actualizar estado",
+        description: error?.message || "No se pudo actualizar el estado del formulario.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
@@ -166,6 +203,15 @@ const FormEdit = () => {
     });
   };
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'active': return "Activo";
+      case 'draft': return "Borrador";
+      case 'closed': return "Cerrado";
+      default: return status;
+    }
+  };
+
   return (
     <PageContainer>
       <div className="flex items-center mb-6">
@@ -180,6 +226,21 @@ const FormEdit = () => {
         <h1 className="text-2xl font-bold">
           {loading ? "Cargando..." : `Editar formulario: ${form.title}`}
         </h1>
+        
+        {!loading && (
+          <div className="ml-auto flex items-center gap-3">
+            <span className={form.status === "active" ? "text-green-600" : "text-gray-500"}>
+              {getStatusLabel(form.status)}
+            </span>
+            <Switch
+              checked={form.status === "active"}
+              onCheckedChange={toggleFormStatus}
+              disabled={saving}
+              aria-label="Estado del formulario"
+              className="data-[state=checked]:bg-green-500"
+            />
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -221,6 +282,26 @@ const FormEdit = () => {
                       placeholder="Descripción del formulario (opcional)"
                       rows={4}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Estado del formulario</Label>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="status"
+                        checked={form.status === "active"}
+                        onCheckedChange={toggleFormStatus}
+                        disabled={saving}
+                        className="data-[state=checked]:bg-green-500"
+                      />
+                      <span className={form.status === "active" ? "text-green-600" : "text-gray-500"}>
+                        {form.status === "active" ? "Activo (aceptando respuestas)" : "Borrador (no acepta respuestas)"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {form.status === "active" 
+                        ? "El formulario está publicado y puede recibir respuestas." 
+                        : "El formulario está en modo borrador y no puede recibir respuestas."}
+                    </p>
                   </div>
                 </CardContent>
                 <CardFooter>
