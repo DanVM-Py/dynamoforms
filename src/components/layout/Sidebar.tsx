@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
 import { Building2, FileText, Home, Menu, PanelLeftClose, Bell, CheckSquare, User, Users, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +10,7 @@ export function Sidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isMobile = useWindowWidth() < 768;
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, userProfile, isGlobalAdmin, isProjectAdmin, signOut } = useAuth();
 
   useEffect(() => {
@@ -29,6 +29,19 @@ export function Sidebar() {
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+  
+  const handleSignOut = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await signOut();
+      // Navigation happens in the signOut function itself
+    } catch (error) {
+      console.error("Error signing out from sidebar:", error);
+      // Fallback navigation in case the signOut function fails
+      navigate("/auth");
+    }
   };
 
   const MenuItem = ({ icon: Icon, text, to }: { icon: any; text: string; to: string }) => {
@@ -147,7 +160,7 @@ export function Sidebar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={signOut}
+                  onClick={handleSignOut}
                   title="Cerrar sesión"
                 >
                   <LogOut className="h-4 w-4" />

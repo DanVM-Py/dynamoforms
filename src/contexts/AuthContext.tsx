@@ -134,18 +134,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       setLoading(true);
-      await supabase.auth.signOut();
+      console.log("Starting signOut process...");
+      
+      // Clear local state first
+      setUser(null);
+      setSession(null);
+      setUserProfile(null);
+      setIsGlobalAdmin(false);
+      setIsProjectAdmin(false);
+      setIsApprover(false);
+      
+      // Then attempt to sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error("Error from Supabase signOut:", error);
+        // Continue with local signout even if there's an error
+      }
+      
+      console.log("Sign out completed");
       toast({
         title: "Sesión finalizada",
         description: "Has cerrado sesión correctamente."
       });
+      
+      // Force navigation to home/auth page
+      window.location.href = "/auth";
     } catch (error) {
-      console.error("Error signing out:", error);
+      console.error("Error in signOut function:", error);
       toast({
         title: "Error al cerrar sesión",
-        description: "No se pudo cerrar sesión. Por favor intenta nuevamente.",
+        description: "No se pudo cerrar sesión completamente. Redirigiendo a la página de inicio de sesión.",
         variant: "destructive"
       });
+      
+      // Attempt to force navigation even with error
+      window.location.href = "/auth";
     } finally {
       setLoading(false);
     }
