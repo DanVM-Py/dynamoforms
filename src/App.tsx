@@ -13,6 +13,8 @@ import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
+import FormEdit from "./pages/FormEdit";
+import FormResponses from "./pages/FormResponses";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +31,16 @@ const App = () => (
             <Route path="/forms" element={
               <ProtectedRoute>
                 <Forms />
+              </ProtectedRoute>
+            } />
+            <Route path="/forms/:formId/edit" element={
+              <ProtectedRoute>
+                <FormEdit />
+              </ProtectedRoute>
+            } />
+            <Route path="/forms/:formId/responses" element={
+              <ProtectedRoute>
+                <FormResponses />
               </ProtectedRoute>
             } />
             <Route path="/tasks" element={
