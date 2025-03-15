@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { CheckSquare, Clock, Filter, UserCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { Database } from "@/integrations/supabase/types";
 
 interface Task {
   id: string;
@@ -15,7 +15,7 @@ interface Task {
   description: string | null;
   due_date: string | null;
   priority?: string;
-  status: string;
+  status: Database["public"]["Enums"]["task_status"];
   assigned_to: string;
   assignee_name?: string;
 }
@@ -111,7 +111,7 @@ const Tasks = () => {
     }
   };
 
-  const updateTaskStatus = async (taskId: string, newStatus: string) => {
+  const updateTaskStatus = async (taskId: string, newStatus: Database["public"]["Enums"]["task_status"]) => {
     try {
       const { error } = await supabase
         .from('tasks')
@@ -192,7 +192,7 @@ const Tasks = () => {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => updateTaskStatus(task.id, 'rejected')}
+                              onClick={() => updateTaskStatus(task.id, 'in_progress')}
                             >
                               Rechazar
                             </Button>
