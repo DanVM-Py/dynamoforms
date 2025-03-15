@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,7 @@ import { FormComponentEditor } from "./FormComponentEditor";
 import { EmptyState } from "./EmptyState";
 import { FormComponentPreview } from "./FormComponentPreview";
 
-interface FormComponent {
+export interface FormComponent {
   id: string;
   type: string;
   label: string;
@@ -19,7 +18,7 @@ interface FormComponent {
   helpText?: string;
 }
 
-interface FormSchema {
+export interface FormSchema {
   components: FormComponent[];
 }
 

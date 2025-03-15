@@ -13,6 +13,22 @@ import { FormBuilder } from "@/components/form-builder/FormBuilder";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
+// Define the FormComponent interface
+interface FormComponent {
+  id: string;
+  type: string;
+  label: string;
+  required: boolean;
+  options?: { label: string; value: string }[];
+  placeholder?: string;
+  helpText?: string;
+}
+
+// Define the FormSchema interface
+interface FormSchema {
+  components: FormComponent[];
+}
+
 const FormEdit = () => {
   const { formId } = useParams();
   const navigate = useNavigate();
@@ -26,7 +42,7 @@ const FormEdit = () => {
     title: "",
     description: "",
     status: "draft",
-    schema: { components: [] }
+    schema: { components: [] } as FormSchema
   });
 
   useEffect(() => {
@@ -49,17 +65,23 @@ const FormEdit = () => {
       
       if (data) {
         // Ensure schema has components array
-        const schema = data.schema && typeof data.schema === 'object' 
-          ? data.schema 
-          : { components: [] };
-          
-        if (!schema.components) {
-          schema.components = [];
+        let formSchema: FormSchema;
+        
+        if (data.schema && typeof data.schema === 'object') {
+          // Initialize schema with components array if it doesn't exist
+          formSchema = {
+            components: Array.isArray((data.schema as any).components) 
+              ? (data.schema as any).components 
+              : []
+          };
+        } else {
+          // Default empty schema
+          formSchema = { components: [] };
         }
         
         setForm({
           ...data,
-          schema
+          schema: formSchema
         });
       } else {
         toast({
@@ -118,7 +140,7 @@ const FormEdit = () => {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSchemaChange = (updatedSchema: any) => {
+  const handleSchemaChange = (updatedSchema: FormSchema) => {
     setForm(prev => ({ ...prev, schema: updatedSchema }));
   };
 
