@@ -11,6 +11,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   isGlobalAdmin: boolean;
   isProjectAdmin: boolean;
+  isApprover: boolean;
   refreshUserProfile: () => Promise<void>;
 }
 
@@ -23,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
   const [isProjectAdmin, setIsProjectAdmin] = useState(false);
+  const [isApprover, setIsApprover] = useState(false);
 
   useEffect(() => {
     // Get initial session
@@ -48,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUserProfile(null);
           setIsGlobalAdmin(false);
           setIsProjectAdmin(false);
+          setIsApprover(false);
           setLoading(false);
         }
       }
@@ -72,6 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserProfile(data);
       // Check if user has global_admin role
       setIsGlobalAdmin(data.role === "global_admin");
+      
+      // Check if user is approver
+      setIsApprover(data.role === "approver");
       
       // Check if user is project admin for any project
       const { data: projectAdminData, error: projectAdminError } = await customSupabase
@@ -112,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut,
     isGlobalAdmin,
     isProjectAdmin,
+    isApprover,
     refreshUserProfile
   };
 
