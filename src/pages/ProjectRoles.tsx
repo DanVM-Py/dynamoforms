@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -70,6 +69,7 @@ const ProjectRoles = () => {
   const [selectedRole, setSelectedRole] = useState("");
   const [deleteRoleId, setDeleteRoleId] = useState<string | null>(null);
   const [deleteUserRoleId, setDeleteUserRoleId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   
   useEffect(() => {
     if (projectId) {
@@ -77,6 +77,14 @@ const ProjectRoles = () => {
       fetchRoles();
       fetchUserRoles();
       fetchUsers();
+    } else {
+      console.error("No project ID found in URL");
+      toast({
+        title: "Error",
+        description: "No se pudo encontrar el ID del proyecto.",
+        variant: "destructive",
+      });
+      navigate("/projects");
     }
   }, [projectId]);
   
@@ -91,6 +99,10 @@ const ProjectRoles = () => {
       if (error) throw error;
       
       setProject(data);
+      
+      if (data?.id) {
+        sessionStorage.setItem('currentProjectId', data.id);
+      }
     } catch (error) {
       console.error('Error fetching project:', error);
       toast({
@@ -178,6 +190,8 @@ const ProjectRoles = () => {
     }
     
     try {
+      setSubmitting(true);
+      
       const { data, error } = await supabase
         .from('roles')
         .insert({
@@ -189,6 +203,7 @@ const ProjectRoles = () => {
         .single();
         
       if (error) {
+        console.error('Error creating role:', error);
         if (error.code === '23505') { // Unique constraint violation
           toast({
             title: "Error",
@@ -196,7 +211,11 @@ const ProjectRoles = () => {
             variant: "destructive",
           });
         } else {
-          throw error;
+          toast({
+            title: "Error",
+            description: "No se pudo crear el rol. Error del servidor.",
+            variant: "destructive",
+          });
         }
         return;
       }
@@ -215,6 +234,8 @@ const ProjectRoles = () => {
         description: "No se pudo crear el rol. Intenta nuevamente.",
         variant: "destructive",
       });
+    } finally {
+      setSubmitting(false);
     }
   };
   
@@ -373,8 +394,16 @@ const ProjectRoles = () => {
                     placeholder="Ej: Supervisor, Operador, Cliente"
                   />
                 </div>
-                <Button onClick={handleCreateRole} className="flex-shrink-0 bg-dynamo-600 hover:bg-dynamo-700">
-                  <Plus className="h-4 w-4 mr-2" />
+                <Button 
+                  onClick={handleCreateRole} 
+                  className="flex-shrink-0 bg-dynamo-600 hover:bg-dynamo-700"
+                  disabled={submitting || !newRoleName.trim()}
+                >
+                  {submitting ? (
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mr-2" />
+                  ) : (
+                    <Plus className="h-4 w-4 mr-2" />
+                  )}
                   Crear Rol
                 </Button>
               </div>
@@ -595,3 +624,4 @@ const ProjectRoles = () => {
 };
 
 export default ProjectRoles;
+

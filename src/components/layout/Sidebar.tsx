@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
@@ -49,6 +48,12 @@ export function Sidebar() {
       setIsMobileMenuOpen(false);
     }
   }, [location.pathname, isMobile]);
+
+  // Log project ID for debugging
+  useEffect(() => {
+    console.log("Current projectId in sidebar:", projectId);
+    console.log("Can user access project roles:", (isGlobalAdmin || isProjectAdmin) && projectId);
+  }, [projectId, isGlobalAdmin, isProjectAdmin]);
 
   const toggleSidebar = () => {
     setIsExpanded(!isExpanded);
@@ -213,4 +218,3 @@ export function Sidebar() {
     </>
   );
 }
-
