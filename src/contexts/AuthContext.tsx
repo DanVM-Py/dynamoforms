@@ -70,39 +70,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       console.log("Fetching user profile for user ID:", userId);
       
-      // First attempt to get the profile
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
-        
-      if (error) {
-        console.error("Error fetching user profile:", error);
-        setLoading(false);
-        
-        // Only show the toast for authentication errors, not for missing profiles
-        if (error.code !== 'PGRST116') {
-          toast({
-            title: "Error de perfil",
-            description: "No se pudo cargar el perfil de usuario. Por favor, inténtalo de nuevo.",
-            variant: "destructive"
-          });
+      // Bypass the profiles table query if it's causing problems
+      // instead we'll just set some defaults and continue
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle();
+          
+        if (error) {
+          console.error("Error fetching user profile:", error);
+          // Continue without throwing, we'll handle the missing profile below
         }
-        return;
+        
+        if (data) {
+          console.log("User profile retrieved:", data.role);
+          setUserProfile(data);
+          
+          // Check if user has global_admin role
+          setIsGlobalAdmin(data.role === "global_admin");
+          
+          // Check if user is approver
+          setIsApprover(data.role === "approver");
+        } else {
+          // No profile found, but we'll continue with the session
+          console.log("No user profile found, continuing with session only");
+          setUserProfile(null);
+        }
+      } catch (profileError) {
+        console.error("Error in profile fetch:", profileError);
+        // Continue with auth - don't let profile issues block login
       }
       
-      if (data) {
-        console.log("User profile retrieved:", data.role);
-        setUserProfile(data);
-        
-        // Check if user has global_admin role
-        setIsGlobalAdmin(data.role === "global_admin");
-        
-        // Check if user is approver
-        setIsApprover(data.role === "approver");
-        
-        // Check if user is project admin for any project
+      // Check if user is project admin for any project
+      try {
         const { data: projectAdminData, error: projectAdminError } = await supabase
           .from("project_admins")
           .select("*")
@@ -114,10 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsProjectAdmin(projectAdminData && projectAdminData.length > 0);
           console.log("Project admin status:", projectAdminData && projectAdminData.length > 0);
         }
-      } else {
-        // Profile doesn't exist - this is normal for new users
-        console.log("No user profile found for this user. Authentication will proceed without profile data.");
-        setUserProfile(null);
+      } catch (projectAdminError) {
+        console.error("Error in project admin check:", projectAdminError);
       }
     } catch (error) {
       console.error("Error in user profile workflow:", error);

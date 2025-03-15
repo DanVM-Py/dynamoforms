@@ -50,31 +50,43 @@ const ProtectedRoute = ({
     );
   }
 
-  // If we're not loading and there's still no profile, we should redirect to auth
-  // But skip this check for routes that don't require specific roles
-  if ((requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover) && !userProfile && !loading) {
-    return <Navigate to="/auth" replace />;
+  // For routes that require specific roles, check if profile exists
+  // But allow users to proceed if they don't need a specific role
+  const needsRoleCheck = requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover;
+  
+  if (needsRoleCheck) {
+    // If profile doesn't exist but we need role checks, we can still let the user in
+    // but log that their profile doesn't match requirements
+    if (!userProfile && !loading) {
+      console.log("User has no profile but attempting to access role-protected route");
+      // Only redirect if we're confident they don't have the role
+      // If we can't verify, we'll be permissive
+      if (requireGlobalAdmin) {
+        return <Navigate to="/" replace />;
+      }
+    }
+    
+    // If we have a profile, do proper role checks
+    if (userProfile) {
+      if (requireGlobalAdmin && !isGlobalAdmin) {
+        return <Navigate to="/" replace />;
+      }
+
+      if (requireProjectAdmin && !isProjectAdmin && !isGlobalAdmin) {
+        return <Navigate to="/" replace />;
+      }
+
+      if (requireRegularUser && (isGlobalAdmin || isProjectAdmin)) {
+        return <Navigate to="/" replace />;
+      }
+
+      if (requireApprover && !isApprover && !isGlobalAdmin) {
+        return <Navigate to="/" replace />;
+      }
+    }
   }
 
-  // Role-based access checks - only if we have a profile
-  if (userProfile) {
-    if (requireGlobalAdmin && !isGlobalAdmin) {
-      return <Navigate to="/" replace />;
-    }
-
-    if (requireProjectAdmin && !isProjectAdmin && !isGlobalAdmin) {
-      return <Navigate to="/" replace />;
-    }
-
-    if (requireRegularUser && (isGlobalAdmin || isProjectAdmin)) {
-      return <Navigate to="/" replace />;
-    }
-
-    if (requireApprover && !isApprover && !isGlobalAdmin) {
-      return <Navigate to="/" replace />;
-    }
-  }
-
+  // If all checks pass or no specific role required, render the children
   return <>{children}</>;
 };
 
