@@ -113,8 +113,7 @@ const Forms = () => {
         description: "Tu nuevo formulario ha sido creado. Ahora puedes editarlo.",
       });
       
-      // Aquí deberíamos navegar a la página de edición del formulario
-      // Por ahora, simplemente actualizamos la lista
+      // Actualizamos la lista de formularios después de crear uno nuevo
       fetchForms();
     } catch (error) {
       console.error('Error creating form:', error);
@@ -196,13 +195,19 @@ const Forms = () => {
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-between border-t pt-4">
-                  <Button variant="outline" size="sm">Editar</Button>
-                  <Button variant="secondary" size="sm">Ver respuestas</Button>
+                  <Button variant="outline" size="sm" onClick={() => navigate(`/forms/${form.id}/edit`)}>Editar</Button>
+                  <Button variant="secondary" size="sm" onClick={() => navigate(`/forms/${form.id}/responses`)}>Ver respuestas</Button>
                 </CardFooter>
               </Card>
             ))
           ) : (
-            <></>
+            <div className="col-span-full text-center p-8">
+              <div className="mb-4 text-gray-400">
+                <FileText className="h-12 w-12 mx-auto mb-2" />
+                <p className="text-lg font-medium">No hay formularios disponibles</p>
+                <p className="text-sm text-gray-500">Crea tu primer formulario para comenzar</p>
+              </div>
+            </div>
           )}
 
           <Card className="flex flex-col items-center justify-center h-full min-h-[220px] border-dashed hover:bg-gray-50 cursor-pointer" onClick={createForm}>
