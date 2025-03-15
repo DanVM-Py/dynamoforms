@@ -158,22 +158,22 @@ export type Database = {
           created_at: string
           email: string
           id: string
-          name: string | null
-          role: Database["public"]["Enums"]["user_role"]
+          name: string
+          role: Database["public"]["Enums"]["user_role_old"]
         }
         Insert: {
           created_at?: string
           email: string
           id: string
-          name?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
+          name: string
+          role: Database["public"]["Enums"]["user_role_old"]
         }
         Update: {
           created_at?: string
           email?: string
           id?: string
-          name?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
+          name?: string
+          role?: Database["public"]["Enums"]["user_role_old"]
         }
         Relationships: []
       }
@@ -338,7 +338,8 @@ export type Database = {
       notification_status: "sent" | "failed" | "retrying"
       notification_type: "email" | "whatsapp"
       task_status: "pending" | "in_progress" | "completed"
-      user_role:
+      user_role: "global_admin" | "project_admin" | "user" | "approver"
+      user_role_old:
         | "admin"
         | "user"
         | "approver"

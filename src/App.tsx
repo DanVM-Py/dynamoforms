@@ -29,17 +29,17 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/forms" element={
-              <ProtectedRoute>
+              <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin={true}>
                 <Forms />
               </ProtectedRoute>
             } />
             <Route path="/forms/:formId/edit" element={
-              <ProtectedRoute>
+              <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin={true}>
                 <FormEdit />
               </ProtectedRoute>
             } />
             <Route path="/forms/:formId/responses" element={
-              <ProtectedRoute>
+              <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin={true}>
                 <FormResponses />
               </ProtectedRoute>
             } />

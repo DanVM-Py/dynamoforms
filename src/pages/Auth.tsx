@@ -20,7 +20,7 @@ const loginFormSchema = z.object({
 });
 
 const registerFormSchema = z.object({
-  name: z.string().min(2, "Ingresa un nombre válido"),
+  name: z.string().min(2, "Ingresa un nombre válido").max(50, "El nombre es demasiado largo"),
   email: z.string().email("Ingresa un correo electrónico válido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
 });

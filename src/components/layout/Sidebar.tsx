@@ -102,9 +102,23 @@ export function Sidebar() {
 
         <div className="mt-6 flex flex-col flex-1 gap-y-1 px-3">
           <MenuItem icon={Home} text="Inicio" to="/" />
-          <MenuItem icon={FileText} text="Formularios" to="/forms" />
-          <MenuItem icon={CheckSquare} text="Tareas" to="/tasks" />
-          <MenuItem icon={Bell} text="Notificaciones" to="/notifications" />
+          
+          {/* Solo los administradores pueden ver todos los enlaces */}
+          {(isGlobalAdmin || isProjectAdmin) && (
+            <>
+              <MenuItem icon={FileText} text="Formularios" to="/forms" />
+              <MenuItem icon={CheckSquare} text="Tareas" to="/tasks" />
+              <MenuItem icon={Bell} text="Notificaciones" to="/notifications" />
+            </>
+          )}
+          
+          {/* Los usuarios normales solo ven las tareas e inicio */}
+          {!isGlobalAdmin && !isProjectAdmin && (
+            <>
+              <MenuItem icon={CheckSquare} text="Tareas" to="/tasks" />
+              <MenuItem icon={Bell} text="Notificaciones" to="/notifications" />
+            </>
+          )}
           
           {isGlobalAdmin && (
             <MenuItem icon={Users} text="Administración" to="/admin" />
@@ -121,7 +135,7 @@ export function Sidebar() {
                 
                 {(isExpanded || isMobileMenuOpen) && (
                   <div className="ml-3 overflow-hidden">
-                    <p className="text-sm font-medium truncate">{userProfile?.name || user.email}</p>
+                    <p className="text-sm font-medium truncate">{userProfile?.name || 'Usuario'}</p>
                     <p className="text-xs text-gray-500 truncate">{userProfile?.role || 'Usuario'}</p>
                   </div>
                 )}

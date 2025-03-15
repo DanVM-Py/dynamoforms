@@ -7,12 +7,14 @@ interface ProtectedRouteProps {
   children: ReactNode;
   requireGlobalAdmin?: boolean;
   requireProjectAdmin?: boolean;
+  requireRegularUser?: boolean;
 }
 
 const ProtectedRoute = ({ 
   children, 
   requireGlobalAdmin = false,
-  requireProjectAdmin = false 
+  requireProjectAdmin = false,
+  requireRegularUser = false
 }: ProtectedRouteProps) => {
   const { user, userProfile, loading, isGlobalAdmin, isProjectAdmin } = useAuth();
 
@@ -29,6 +31,10 @@ const ProtectedRoute = ({
   }
 
   if (requireProjectAdmin && !isProjectAdmin && !isGlobalAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (requireRegularUser && (isGlobalAdmin || isProjectAdmin)) {
     return <Navigate to="/" replace />;
   }
 
