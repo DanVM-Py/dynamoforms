@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Share2, Copy, Check, ExternalLink } from "lucide-react";
 import { FormBuilder, FormSchema } from "@/components/form-builder/FormBuilder";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +22,7 @@ const FormEdit = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("basic-info");
+  const [copied, setCopied] = useState(false);
   const [form, setForm] = useState({
     id: "",
     title: "",
@@ -49,11 +50,9 @@ const FormEdit = () => {
       if (error) throw error;
       
       if (data) {
-        // Ensure schema has components array and groups array
         let formSchema: FormSchema;
         
         if (data.schema && typeof data.schema === 'object') {
-          // Initialize schema with components array if it doesn't exist
           formSchema = {
             components: Array.isArray((data.schema as any).components) 
               ? (data.schema as any).components 
@@ -63,7 +62,6 @@ const FormEdit = () => {
               : []
           };
         } else {
-          // Default empty schema
           formSchema = { components: [], groups: [] };
         }
         
@@ -95,13 +93,12 @@ const FormEdit = () => {
     try {
       setSaving(true);
       
-      // Convert FormSchema to Json compatible object before saving
       const { error } = await supabase
         .from('forms')
         .update({
           title: form.title,
           description: form.description,
-          schema: form.schema as any, // Cast to any to satisfy TypeScript
+          schema: form.schema as any,
           updated_at: new Date().toISOString()
         })
         .eq('id', form.id);
@@ -128,7 +125,6 @@ const FormEdit = () => {
     try {
       setSaving(true);
       
-      // Toggle between 'draft' and 'active'
       const newStatus = form.status === 'draft' ? 'active' : 'draft';
       
       const { error } = await supabase
@@ -141,14 +137,12 @@ const FormEdit = () => {
         
       if (error) throw error;
       
-      // Update the local state
       setForm(prev => ({ ...prev, status: newStatus }));
       
       toast({
         title: "Estado actualizado",
         description: `El formulario ahora está ${newStatus === 'active' ? 'activo' : 'en borrador'}.`,
       });
-      
     } catch (error: any) {
       console.error('Error al cambiar el estado del formulario:', error);
       toast({
@@ -170,35 +164,56 @@ const FormEdit = () => {
     setForm(prev => ({ ...prev, schema: updatedSchema }));
   };
 
-  // Filtrar componentes para la vista previa según condiciones
+  const getPublicFormUrl = () => {
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/public/forms/${form.id}`;
+  };
+
+  const handleCopyLink = () => {
+    const link = getPublicFormUrl();
+    navigator.clipboard.writeText(link)
+      .then(() => {
+        setCopied(true);
+        toast({
+          title: "Enlace copiado",
+          description: "El enlace ha sido copiado al portapapeles.",
+        });
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch((error) => {
+        console.error('Error al copiar enlace:', error);
+        toast({
+          title: "Error al copiar",
+          description: "No se pudo copiar el enlace.",
+          variant: "destructive",
+        });
+      });
+  };
+
+  const handleOpenForm = () => {
+    window.open(getPublicFormUrl(), '_blank');
+  };
+
   const getFilteredComponents = () => {
-    // Si no hay componentes, devolver un array vacío
     if (!form.schema.components.length) {
       return [];
     }
     
-    // Copiar los componentes para no modificar el original
     const components = [...form.schema.components];
     
-    // Para cada componente, verificar si tiene una condición y si esa condición se cumple
     return components.filter(component => {
-      // Si no tiene condición, se muestra siempre
       if (!component.conditionalDisplay) {
         return true;
       }
       
-      // Encontrar el componente que controla este
       const controllingComponent = components.find(
         c => c.id === component.conditionalDisplay?.controlledBy
       );
       
-      // Si no se encuentra el componente controlador, no mostrar
       if (!controllingComponent) {
         return false;
       }
       
-      // En vista previa, asumimos que el valor controlador siempre es la primera opción
-      // La lógica real se aplicará en el FormRenderer
       return true;
     });
   };
@@ -242,6 +257,49 @@ const FormEdit = () => {
           </div>
         )}
       </div>
+
+      {!loading && form.status === "active" && (
+        <Card className="mb-6 border-green-100 bg-green-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center">
+              <Share2 className="h-5 w-5 mr-2 text-green-600" />
+              Enlace público para compartir
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-2">
+              <Input 
+                value={getPublicFormUrl()} 
+                readOnly 
+                className="flex-1 bg-white"
+              />
+              <Button 
+                onClick={handleCopyLink}
+                variant="outline"
+                className="flex-shrink-0"
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 mr-2 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4 mr-2" />
+                )}
+                {copied ? "Copiado" : "Copiar"}
+              </Button>
+              <Button 
+                onClick={handleOpenForm}
+                variant="outline"
+                className="flex-shrink-0"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Abrir
+              </Button>
+            </div>
+            <p className="mt-2 text-sm text-green-600">
+              Este formulario está activo y puede ser compartido con cualquier persona usando este enlace.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {loading ? (
         <div className="flex justify-center p-8">

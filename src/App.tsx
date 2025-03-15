@@ -16,6 +16,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import FormEdit from "./pages/FormEdit";
 import FormResponses from "./pages/FormResponses";
 import Projects from "./pages/Projects";
+import PublicFormView from "./pages/PublicFormView";
+import PublicFormSuccess from "./pages/PublicFormSuccess";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +39,10 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            
+            {/* Public form routes - accessible without authentication */}
+            <Route path="/public/forms/:formId" element={<PublicFormView />} />
+            <Route path="/public/forms/:formId/success" element={<PublicFormSuccess />} />
             
             {/* Projects route - accessible only to global admins */}
             <Route path="/projects" element={

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,23 +22,24 @@ interface FormRendererProps {
   schema: FormSchema;
   readOnly?: boolean;
   onSubmitSuccess?: (responseId: string) => void;
+  isPublic?: boolean;
 }
 
 export const FormRenderer: React.FC<FormRendererProps> = ({ 
   formId, 
   schema, 
   readOnly = false,
-  onSubmitSuccess
+  onSubmitSuccess,
+  isPublic
 }) => {
   const { toast } = useToast();
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
-    // Inicializar todos los grupos como expandidos por defecto
     const initialState: Record<string, boolean> = {};
     schema.groups?.forEach(group => {
-      initialState[group.id] = group.expanded !== false; // Verdadero por defecto a menos que se especifique lo contrario
+      initialState[group.id] = group.expanded !== false;
     });
     return initialState;
   });
@@ -57,7 +57,6 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
       [componentId]: value
     }));
     
-    // Clear error when user changes the value
     if (errors[componentId]) {
       setErrors((prev) => {
         const newErrors = { ...prev };
@@ -70,7 +69,6 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     
-    // Check required fields
     schema.components.forEach((component) => {
       if (component.required) {
         const value = formValues[component.id];
@@ -90,7 +88,6 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
     
     if (readOnly) return;
     
-    // Validate form
     if (!validateForm()) {
       toast({
         title: "Error en el formulario",
@@ -103,22 +100,18 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
     setIsSubmitting(true);
     
     try {
-      // Process any special field types (signatures, images)
       const processedValues = { ...formValues };
       
-      // Process signatures (convert to images in storage)
       for (const component of schema.components) {
         if (component.type === 'signature') {
           const signatureDataUrl = formValues[component.id];
           if (signatureDataUrl && signatureDataUrl.startsWith('data:image')) {
-            // Upload signature as image
             const signatureUrl = await uploadBase64Image(signatureDataUrl, 'signatures');
             processedValues[component.id] = signatureUrl;
           }
         }
       }
       
-      // Submit the form data to Supabase
       const { data, error } = await supabase
         .from('form_responses')
         .insert({
@@ -136,10 +129,8 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
         description: "Tu respuesta ha sido enviada correctamente.",
       });
       
-      // Clear form values
       setFormValues({});
       
-      // Call success callback if provided
       if (onSubmitSuccess && data?.id) {
         onSubmitSuccess(data.id);
       }
@@ -390,16 +381,13 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
     }
   };
 
-  // Agrupar componentes por grupo
   const groupedComponents: Record<string, FormComponent[]> = {};
   const ungroupedComponents: FormComponent[] = [];
 
-  // Inicializar grupos vacíos
   schema.groups?.forEach(group => {
     groupedComponents[group.id] = [];
   });
 
-  // Asignar componentes a sus respectivos grupos
   schema.components.forEach(component => {
     if (component.groupId && groupedComponents[component.groupId]) {
       groupedComponents[component.groupId].push(component);
@@ -410,7 +398,6 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Renderizar componentes agrupados */}
       {schema.groups?.map(group => (
         <Collapsible 
           key={group.id} 
@@ -439,8 +426,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
           </CollapsibleContent>
         </Collapsible>
       ))}
-
-      {/* Renderizar componentes sin grupo */}
+      
       <div className="space-y-4">
         {ungroupedComponents.map(renderFormComponent)}
       </div>
