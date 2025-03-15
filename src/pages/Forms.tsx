@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Plus, MoreVertical, Clock, RefreshCw } from "lucide-react";
+import { FileText, Plus, MoreVertical, Clock, RefreshCw, Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,13 +16,22 @@ interface Form {
   status: string;
   created_by: string;
   description: string | null;
+  project_id: string | null;
+  project_name?: string;
   responseCount?: number;
+}
+
+interface Project {
+  id: string;
+  name: string;
 }
 
 const Forms = () => {
   const [forms, setForms] = useState<Form[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isGlobalAdmin, isProjectAdmin, user, refreshUserProfile } = useAuth();
@@ -32,7 +41,12 @@ const Forms = () => {
 
   useEffect(() => {
     fetchForms();
-  }, []);
+    if (isGlobalAdmin) {
+      fetchProjects();
+    } else if (isProjectAdmin) {
+      fetchUserProjects();
+    }
+  }, [isGlobalAdmin, isProjectAdmin]);
 
   const fetchForms = async () => {
     try {
@@ -55,10 +69,32 @@ const Forms = () => {
       // Intentar obtener el perfil para actualizar roles
       await refreshUserProfile();
       
+      let query = supabase.from('forms').select(`
+        *,
+        projects:project_id (name)
+      `);
+      
+      // Si no es global_admin, filtramos por proyectos donde es project_admin
+      if (!isGlobalAdmin) {
+        // Primero obtenemos los proyectos donde el usuario es admin
+        const { data: projectAdminData } = await supabase
+          .from('project_admins')
+          .select('project_id')
+          .eq('user_id', session.user.id);
+          
+        if (projectAdminData && projectAdminData.length > 0) {
+          const projectIds = projectAdminData.map(item => item.project_id);
+          query = query.in('project_id', projectIds);
+        } else {
+          // Si no es admin de ningún proyecto, no mostramos formularios
+          setForms([]);
+          setLoading(false);
+          return;
+        }
+      }
+      
       // Obtener los formularios con manejo de errores mejorado
-      const { data, error } = await supabase
-        .from('forms')
-        .select('*');
+      const { data, error } = await query;
         
       if (error) {
         console.error('Error fetching forms:', error);
@@ -69,6 +105,7 @@ const Forms = () => {
         // Si no hay error, procesar los datos normalmente
         const formattedForms = data.map(form => ({
           ...form,
+          project_name: form.projects?.name || 'Sin proyecto',
           responseCount: 0,
           created_at: new Date(form.created_at).toLocaleDateString('es-ES')
         }));
@@ -87,6 +124,7 @@ const Forms = () => {
                   
                 return {
                   ...form,
+                  project_name: form.projects?.name || 'Sin proyecto',
                   responseCount: countError ? 0 : (count || 0),
                   created_at: new Date(form.created_at).toLocaleDateString('es-ES')
                 };
@@ -94,6 +132,7 @@ const Forms = () => {
                 console.error(`Error fetching response count for form ${form.id}:`, err);
                 return {
                   ...form,
+                  project_name: form.projects?.name || 'Sin proyecto',
                   responseCount: 0,
                   created_at: new Date(form.created_at).toLocaleDateString('es-ES')
                 };
@@ -116,6 +155,56 @@ const Forms = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name');
+        
+      if (error) throw error;
+      
+      if (data) {
+        setProjects(data);
+      }
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    }
+  };
+
+  const fetchUserProjects = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) return;
+      
+      const { data, error } = await supabase
+        .from('project_admins')
+        .select(`
+          project_id,
+          projects:project_id (id, name)
+        `)
+        .eq('user_id', session.user.id);
+        
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        const projectsData = data.map(item => ({
+          id: item.projects.id,
+          name: item.projects.name
+        }));
+        
+        setProjects(projectsData);
+        
+        // Seleccionar el primer proyecto por defecto
+        if (projectsData.length > 0 && !selectedProject) {
+          setSelectedProject(projectsData[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user projects:', error);
     }
   };
 
@@ -142,6 +231,27 @@ const Forms = () => {
         return;
       }
       
+      // Si es project_admin, debe seleccionar un proyecto
+      if (isProjectAdmin && !isGlobalAdmin && !selectedProject) {
+        toast({
+          title: "Proyecto requerido",
+          description: "Debes seleccionar un proyecto para crear el formulario.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Determinar el project_id
+      let projectId = null;
+      
+      if (isProjectAdmin && !isGlobalAdmin) {
+        // Para project_admin, usar el proyecto seleccionado
+        projectId = selectedProject;
+      } else if (isGlobalAdmin && selectedProject) {
+        // Para global_admin, usar el proyecto seleccionado si hay uno
+        projectId = selectedProject;
+      }
+      
       const { data, error } = await supabase
         .from('forms')
         .insert([
@@ -149,6 +259,7 @@ const Forms = () => {
             title: 'Nuevo formulario', 
             description: 'Descripción del formulario',
             created_by: session.user.id,
+            project_id: projectId,
             schema: {}, 
             status: 'draft'
           }
@@ -279,9 +390,16 @@ const Forms = () => {
                         {getStatusLabel(form.status)}
                       </span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between mb-1">
                       <span className="text-muted-foreground">Respuestas:</span>
                       <span>{form.responseCount || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Proyecto:</span>
+                      <div className="flex items-center">
+                        <Building2 className="h-3 w-3 mr-1 text-dynamo-600" />
+                        <span>{form.project_name}</span>
+                      </div>
                     </div>
                   </div>
                 </CardContent>

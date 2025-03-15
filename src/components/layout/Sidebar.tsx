@@ -109,6 +109,11 @@ export function Sidebar() {
         <div className="mt-6 flex flex-col flex-1 gap-y-1 px-3">
           <MenuItem icon={Home} text="Inicio" to="/" />
           
+          {/* Solo administradores globales ven proyectos */}
+          {isGlobalAdmin && (
+            <MenuItem icon={Building2} text="Proyectos" to="/projects" />
+          )}
+          
           {/* Todos los usuarios pueden ver el enlace a Formularios */}
           <MenuItem icon={FileText} text="Formularios" to="/forms" />
           

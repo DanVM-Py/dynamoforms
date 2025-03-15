@@ -15,6 +15,7 @@ import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import FormEdit from "./pages/FormEdit";
 import FormResponses from "./pages/FormResponses";
+import Projects from "./pages/Projects";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,6 +37,13 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            
+            {/* Projects route - accessible only to global admins */}
+            <Route path="/projects" element={
+              <ProtectedRoute requireGlobalAdmin>
+                <Projects />
+              </ProtectedRoute>
+            } />
             
             {/* Forms routes - accessible to all authenticated users */}
             <Route path="/forms" element={
