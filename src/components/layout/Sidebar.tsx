@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
@@ -126,7 +125,7 @@ export function Sidebar() {
                 
                 {(isExpanded || isMobileMenuOpen) && (
                   <div className="ml-3 overflow-hidden">
-                    <p className="text-sm font-medium truncate">{userProfile?.name || 'Usuario'}</p>
+                    <p className="text-sm font-medium text-dynamo-700 truncate">{userProfile?.name || 'Usuario'}</p>
                     <p className="text-xs text-gray-500 truncate">{userProfile?.role || ''}</p>
                   </div>
                 )}
