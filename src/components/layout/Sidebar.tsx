@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
@@ -64,10 +65,10 @@ export function Sidebar() {
     />
   );
 
-  // Display either profile name or email if available, otherwise fallback to 'Usuario'
+  // Try to get profile name from userProfile, fall back to email username
   const displayName = userProfile?.name || (user?.email ? user.email.split('@')[0] : 'Usuario');
   
-  // Display role from profile if available, otherwise show empty string
+  // Display role from profile
   const displayRole = userProfile?.role || '';
 
   return (

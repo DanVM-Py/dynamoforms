@@ -44,16 +44,16 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* Form editing - restricted to admins */}
+            {/* Form editing - accessible to admins */}
             <Route path="/forms/:formId/edit" element={
-              <ProtectedRoute requireGlobalAdmin={true} requireProjectAdmin={true}>
+              <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin={true}>
                 <FormEdit />
               </ProtectedRoute>
             } />
             
-            {/* Form responses - restricted to admins */}
+            {/* Form responses - accessible to admins */}
             <Route path="/forms/:formId/responses" element={
-              <ProtectedRoute requireGlobalAdmin={true} requireProjectAdmin={true}>
+              <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin={true}>
                 <FormResponses />
               </ProtectedRoute>
             } />

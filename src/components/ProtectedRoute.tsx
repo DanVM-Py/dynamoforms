@@ -50,43 +50,27 @@ const ProtectedRoute = ({
     );
   }
 
-  // For routes that require specific roles, check if profile exists
-  // But allow users to proceed if they don't need a specific role
-  const needsRoleCheck = requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover;
-  
-  if (needsRoleCheck) {
-    // If profile doesn't exist but we need role checks, we can still let the user in
-    // but log that their profile doesn't match requirements
-    if (!userProfile && !loading) {
-      console.log("User has no profile but attempting to access role-protected route");
-      // Only redirect if we're confident they don't have the role
-      // If we can't verify, we'll be permissive
-      if (requireGlobalAdmin) {
-        return <Navigate to="/" replace />;
-      }
-    }
-    
-    // If we have a profile, do proper role checks
-    if (userProfile) {
-      if (requireGlobalAdmin && !isGlobalAdmin) {
-        return <Navigate to="/" replace />;
-      }
-
-      if (requireProjectAdmin && !isProjectAdmin && !isGlobalAdmin) {
-        return <Navigate to="/" replace />;
-      }
-
-      if (requireRegularUser && (isGlobalAdmin || isProjectAdmin)) {
-        return <Navigate to="/" replace />;
-      }
-
-      if (requireApprover && !isApprover && !isGlobalAdmin) {
-        return <Navigate to="/" replace />;
-      }
-    }
+  // If global admin is required and user is not a global admin, redirect
+  if (requireGlobalAdmin && !isGlobalAdmin) {
+    return <Navigate to="/" replace />;
   }
 
-  // If all checks pass or no specific role required, render the children
+  // If project admin is required and user is neither project admin nor global admin, redirect
+  if (requireProjectAdmin && !isProjectAdmin && !isGlobalAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  // If regular user is required and user is either global or project admin, redirect
+  if (requireRegularUser && (isGlobalAdmin || isProjectAdmin)) {
+    return <Navigate to="/" replace />;
+  }
+
+  // If approver is required and user is neither approver nor global admin, redirect
+  if (requireApprover && !isApprover && !isGlobalAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  // If all checks pass, render the children
   return <>{children}</>;
 };
 

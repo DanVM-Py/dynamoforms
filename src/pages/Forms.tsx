@@ -22,6 +22,7 @@ interface Form {
 const Forms = () => {
   const [forms, setForms] = useState<Form[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isGlobalAdmin, isProjectAdmin, user } = useAuth();
@@ -36,6 +37,7 @@ const Forms = () => {
   const fetchForms = async () => {
     try {
       setLoading(true);
+      setError(null);
       
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -53,30 +55,60 @@ const Forms = () => {
         .from('forms')
         .select('*');
         
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching forms:', error);
+        throw error;
+      }
       
-      // Obtener el conteo de respuestas para cada formulario
-      const formsWithResponses = await Promise.all(
-        (data || []).map(async (form) => {
-          const { count, error: countError } = await supabase
-            .from('form_responses')
-            .select('*', { count: 'exact', head: true })
-            .eq('form_id', form.id);
-            
-          return {
-            ...form,
-            responseCount: countError ? 0 : (count || 0),
-            created_at: new Date(form.created_at).toLocaleDateString('es-ES')
-          };
-        })
-      );
+      // Set forms even without response count if there's an error
+      if (data) {
+        const formattedForms = data.map(form => ({
+          ...form,
+          responseCount: 0,
+          created_at: new Date(form.created_at).toLocaleDateString('es-ES')
+        }));
+        
+        setForms(formattedForms);
+      }
       
-      setForms(formsWithResponses);
-    } catch (error) {
+      // Try to get response counts but don't fail the whole operation if this fails
+      try {
+        // Obtener el conteo de respuestas para cada formulario
+        const formsWithResponses = await Promise.all(
+          (data || []).map(async (form) => {
+            try {
+              const { count, error: countError } = await supabase
+                .from('form_responses')
+                .select('*', { count: 'exact', head: true })
+                .eq('form_id', form.id);
+                
+              return {
+                ...form,
+                responseCount: countError ? 0 : (count || 0),
+                created_at: new Date(form.created_at).toLocaleDateString('es-ES')
+              };
+            } catch (err) {
+              console.error(`Error fetching response count for form ${form.id}:`, err);
+              return {
+                ...form,
+                responseCount: 0,
+                created_at: new Date(form.created_at).toLocaleDateString('es-ES')
+              };
+            }
+          })
+        );
+        
+        setForms(formsWithResponses);
+      } catch (err) {
+        console.error('Error fetching form responses:', err);
+        // We already set basic forms above, so no need to handle this error further
+      }
+    } catch (error: any) {
       console.error('Error fetching forms:', error);
+      setError(error?.message || 'Error al cargar formularios');
       toast({
         title: "Error al cargar formularios",
-        description: "No se pudieron cargar los formularios. Por favor, intenta nuevamente.",
+        description: error?.message || "No se pudieron cargar los formularios. Por favor, intenta nuevamente.",
         variant: "destructive",
       });
     } finally {
@@ -128,16 +160,28 @@ const Forms = () => {
         description: "Tu nuevo formulario ha sido creado. Ahora puedes editarlo.",
       });
       
-      // Actualizamos la lista de formularios después de crear uno nuevo
-      fetchForms();
-    } catch (error) {
+      if (data) {
+        navigate(`/forms/${data.id}/edit`);
+      } else {
+        // Actualizamos la lista de formularios después de crear uno nuevo
+        fetchForms();
+      }
+    } catch (error: any) {
       console.error('Error creating form:', error);
       toast({
         title: "Error al crear formulario",
-        description: "No se pudo crear el formulario. Por favor, intenta nuevamente.",
+        description: error?.message || "No se pudo crear el formulario. Por favor, intenta nuevamente.",
         variant: "destructive",
       });
     }
+  };
+
+  const handleViewDetails = (formId: string) => {
+    navigate(`/forms/${formId}/edit`);
+  };
+
+  const handleViewResponses = (formId: string) => {
+    navigate(`/forms/${formId}/responses`);
   };
 
   const getStatusLabel = (status: string) => {
@@ -177,6 +221,21 @@ const Forms = () => {
         <div className="flex justify-center p-8">
           <div className="animate-pulse text-gray-500">Cargando formularios...</div>
         </div>
+      ) : error ? (
+        <div className="text-center p-8">
+          <div className="mb-4 text-gray-400">
+            <FileText className="h-12 w-12 mx-auto mb-2" />
+            <p className="text-lg font-medium text-red-600">Error al cargar formularios</p>
+            <p className="text-sm text-gray-500">{error}</p>
+            <Button 
+              variant="outline" 
+              className="mt-4" 
+              onClick={() => fetchForms()}
+            >
+              Reintentar
+            </Button>
+          </div>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {forms.length > 0 ? (
@@ -213,8 +272,20 @@ const Forms = () => {
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-between border-t pt-4">
-                  <Button variant="outline" size="sm" onClick={() => navigate(`/forms/${form.id}/edit`)}>Ver detalles</Button>
-                  <Button variant="secondary" size="sm" onClick={() => navigate(`/forms/${form.id}/responses`)}>Ver respuestas</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleViewDetails(form.id)}
+                  >
+                    Ver detalles
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    onClick={() => handleViewResponses(form.id)}
+                  >
+                    Ver respuestas
+                  </Button>
                 </CardFooter>
               </Card>
             ))
@@ -233,8 +304,11 @@ const Forms = () => {
           )}
 
           {/* Solo mostrar la tarjeta "Crear nuevo formulario" a administradores */}
-          {canCreateForms && (
-            <Card className="flex flex-col items-center justify-center h-full min-h-[220px] border-dashed hover:bg-gray-50 cursor-pointer" onClick={createForm}>
+          {canCreateForms && forms.length > 0 && (
+            <Card 
+              className="flex flex-col items-center justify-center h-full min-h-[220px] border-dashed hover:bg-gray-50 cursor-pointer" 
+              onClick={createForm}
+            >
               <div className="p-3 bg-dynamo-50 rounded-full mb-3">
                 <Plus className="h-6 w-6 text-dynamo-600" />
               </div>
