@@ -204,7 +204,8 @@ export default function Admin() {
       setAuthError(null);
 
       // Call the function we created in SQL to create a global admin
-      const { data: result, error } = await customSupabase.rpc(
+      // Fix for the error: Explicitly type the RPC call result
+      const { data: result, error } = await customSupabase.rpc<any>(
         "create_global_admin",
         {
           email: data.email,
