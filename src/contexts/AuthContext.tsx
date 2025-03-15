@@ -70,8 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       console.log("Fetching user profile for user ID:", userId);
       
-      // Bypass the profiles table query if it's causing problems
-      // instead we'll just set some defaults and continue
+      // Try to fetch the user profile
       try {
         const { data, error } = await supabase
           .from("profiles")
@@ -81,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
         if (error) {
           console.error("Error fetching user profile:", error);
-          // Continue without throwing, we'll handle the missing profile below
+          // Continue without throwing
         }
         
         if (data) {

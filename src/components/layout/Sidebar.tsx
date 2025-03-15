@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
@@ -64,6 +65,12 @@ export function Sidebar() {
     />
   );
 
+  // Display either profile name or email if available, otherwise fallback to 'Usuario'
+  const displayName = userProfile?.name || (user?.email ? user.email.split('@')[0] : 'Usuario');
+  
+  // Display role from profile if available, otherwise show empty string
+  const displayRole = userProfile?.role || '';
+
   return (
     <>
       {overlay}
@@ -125,8 +132,8 @@ export function Sidebar() {
                 
                 {(isExpanded || isMobileMenuOpen) && (
                   <div className="ml-3 overflow-hidden">
-                    <p className="text-base font-semibold text-dynamo-700 truncate">{userProfile?.name || 'Usuario'}</p>
-                    <p className="text-xs text-gray-500 truncate">{userProfile?.role || ''}</p>
+                    <p className="text-base font-semibold text-dynamo-700 truncate">{displayName}</p>
+                    <p className="text-xs text-gray-500 truncate">{displayRole}</p>
                   </div>
                 )}
               </div>
