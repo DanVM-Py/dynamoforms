@@ -1,6 +1,6 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { customSupabase } from "@/integrations/supabase/customClient";
 import { Session } from "@supabase/supabase-js";
 
 interface AuthContextType {
@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    customSupabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = customSupabase.auth.onAuthStateChange(
       (event, newSession) => {
         setSession(newSession);
         setUser(newSession?.user ?? null);
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUserProfile = async (userId: string) => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await customSupabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
@@ -70,10 +70,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       
       setUserProfile(data);
+      // Check if user has global_admin role
       setIsGlobalAdmin(data.role === "global_admin");
       
       // Check if user is project admin for any project
-      const { data: projectAdminData, error: projectAdminError } = await supabase
+      const { data: projectAdminData, error: projectAdminError } = await customSupabase
         .from("project_admins")
         .select("*")
         .eq("user_id", userId);
@@ -97,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      await customSupabase.auth.signOut();
     } catch (error) {
       console.error("Error signing out:", error);
     }

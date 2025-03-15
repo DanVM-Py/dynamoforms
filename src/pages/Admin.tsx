@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,11 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/integrations/supabase/client";
+import { customSupabase } from "@/integrations/supabase/customClient";
 import { useToast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Building2, Plus, User, Users } from "lucide-react";
+import { Project, ProjectAdmin } from "@/types/supabase";
 
 const adminCreateSchema = z.object({
   name: z.string().min(2, "Ingresa un nombre válido"),
@@ -38,23 +38,6 @@ interface UserProfile {
   email: string;
   name: string | null;
   role: string;
-}
-
-interface Project {
-  id: string;
-  name: string;
-  description: string | null;
-  created_at: string;
-}
-
-interface ProjectAdmin {
-  id: string;
-  project_id: string;
-  user_id: string;
-  assigned_at: string;
-  user_email?: string;
-  user_name?: string;
-  project_name?: string;
 }
 
 export default function Admin() {
@@ -99,7 +82,7 @@ export default function Admin() {
     // Check if user is logged in and fetch profile data
     const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await customSupabase.auth.getSession();
         
         if (!session) {
           navigate("/auth");
@@ -107,7 +90,7 @@ export default function Admin() {
         }
         
         // Fetch user profile including role
-        const { data: profileData, error: profileError } = await supabase
+        const { data: profileData, error: profileError } = await customSupabase
           .from("profiles")
           .select("*")
           .eq("id", session.user.id)
@@ -148,7 +131,7 @@ export default function Admin() {
 
   const fetchProjects = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await customSupabase
         .from("projects")
         .select("*")
         .order("created_at", { ascending: false });
@@ -168,7 +151,7 @@ export default function Admin() {
 
   const fetchProjectAdmins = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await customSupabase
         .from("project_admins")
         .select(`
           *,
@@ -179,7 +162,7 @@ export default function Admin() {
       
       // Get user details for each admin
       const adminsWithDetails = await Promise.all((data || []).map(async (admin) => {
-        const { data: userData, error: userError } = await supabase
+        const { data: userData, error: userError } = await customSupabase
           .from("profiles")
           .select("email, name")
           .eq("id", admin.user_id)
@@ -220,7 +203,7 @@ export default function Admin() {
       setAuthError(null);
 
       // Call the function we created in SQL to create a global admin
-      const { data: result, error } = await supabase.rpc(
+      const { data: result, error } = await customSupabase.rpc(
         "create_global_admin",
         {
           email: data.email,
@@ -256,14 +239,14 @@ export default function Admin() {
       setAuthError(null);
 
       // Get current user session
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await customSupabase.auth.getSession();
       
       if (!session) {
         throw new Error("No hay sesión activa");
       }
 
       // Create the project
-      const { error } = await supabase
+      const { error } = await customSupabase
         .from("projects")
         .insert({
           name: data.name,
@@ -299,14 +282,14 @@ export default function Admin() {
       setAuthError(null);
 
       // Get current user session
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await customSupabase.auth.getSession();
       
       if (!session) {
         throw new Error("No hay sesión activa");
       }
 
       // Find user by email
-      const { data: userData, error: userError } = await supabase
+      const { data: userData, error: userError } = await customSupabase
         .from("profiles")
         .select("id")
         .eq("email", data.email)
@@ -317,7 +300,7 @@ export default function Admin() {
       }
 
       // Assign user as project admin
-      const { error } = await supabase
+      const { error } = await customSupabase
         .from("project_admins")
         .insert({
           project_id: data.projectId,
