@@ -15,21 +15,21 @@ export interface ExtendedDatabase extends Omit<OriginalDatabase, 'public'> {
           email: string;
           id: string;
           name: string | null;
-          role: "global_admin" | "project_admin" | "user";
+          role: "global_admin" | "project_admin" | "user" | "approver";
         };
         Insert: {
           created_at?: string;
           email: string;
           id: string;
           name?: string | null;
-          role?: "global_admin" | "project_admin" | "user";
+          role?: "global_admin" | "project_admin" | "user" | "approver";
         };
         Update: {
           created_at?: string;
           email?: string;
           id?: string;
           name?: string | null;
-          role?: "global_admin" | "project_admin" | "user";
+          role?: "global_admin" | "project_admin" | "user" | "approver";
         };
         Relationships: [];
       };
@@ -122,7 +122,7 @@ export interface ExtendedDatabase extends Omit<OriginalDatabase, 'public'> {
       notification_status: OriginalDatabase["public"]["Enums"]["notification_status"];
       notification_type: OriginalDatabase["public"]["Enums"]["notification_type"];
       task_status: OriginalDatabase["public"]["Enums"]["task_status"];
-      user_role: "global_admin" | "project_admin" | "user";
+      user_role: "global_admin" | "project_admin" | "user" | "approver";
     };
     CompositeTypes: OriginalDatabase["public"]["CompositeTypes"];
   };
