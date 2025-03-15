@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,12 @@ interface Profile {
   name: string;
   email: string;
   role: string;
+}
+
+interface ProjectCardProps {
+  project: Project;
+  onDelete: (project: Project) => void;
+  onEdit: (project: Project) => void;
 }
 
 const Projects = () => {

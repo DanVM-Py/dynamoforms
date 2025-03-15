@@ -15,9 +15,16 @@ export function Sidebar() {
   const params = useParams();
   const { user, userProfile, isGlobalAdmin, isProjectAdmin, signOut } = useAuth();
   
-  // Get the current project ID from the URL if available
-  const projectId = params.projectId || 
-    (location.pathname.includes('/projects/') ? location.pathname.split('/projects/')[1]?.split('/')[0] : null);
+  // Get the current project ID from the URL if available - look for it in various parts of the path
+  const getProjectIdFromUrl = () => {
+    if (params.projectId) return params.projectId;
+    
+    // Check if we're in a project-specific route
+    const projectMatch = location.pathname.match(/\/projects\/([^/]+)/);
+    return projectMatch ? projectMatch[1] : null;
+  };
+
+  const projectId = getProjectIdFromUrl();
 
   useEffect(() => {
     setIsExpanded(!isMobile);
@@ -90,6 +97,9 @@ export function Sidebar() {
   // Display role from profile
   const displayRole = userProfile?.role || '';
 
+  // Check if the user can access project roles (global admin or project admin with a project context)
+  const canAccessProjectRoles = (isGlobalAdmin || isProjectAdmin) && projectId;
+
   return (
     <>
       {overlay}
@@ -136,8 +146,8 @@ export function Sidebar() {
           {/* Todos los usuarios pueden ver el enlace a Formularios */}
           <MenuItem icon={FileText} text="Formularios" to="/forms" />
           
-          {/* Mostrar enlace de Roles si estamos en un proyecto y el usuario es admin */}
-          {projectId && (isProjectAdmin || isGlobalAdmin) && (
+          {/* Mostrar enlace de Roles si hay un projectId en el contexto y el usuario tiene permisos */}
+          {canAccessProjectRoles && (
             <MenuItem 
               icon={Settings} 
               text="Roles del Proyecto" 
