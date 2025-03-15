@@ -240,15 +240,51 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
   };
 
   const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
+    const { source, destination, draggableId } = result;
     
-    const items = Array.from(formSchema.components);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
+    // Drop was cancelled or dropped outside valid droppable
+    if (!destination) return;
+    
+    // Check if the component was moved to a different group
+    const sourceDroppableId = source.droppableId;
+    const destinationDroppableId = destination.droppableId;
+    
+    // Create a copy of the components array to work with
+    const updatedComponents = [...formSchema.components];
+    const movedComponent = updatedComponents.find(comp => comp.id === draggableId);
+    
+    if (!movedComponent) return;
+    
+    // Get the source and target group ids
+    const sourceGroupId = sourceDroppableId === 'form-components' ? undefined : sourceDroppableId;
+    const targetGroupId = destinationDroppableId === 'form-components' ? undefined : destinationDroppableId;
+    
+    // Update the component's group assignment
+    movedComponent.groupId = targetGroupId;
+    
+    // Handle reordering
+    // First remove from original position
+    const newComponents = updatedComponents.filter(comp => comp.id !== draggableId);
+    
+    // Get components with same groupId as the destination (or ungrouped components)
+    const sameGroupComponents = newComponents.filter(
+      comp => targetGroupId ? comp.groupId === targetGroupId : !comp.groupId
+    );
+    
+    // Insert the moved component at the correct position within its new group
+    sameGroupComponents.splice(destination.index, 0, movedComponent);
+    
+    // Merge with components from other groups
+    const otherGroupComponents = newComponents.filter(
+      comp => targetGroupId ? comp.groupId !== targetGroupId : comp.groupId !== undefined
+    );
+    
+    // Create the final component array
+    const finalComponents = [...sameGroupComponents, ...otherGroupComponents];
     
     onChange({
       ...formSchema,
-      components: items
+      components: finalComponents
     });
   };
 
@@ -352,137 +388,150 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
             <EmptyState onAddComponent={(e) => handleAddNewComponent(e)} />
           ) : (
             <DragDropContext onDragEnd={handleDragEnd}>
-              <Droppable droppableId="form-components">
-                {(provided) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className="space-y-6"
+              <div className="space-y-6">
+                {/* Renderizar grupos */}
+                {formSchema.groups.map((group) => (
+                  <Collapsible 
+                    key={group.id} 
+                    className="border rounded-md overflow-hidden"
+                    open={group.expanded}
                   >
-                    {/* Renderizar grupos */}
-                    {formSchema.groups.map((group) => (
-                      <Collapsible 
-                        key={group.id} 
-                        className="border rounded-md overflow-hidden"
-                        open={group.expanded}
-                      >
-                        <div className="bg-gray-100 border-b p-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center">
-                              <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={() => toggleGroupExpanded(group.id)}>
-                                  {group.expanded ? (
-                                    <ChevronDown className="h-4 w-4" />
-                                  ) : (
-                                    <ChevronRight className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </CollapsibleTrigger>
-                              <div>
-                                <h3 className="font-medium">{group.title}</h3>
-                                {group.description && (
-                                  <p className="text-xs text-gray-500">{group.description}</p>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex space-x-2">
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => setEditingGroup({ ...group })}
-                              >
-                                Editar
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => handleDeleteGroup(group.id)}
-                                className="text-red-500 hover:text-red-700"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                    <div className="bg-gray-100 border-b p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => toggleGroupExpanded(group.id)}>
+                              {group.expanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                          <div>
+                            <h3 className="font-medium">{group.title}</h3>
+                            {group.description && (
+                              <p className="text-xs text-gray-500">{group.description}</p>
+                            )}
                           </div>
                         </div>
-                        <CollapsibleContent>
-                          <div className="p-4">
-                            {renderGroupComponents(group.id)}
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={(e) => handleAddNewComponent(e, group.id)}
-                              className="w-full mt-2"
-                            >
-                              <Plus className="mr-2 h-4 w-4" />
-                              Agregar componente al grupo
-                            </Button>
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    ))}
-
-                    {/* Renderizar componentes sin grupo */}
-                    {ungroupedComponents.map((component, index) => (
-                      <Draggable 
-                        key={component.id} 
-                        draggableId={component.id} 
-                        index={index}
-                      >
-                        {(provided) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            className="bg-white border rounded-md overflow-hidden"
+                        <div className="flex space-x-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setEditingGroup({ ...group })}
                           >
-                            <div className="flex items-center p-3 border-b bg-gray-50">
-                              <div 
-                                {...provided.dragHandleProps} 
-                                className="mr-2 cursor-move"
+                            Editar
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleDeleteGroup(group.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    <CollapsibleContent>
+                      <div className="p-4">
+                        <Droppable droppableId={group.id}>
+                          {(provided) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.droppableProps}
+                              className="min-h-[80px]"
+                            >
+                              {renderGroupComponents(group.id)}
+                              {provided.placeholder}
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={(e) => handleAddNewComponent(e, group.id)}
+                                className="w-full mt-2"
                               >
-                                <GripVertical className="h-5 w-5 text-gray-400" />
-                              </div>
-                              <div className="flex-1">
-                                <span className="text-sm font-medium">
-                                  {component.label}
-                                </span>
-                                <span className="ml-2 text-xs text-gray-500">
-                                  ({component.type})
-                                </span>
-                                {component.required && (
-                                  <span className="ml-2 text-xs text-red-500">
-                                    (Obligatorio)
+                                <Plus className="mr-2 h-4 w-4" />
+                                Agregar componente al grupo
+                              </Button>
+                            </div>
+                          )}
+                        </Droppable>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                ))}
+
+                {/* Renderizar componentes sin grupo */}
+                <Droppable droppableId="form-components">
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className="space-y-3"
+                    >
+                      {ungroupedComponents.map((component, index) => (
+                        <Draggable 
+                          key={component.id} 
+                          draggableId={component.id} 
+                          index={index}
+                        >
+                          {(provided) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className="bg-white border rounded-md overflow-hidden"
+                            >
+                              <div className="flex items-center p-3 border-b bg-gray-50">
+                                <div 
+                                  {...provided.dragHandleProps} 
+                                  className="mr-2 cursor-move"
+                                >
+                                  <GripVertical className="h-5 w-5 text-gray-400" />
+                                </div>
+                                <div className="flex-1">
+                                  <span className="text-sm font-medium">
+                                    {component.label}
                                   </span>
-                                )}
+                                  <span className="ml-2 text-xs text-gray-500">
+                                    ({component.type})
+                                  </span>
+                                  {component.required && (
+                                    <span className="ml-2 text-xs text-red-500">
+                                      (Obligatorio)
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex space-x-2">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => handleEditComponent(component)}
+                                  >
+                                    Editar
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => handleDeleteComponent(component.id)}
+                                    className="text-red-500 hover:text-red-700"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
-                              <div className="flex space-x-2">
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => handleEditComponent(component)}
-                                >
-                                  Editar
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => handleDeleteComponent(component.id)}
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                              <div className="p-4">
+                                <FormComponentPreview component={component} />
                               </div>
                             </div>
-                            <div className="p-4">
-                              <FormComponentPreview component={component} />
-                            </div>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </div>
             </DragDropContext>
           )}
         </CardContent>
