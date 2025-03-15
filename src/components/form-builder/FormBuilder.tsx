@@ -3,12 +3,15 @@ import React, { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, Trash2, GripVertical, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { Save, Trash2, GripVertical, Plus, ChevronDown, ChevronRight, X } from "lucide-react";
 import { ComponentToolbar } from "./ComponentToolbar";
 import { FormComponentEditor } from "./FormComponentEditor";
 import { EmptyState } from "./EmptyState";
 import { FormComponentPreview } from "./FormComponentPreview";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 export interface FormComponent {
   id: string;
@@ -110,8 +113,8 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
   };
 
   // Simple button to add a new component directly
-  const handleAddNewComponent = (groupId?: string) => {
-    handleAddComponent('text', groupId); // Default to text, but can be changed in the editor
+  const handleAddNewComponent = (e: React.MouseEvent<HTMLButtonElement>, groupId?: string) => {
+    handleAddComponent('text', groupId);
   };
 
   const getDefaultLabel = (type: string): string => {
@@ -337,7 +340,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
               <Plus className="mr-2 h-4 w-4" />
               Agregar Grupo
             </Button>
-            <Button onClick={handleAddNewComponent} className="bg-dynamo-600 hover:bg-dynamo-700">
+            <Button onClick={(e) => handleAddNewComponent(e)} className="bg-dynamo-600 hover:bg-dynamo-700">
               <Plus className="mr-2 h-4 w-4" />
               Agregar Componente
             </Button>
@@ -346,7 +349,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
         </CardHeader>
         <CardContent>
           {formSchema.components.length === 0 && formSchema.groups.length === 0 ? (
-            <EmptyState onAddComponent={handleAddNewComponent} />
+            <EmptyState onAddComponent={(e) => handleAddNewComponent(e)} />
           ) : (
             <DragDropContext onDragEnd={handleDragEnd}>
               <Droppable droppableId="form-components">
@@ -407,7 +410,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
                             <Button 
                               variant="outline" 
                               size="sm" 
-                              onClick={() => handleAddNewComponent(group.id)}
+                              onClick={(e) => handleAddNewComponent(e, group.id)}
                               className="w-full mt-2"
                             >
                               <Plus className="mr-2 h-4 w-4" />
