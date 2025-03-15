@@ -1,91 +1,146 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import {
-  FileText,
-  CheckSquare,
-  Bell,
-  Home,
-  Menu,
-  X,
-  LucideIcon
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useWindowWidth } from '@/hooks/use-mobile';
+import { Building2, FileText, Home, Menu, PanelLeftClose, Bell, CheckSquare, User, Users, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
 
-type NavItemProps = {
-  to: string;
-  icon: LucideIcon;
-  label: string;
-  isCollapsed: boolean;
-};
-
-const NavItem = ({ to, icon: Icon, label, isCollapsed }: NavItemProps) => {
+export function Sidebar() {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const isMobile = useWindowWidth() < 768;
   const location = useLocation();
-  const isActive = location.pathname === to;
+  const { user, userProfile, isGlobalAdmin, isProjectAdmin, signOut } = useAuth();
 
-  return (
-    <Link
-      to={to}
-      className={cn(
-        "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-        isActive
-          ? "bg-dynamo-100 text-dynamo-600"
-          : "hover:bg-dynamo-50 text-slate-600 hover:text-dynamo-500"
-      )}
-    >
-      <Icon className="h-5 w-5" />
-      {!isCollapsed && <span>{label}</span>}
-    </Link>
-  );
-};
+  useEffect(() => {
+    setIsExpanded(!isMobile);
+  }, [isMobile]);
 
-export const Sidebar = () => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  useEffect(() => {
+    if (isMobile) {
+      setIsMobileMenuOpen(false);
+    }
+  }, [location.pathname, isMobile]);
 
   const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed);
+    setIsExpanded(!isExpanded);
   };
 
-  return (
-    <div
-      className={cn(
-        "bg-white border-r border-gray-200 transition-all duration-300 h-screen flex flex-col sticky top-0 z-10",
-        isCollapsed ? "w-16" : "w-64"
-      )}
-    >
-      <div className="h-16 flex items-center px-3 border-b border-gray-200">
-        <div className={cn("flex items-center", !isCollapsed && "ml-2")}>
-          <span 
-            className={cn(
-              "text-dynamo-600 font-heading font-bold text-xl",
-              isCollapsed ? "hidden" : "ml-2"
-            )}
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const MenuItem = ({ icon: Icon, text, to }: { icon: any; text: string; to: string }) => {
+    const isActive = location.pathname === to;
+    return (
+      <Link
+        to={to}
+        className={`flex items-center p-3 rounded-md hover:bg-gray-100 transition-colors ${
+          isActive ? 'bg-gray-100' : ''
+        }`}
+      >
+        <Icon className={`h-5 w-5 ${isActive ? 'text-dynamo-600' : 'text-gray-500'}`} />
+        {(isExpanded || isMobileMenuOpen) && (
+          <span
+            className={`ml-3 text-sm ${isActive ? 'font-medium text-dynamo-700' : 'text-gray-600'}`}
           >
-            DynamoFlow
+            {text}
           </span>
-          <button
-            className="p-1 ml-auto rounded-md hover:bg-gray-100"
-            onClick={toggleSidebar}
-          >
-            {isCollapsed ? <Menu className="h-5 w-5" /> : <X className="h-5 w-5" />}
-          </button>
+        )}
+      </Link>
+    );
+  };
+
+  const sidebarClasses = `${
+    isMobile ? 'fixed z-20 top-0 bottom-0 left-0' : 'sticky top-0'
+  } h-screen bg-white border-r ${
+    (isExpanded || isMobileMenuOpen) ? 'w-64' : 'w-16'
+  } transition-all duration-300 py-4 flex flex-col`;
+
+  const overlay = isMobile && isMobileMenuOpen && (
+    <div
+      className="fixed inset-0 bg-black/30 z-10"
+      onClick={toggleMobileMenu}
+    />
+  );
+
+  return (
+    <>
+      {overlay}
+      
+      {isMobile && (
+        <button
+          onClick={toggleMobileMenu}
+          className="fixed bottom-4 right-4 z-30 bg-dynamo-600 text-white p-3 rounded-full shadow-lg hover:bg-dynamo-700 transition-colors md:hidden"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
+      )}
+      
+      <div
+        className={`${sidebarClasses} ${
+          isMobile && !isMobileMenuOpen ? '-translate-x-full' : 'translate-x-0'
+        }`}
+      >
+        <div className="flex items-center px-4 py-2 justify-between">
+          {(isExpanded || isMobileMenuOpen) ? (
+            <h1 className="text-xl font-bold text-dynamo-700">Dynamo</h1>
+          ) : (
+            <span className="text-xl font-bold text-dynamo-700">D</span>
+          )}
+          {!isMobile && (
+            <button onClick={toggleSidebar} className="text-gray-500 hover:text-gray-700">
+              {isExpanded ? (
+                <PanelLeftClose className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </button>
+          )}
         </div>
-      </div>
 
-      <nav className="flex-grow p-3 space-y-1 overflow-y-auto">
-        <NavItem to="/" icon={Home} label="Inicio" isCollapsed={isCollapsed} />
-        <NavItem to="/forms" icon={FileText} label="Formularios" isCollapsed={isCollapsed} />
-        <NavItem to="/tasks" icon={CheckSquare} label="Tareas" isCollapsed={isCollapsed} />
-        <NavItem to="/notifications" icon={Bell} label="Notificaciones" isCollapsed={isCollapsed} />
-      </nav>
+        <div className="mt-6 flex flex-col flex-1 gap-y-1 px-3">
+          <MenuItem icon={Home} text="Inicio" to="/" />
+          <MenuItem icon={FileText} text="Formularios" to="/forms" />
+          <MenuItem icon={CheckSquare} text="Tareas" to="/tasks" />
+          <MenuItem icon={Bell} text="Notificaciones" to="/notifications" />
+          
+          {isGlobalAdmin && (
+            <MenuItem icon={Users} text="Administración" to="/admin" />
+          )}
+        </div>
 
-      <div className="p-3 border-t border-gray-200">
-        {!isCollapsed && (
-          <div className="text-xs text-gray-500">
-            DynamoFlow v1.0.0
+        {user && (
+          <div className="mt-auto px-3 pt-3 border-t">
+            <div className={`flex items-center p-3 rounded-md ${isExpanded || isMobileMenuOpen ? 'justify-between' : 'justify-center'}`}>
+              <div className="flex items-center">
+                <div className="bg-gray-200 rounded-full p-2">
+                  <User className="h-5 w-5 text-gray-600" />
+                </div>
+                
+                {(isExpanded || isMobileMenuOpen) && (
+                  <div className="ml-3 overflow-hidden">
+                    <p className="text-sm font-medium truncate">{userProfile?.name || user.email}</p>
+                    <p className="text-xs text-gray-500 truncate">{userProfile?.role || 'Usuario'}</p>
+                  </div>
+                )}
+              </div>
+              
+              {(isExpanded || isMobileMenuOpen) && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={signOut}
+                  title="Cerrar sesión"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>
-    </div>
+    </>
   );
-};
+}
