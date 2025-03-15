@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -31,7 +31,8 @@ import {
   SquareCheckBig,
   Images,
   Signature,
-  MapPinned
+  MapPinned,
+  List
 } from "lucide-react";
 
 interface ComponentToolbarProps {
@@ -42,9 +43,9 @@ export const ComponentToolbar: React.FC<ComponentToolbarProps> = ({ onAddCompone
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Agregar Componente
+        <Button variant="outline">
+          <List className="mr-2 h-4 w-4" />
+          Componentes
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-64">

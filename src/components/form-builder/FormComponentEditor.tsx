@@ -115,6 +115,35 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
   const handleSwitchChange = (checked: boolean, field: string) => {
     setEditedComponent(prev => ({...prev, [field]: checked}));
   };
+
+  const handleComponentTypeChange = (type: string) => {
+    // Reset component-specific settings when type changes
+    const updatedComponent: FormComponent = {
+      ...editedComponent,
+      type: type,
+      options: ['select', 'radio', 'checkbox'].includes(type) 
+        ? (editedComponent.options?.length ? editedComponent.options : [
+            { label: 'Opción 1', value: 'option1' },
+            { label: 'Opción 2', value: 'option2' }
+          ]) 
+        : undefined,
+      maxLength: ['text', 'textarea'].includes(type) 
+        ? (type === 'text' ? 300 : 1000) 
+        : undefined,
+      maxImages: ['image_single', 'image_multiple'].includes(type) 
+        ? (type === 'image_single' ? 1 : 5) 
+        : undefined,
+      includeText: ['image_single', 'image_multiple'].includes(type) 
+        ? editedComponent.includeText 
+        : undefined,
+      placeholder: ['text', 'textarea', 'email', 'number', 'phone'].includes(type) 
+        ? editedComponent.placeholder 
+        : undefined,
+      selectionType: type === 'checkbox' ? 'multiple' : undefined
+    };
+    
+    setEditedComponent(updatedComponent);
+  };
   
   const needsOptions = ['select', 'radio', 'checkbox'].includes(editedComponent.type);
   const isTextField = ['text', 'textarea'].includes(editedComponent.type);
@@ -139,6 +168,34 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
             </TabsList>
             
             <TabsContent value="general" className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="componentType">Tipo de Componente</Label>
+                <Select
+                  value={editedComponent.type}
+                  onValueChange={handleComponentTypeChange}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Seleccionar tipo de componente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="text">Texto Normal (300 caracteres)</SelectItem>
+                    <SelectItem value="textarea">Texto Grande (1000 caracteres)</SelectItem>
+                    <SelectItem value="select">Lista Desplegable</SelectItem>
+                    <SelectItem value="radio">Opción Única</SelectItem>
+                    <SelectItem value="checkbox">Opciones Múltiples</SelectItem>
+                    <SelectItem value="image_single">Imagen Única</SelectItem>
+                    <SelectItem value="image_multiple">Múltiples Imágenes</SelectItem>
+                    <SelectItem value="signature">Firma</SelectItem>
+                    <SelectItem value="location">Geolocalización</SelectItem>
+                    <SelectItem value="number">Número</SelectItem>
+                    <SelectItem value="date">Fecha</SelectItem>
+                    <SelectItem value="time">Hora</SelectItem>
+                    <SelectItem value="email">Correo Electrónico</SelectItem>
+                    <SelectItem value="phone">Teléfono</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="label">Etiqueta</Label>
                 <Input 

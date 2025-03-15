@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, Trash2, GripVertical } from "lucide-react";
+import { Save, Trash2, GripVertical, Plus } from "lucide-react";
 import { ComponentToolbar } from "./ComponentToolbar";
 import { FormComponentEditor } from "./FormComponentEditor";
 import { EmptyState } from "./EmptyState";
@@ -43,7 +43,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
   const [editingComponent, setEditingComponent] = useState<FormComponent | null>(null);
   const [showComponentEditor, setShowComponentEditor] = useState(false);
 
-  const handleAddComponent = (componentType: string) => {
+  const handleAddComponent = (componentType: string = 'text') => {
     const newComponent: FormComponent = {
       id: `comp-${Date.now()}`,
       type: componentType,
@@ -79,6 +79,11 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
 
     setEditingComponent(newComponent);
     setShowComponentEditor(true);
+  };
+
+  // Simple button to add a new component directly
+  const handleAddNewComponent = () => {
+    handleAddComponent('text'); // Default to text, but can be changed in the editor
   };
 
   const getDefaultLabel = (type: string): string => {
@@ -150,11 +155,17 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Componentes del Formulario</CardTitle>
-          <ComponentToolbar onAddComponent={handleAddComponent} />
+          <div className="flex space-x-2">
+            <Button onClick={handleAddNewComponent} className="bg-dynamo-600 hover:bg-dynamo-700">
+              <Plus className="mr-2 h-4 w-4" />
+              Agregar Componente
+            </Button>
+            <ComponentToolbar onAddComponent={handleAddComponent} />
+          </div>
         </CardHeader>
         <CardContent>
           {schema.components.length === 0 ? (
-            <EmptyState onAddComponent={() => handleAddComponent('text')} />
+            <EmptyState onAddComponent={handleAddNewComponent} />
           ) : (
             <DragDropContext onDragEnd={handleDragEnd}>
               <Droppable droppableId="form-components">
