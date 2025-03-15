@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
 import { Button } from "@/components/ui/button";
@@ -455,6 +454,11 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
     ));
   };
 
+  // Fixed the EmptyState callback to accept the event parameter
+  const handleEmptyStateAddComponent = () => {
+    handleAddComponent('text');
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -477,7 +481,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
         </CardHeader>
         <CardContent>
           {formSchema.components.length === 0 && formSchema.groups.length === 0 ? (
-            <EmptyState onAddComponent={handleAddNewComponent} />
+            <EmptyState onAddComponent={handleEmptyStateAddComponent} />
           ) : (
             <DragDropContext onDragEnd={handleDragEnd}>
               <div className="space-y-6">

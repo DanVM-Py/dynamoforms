@@ -1,13 +1,13 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Plus, MoreVertical, Clock, RefreshCw, Building2 } from "lucide-react";
+import { FileText, Plus, MoreVertical, Clock, RefreshCw, Building2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface Form {
   id: string;
@@ -27,9 +27,9 @@ interface Project {
 }
 
 const Forms = () => {
-  const [forms, setForms] = useState<Form[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [forms, setForms] = useState<Form[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -38,6 +38,10 @@ const Forms = () => {
   
   // Variable para determinar si el usuario puede crear formularios
   const canCreateForms = isGlobalAdmin || isProjectAdmin;
+
+  // Add state for delete confirmation dialog
+  const [formToDelete, setFormToDelete] = useState<Form | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchForms();
@@ -292,6 +296,64 @@ const Forms = () => {
     }
   };
 
+  // Add form deletion functionality
+  const handleDeleteForm = async () => {
+    if (!formToDelete) return;
+    
+    try {
+      setDeleting(true);
+      
+      // Check if there are any responses to this form
+      const { count, error: countError } = await supabase
+        .from('form_responses')
+        .select('*', { count: 'exact', head: true })
+        .eq('form_id', formToDelete.id);
+      
+      if (countError) throw countError;
+      
+      // If there are responses, delete them first
+      if (count && count > 0) {
+        const { error: responsesDeleteError } = await supabase
+          .from('form_responses')
+          .delete()
+          .eq('form_id', formToDelete.id);
+        
+        if (responsesDeleteError) throw responsesDeleteError;
+      }
+      
+      // Now delete the form
+      const { error: formDeleteError } = await supabase
+        .from('forms')
+        .delete()
+        .eq('id', formToDelete.id);
+      
+      if (formDeleteError) throw formDeleteError;
+      
+      // Update the UI
+      setForms(forms.filter(form => form.id !== formToDelete.id));
+      
+      toast({
+        title: "Formulario eliminado",
+        description: `El formulario "${formToDelete.title}" ha sido eliminado correctamente.`,
+      });
+      
+    } catch (error: any) {
+      console.error('Error deleting form:', error);
+      toast({
+        title: "Error al eliminar el formulario",
+        description: error?.message || "No se pudo eliminar el formulario. Por favor, intenta nuevamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+      setFormToDelete(null);
+    }
+  };
+
+  const openDeleteDialog = (form: Form) => {
+    setFormToDelete(form);
+  };
+
   const handleViewDetails = (formId: string) => {
     navigate(`/forms/${formId}/edit`);
   };
@@ -374,8 +436,13 @@ const Forms = () => {
                       </div>
                       <CardTitle className="text-lg">{form.title}</CardTitle>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="h-4 w-4" />
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8"
+                      onClick={() => openDeleteDialog(form)}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500 hover:text-red-700" />
                     </Button>
                   </div>
                   <CardDescription className="flex items-center mt-2">
@@ -451,6 +518,31 @@ const Forms = () => {
           )}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!formToDelete} onOpenChange={(open) => !open && setFormToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará el formulario "{formToDelete?.title}" y no puede ser revertida. 
+              {formToDelete?.responseCount && formToDelete.responseCount > 0 
+                ? ` También se eliminarán ${formToDelete.responseCount} respuestas asociadas a este formulario.` 
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteForm} 
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleting ? 'Eliminando...' : 'Eliminar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageContainer>
   );
 };
