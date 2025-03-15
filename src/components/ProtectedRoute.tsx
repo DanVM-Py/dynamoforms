@@ -21,23 +21,25 @@ const ProtectedRoute = ({
 }: ProtectedRouteProps) => {
   const { user, userProfile, loading, isGlobalAdmin, isProjectAdmin, isApprover } = useAuth();
 
-  if (loading) {
+  // First loading state - waiting for authentication
+  if (loading && !user) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="flex flex-col items-center">
           <Loader2 className="h-8 w-8 animate-spin text-dynamo-600 mb-2" />
-          <p className="text-gray-600">Cargando...</p>
+          <p className="text-gray-600">Verificando sesión...</p>
         </div>
       </div>
     );
   }
 
+  // If not authenticated, redirect to auth page
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Si hay algun requisito de rol pero el perfil no se ha cargado, mostrar loader
-  if ((requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover) && !userProfile) {
+  // Second loading state - waiting for profile data
+  if ((requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover) && loading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="flex flex-col items-center">
@@ -48,6 +50,12 @@ const ProtectedRoute = ({
     );
   }
 
+  // Profile check - if a role is required but profile isn't loaded
+  if ((requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover) && !userProfile) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // Role-based access checks
   if (requireGlobalAdmin && !isGlobalAdmin) {
     return <Navigate to="/" replace />;
   }

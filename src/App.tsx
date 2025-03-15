@@ -19,8 +19,9 @@ import FormResponses from "./pages/FormResponses";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1, // Reducir los reintentos para tener errores más claros
-      refetchOnWindowFocus: false, // Desactivar recargas automáticas al cambiar de pestaña
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
     },
   },
 });
@@ -36,23 +37,23 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             
-            {/* Todos los usuarios pueden ver la lista de formularios */}
+            {/* Forms routes - accessible to all authenticated users */}
             <Route path="/forms" element={
               <ProtectedRoute>
                 <Forms />
               </ProtectedRoute>
             } />
             
-            {/* Restringir la edición solo a administradores */}
+            {/* Form editing - restricted to admins */}
             <Route path="/forms/:formId/edit" element={
-              <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin={false}>
+              <ProtectedRoute requireGlobalAdmin={true} requireProjectAdmin={true}>
                 <FormEdit />
               </ProtectedRoute>
             } />
             
-            {/* Restringir ver respuestas solo a administradores */}
+            {/* Form responses - restricted to admins */}
             <Route path="/forms/:formId/responses" element={
-              <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin={false}>
+              <ProtectedRoute requireGlobalAdmin={true} requireProjectAdmin={true}>
                 <FormResponses />
               </ProtectedRoute>
             } />
@@ -75,7 +76,6 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

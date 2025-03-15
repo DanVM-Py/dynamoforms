@@ -70,60 +70,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       console.log("Fetching user profile for user ID:", userId);
       
-      // Si detectamos que existe un usuario pero no hay sesión, intentamos recuperar la sesión
-      if (!session && userId) {
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData.session) {
-          setSession(sessionData.session);
-        }
-      }
-      
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
-        .maybeSingle(); // Usamos maybeSingle en lugar de single para evitar errores
+        .maybeSingle();
         
       if (error) {
         console.error("Error fetching user profile:", error);
         
-        // Intentar crear perfil si no existe
+        // Try to create profile if it doesn't exist
         if (error.code === 'PGRST116' || !data) {
-          const { data: userData } = await supabase.auth.getUser();
-          if (userData.user) {
-            console.log("Creating new profile for user:", userData.user.email);
-            
-            // Usar directamente el cliente SQL para evitar recursión RLS
-            const { error: createError } = await supabase
-              .from("profiles")
-              .insert([{ 
-                id: userId, 
-                email: userData.user.email, 
-                name: userData.user.user_metadata?.name || userData.user.email?.split('@')[0] || 'Usuario',
-                role: 'user' 
-              }]);
-            
-            if (createError) {
-              console.error("Error creating user profile:", createError);
-              toast({
-                title: "Error de perfil",
-                description: "No se pudo crear el perfil de usuario. Por favor, contacta al administrador.",
-                variant: "destructive"
-              });
-            } else {
-              console.log("Profile created successfully, retrieving it now");
-              // Esperar un momento para que los cambios se propagen
-              setTimeout(() => fetchUserProfile(userId), 1000);
-              return;
-            }
-          }
-        } else {
-          toast({
-            title: "Error de perfil",
-            description: "No se pudo cargar el perfil de usuario. Por favor, inténtalo de nuevo.",
-            variant: "destructive"
-          });
+          await createUserProfile(userId);
+          return;
         }
+        
+        toast({
+          title: "Error de perfil",
+          description: "No se pudo cargar el perfil de usuario. Por favor, inténtalo de nuevo.",
+          variant: "destructive"
+        });
         setLoading(false);
         return;
       }
@@ -151,33 +117,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log("Project admin status:", projectAdminData && projectAdminData.length > 0);
         }
       } else {
-        console.log("No user profile found, but no error was returned");
-        // Si no hay error pero tampoco data, intentamos crear el perfil
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData.user) {
-          console.log("Creating new profile for user:", userData.user.email);
-          const { error: createError } = await supabase
-            .from("profiles")
-            .insert([{ 
-              id: userId, 
-              email: userData.user.email, 
-              name: userData.user.user_metadata?.name || userData.user.email?.split('@')[0] || 'Usuario',
-              role: 'user' 
-            }]);
-          
-          if (createError) {
-            console.error("Error creating user profile:", createError);
-          } else {
-            console.log("Profile created successfully, retrieving it now");
-            // Esperar un momento para que los cambios se propagen
-            setTimeout(() => fetchUserProfile(userId), 1000);
-            return;
-          }
-        }
+        console.log("No user profile found for this user. Attempting to create one.");
+        await createUserProfile(userId);
       }
-      
     } catch (error) {
       console.error("Error in user profile workflow:", error);
+      setLoading(false);
+    }
+  };
+
+  const createUserProfile = async (userId: string) => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        console.log("Creating new profile for user:", userData.user.email);
+        
+        const { error: createError } = await supabase
+          .from("profiles")
+          .insert([{ 
+            id: userId, 
+            email: userData.user.email, 
+            name: userData.user.user_metadata?.name || userData.user.email?.split('@')[0] || 'Usuario',
+            role: 'user' 
+          }]);
+        
+        if (createError) {
+          console.error("Error creating user profile:", createError);
+          
+          if (createError.message.includes("violates row-level security policy")) {
+            toast({
+              title: "Error de acceso",
+              description: "Tu usuario necesita ser creado por un administrador. Por favor, contacta al administrador del sistema.",
+              variant: "destructive"
+            });
+          } else {
+            toast({
+              title: "Error de registro",
+              description: "No se pudo crear el perfil de usuario. Por favor, contacta al administrador.",
+              variant: "destructive"
+            });
+          }
+        } else {
+          console.log("Profile created successfully, retrieving it now");
+          // Wait a moment for the changes to propagate
+          setTimeout(() => fetchUserProfile(userId), 1000);
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("Error creating user profile:", error);
     } finally {
       setLoading(false);
     }
