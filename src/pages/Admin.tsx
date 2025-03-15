@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,12 +17,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Building2, Plus, User, Users } from "lucide-react";
 import { Project, ProjectAdmin } from "@/types/supabase";
-
-const adminCreateSchema = z.object({
-  name: z.string().min(2, "Ingresa un nombre válido"),
-  email: z.string().email("Ingresa un correo electrónico válido"),
-  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
-});
 
 const projectCreateSchema = z.object({
   name: z.string().min(2, "Ingresa un nombre válido para el proyecto"),
@@ -49,16 +44,6 @@ export default function Admin() {
   const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  // Admin create form
-  const adminForm = useForm<z.infer<typeof adminCreateSchema>>({
-    resolver: zodResolver(adminCreateSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      password: "",
-    },
-  });
 
   // Project create form
   const projectForm = useForm<z.infer<typeof projectCreateSchema>>({
@@ -194,47 +179,6 @@ export default function Admin() {
         description: error.message || "No se pudieron cargar los administradores de proyectos",
         variant: "destructive",
       });
-    }
-  };
-
-  const handleCreateGlobalAdmin = async (data: z.infer<typeof adminCreateSchema>) => {
-    try {
-      setLoading(true);
-      setAuthError(null);
-
-      // Call the function we created in SQL to create a global admin
-      // Fix for the error: Provide both type parameters that rpc expects
-      const { data: result, error } = await customSupabase.rpc<any, {
-        email: string;
-        password: string;
-        name: string;
-      }>(
-        "create_global_admin",
-        {
-          email: data.email,
-          password: data.password,
-          name: data.name
-        }
-      );
-
-      if (error) throw error;
-
-      toast({
-        title: "Administrador global creado",
-        description: `Se ha creado el administrador global con email ${data.email}`,
-      });
-
-      adminForm.reset();
-    } catch (error: any) {
-      console.error("Error creating global admin:", error);
-      setAuthError(error.message || "Error al crear administrador global");
-      toast({
-        title: "Error al crear administrador",
-        description: error.message || "No se pudo crear el administrador global",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -377,7 +321,7 @@ export default function Admin() {
         )}
         
         <Tabs defaultValue="projects">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="projects">
               <Building2 className="mr-2 h-4 w-4" />
               Proyectos
@@ -385,10 +329,6 @@ export default function Admin() {
             <TabsTrigger value="admins">
               <Users className="mr-2 h-4 w-4" />
               Administradores de Proyecto
-            </TabsTrigger>
-            <TabsTrigger value="globalAdmin">
-              <User className="mr-2 h-4 w-4" />
-              Crear Admin Global
             </TabsTrigger>
           </TabsList>
           
@@ -583,88 +523,6 @@ export default function Admin() {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-          
-          <TabsContent value="globalAdmin">
-            <Card>
-              <CardHeader>
-                <CardTitle>Crear Administrador Global</CardTitle>
-                <CardDescription>
-                  Crea un nuevo administrador global para el sistema
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...adminForm}>
-                  <form onSubmit={adminForm.handleSubmit(handleCreateGlobalAdmin)} className="space-y-4">
-                    <FormField
-                      control={adminForm.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Nombre</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Nombre del administrador" 
-                              {...field} 
-                              disabled={loading}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={adminForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Correo Electrónico</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="email" 
-                              placeholder="admin@ejemplo.com" 
-                              {...field} 
-                              disabled={loading}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={adminForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Contraseña</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="password" 
-                              placeholder="******" 
-                              {...field} 
-                              disabled={loading}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-dynamo-600 hover:bg-dynamo-700" 
-                      disabled={loading}
-                    >
-                      {loading ? "Creando..." : "Crear Administrador Global"}
-                    </Button>
-                  </form>
-                </Form>
-              </CardContent>
-              <CardFooter className="flex justify-center border-t pt-4">
-                <p className="text-sm text-muted-foreground">
-                  Un administrador global tiene acceso completo a todas las funciones del sistema
-                </p>
-              </CardFooter>
-            </Card>
           </TabsContent>
         </Tabs>
       </div>
