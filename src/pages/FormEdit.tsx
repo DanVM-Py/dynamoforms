@@ -9,6 +9,9 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft, Save } from "lucide-react";
+import { FormBuilder } from "@/components/form-builder/FormBuilder";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
 const FormEdit = () => {
   const { formId } = useParams();
@@ -17,12 +20,13 @@ const FormEdit = () => {
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState("basic-info");
   const [form, setForm] = useState({
     id: "",
     title: "",
     description: "",
     status: "draft",
-    schema: {}
+    schema: { components: [] }
   });
 
   useEffect(() => {
@@ -44,7 +48,19 @@ const FormEdit = () => {
       if (error) throw error;
       
       if (data) {
-        setForm(data);
+        // Ensure schema has components array
+        const schema = data.schema && typeof data.schema === 'object' 
+          ? data.schema 
+          : { components: [] };
+          
+        if (!schema.components) {
+          schema.components = [];
+        }
+        
+        setForm({
+          ...data,
+          schema
+        });
       } else {
         toast({
           title: "Formulario no encontrado",
@@ -74,6 +90,7 @@ const FormEdit = () => {
         .update({
           title: form.title,
           description: form.description,
+          schema: form.schema,
           updated_at: new Date().toISOString()
         })
         .eq('id', form.id);
@@ -101,6 +118,10 @@ const FormEdit = () => {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleSchemaChange = (updatedSchema: any) => {
+    setForm(prev => ({ ...prev, schema: updatedSchema }));
+  };
+
   return (
     <PageContainer>
       <div className="flex items-center mb-6">
@@ -122,55 +143,63 @@ const FormEdit = () => {
           <div className="animate-pulse text-gray-500">Cargando formulario...</div>
         </div>
       ) : (
-        <div className="grid gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Información básica</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Título</Label>
-                <Input 
-                  id="title" 
-                  name="title" 
-                  value={form.title} 
-                  onChange={handleChange}
-                  placeholder="Título del formulario"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Descripción</Label>
-                <Input 
-                  id="description" 
-                  name="description" 
-                  value={form.description || ''} 
-                  onChange={handleChange}
-                  placeholder="Descripción del formulario (opcional)"
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button 
-                onClick={handleSave} 
-                disabled={saving}
-                className="bg-dynamo-600 hover:bg-dynamo-700"
-              >
-                {saving ? 'Guardando...' : 'Guardar cambios'}
-                {!saving && <Save className="ml-2 h-4 w-4" />}
-              </Button>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Componentes del formulario</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Aquí irá el editor de componentes del formulario. Funcionalidad en desarrollo.
-              </p>
-            </CardContent>
-          </Card>
+        <div className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="basic-info">Información Básica</TabsTrigger>
+              <TabsTrigger value="form-builder">Editor de Componentes</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="basic-info">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Información básica</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Título</Label>
+                    <Input 
+                      id="title" 
+                      name="title" 
+                      value={form.title} 
+                      onChange={handleChange}
+                      placeholder="Título del formulario"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Descripción</Label>
+                    <Textarea 
+                      id="description" 
+                      name="description" 
+                      value={form.description || ''} 
+                      onChange={handleChange}
+                      placeholder="Descripción del formulario (opcional)"
+                      rows={4}
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    onClick={handleSave} 
+                    disabled={saving}
+                    className="bg-dynamo-600 hover:bg-dynamo-700"
+                  >
+                    {saving ? 'Guardando...' : 'Guardar cambios'}
+                    {!saving && <Save className="ml-2 h-4 w-4" />}
+                  </Button>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="form-builder">
+              <FormBuilder 
+                schema={form.schema} 
+                onChange={handleSchemaChange}
+                onSave={handleSave}
+                saving={saving}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
       )}
     </PageContainer>
