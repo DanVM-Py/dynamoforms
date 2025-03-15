@@ -335,6 +335,19 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      is_global_admin: {
+        Args: {
+          user_uuid: string
+        }
+        Returns: boolean
+      }
+      is_project_admin: {
+        Args: {
+          user_uuid: string
+          project_uuid: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       form_status: "draft" | "active" | "closed"

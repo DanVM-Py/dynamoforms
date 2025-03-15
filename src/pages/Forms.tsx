@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Plus, MoreVertical, Clock } from "lucide-react";
+import { FileText, Plus, MoreVertical, Clock, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,7 +25,7 @@ const Forms = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { isGlobalAdmin, isProjectAdmin, user } = useAuth();
+  const { isGlobalAdmin, isProjectAdmin, user, refreshUserProfile } = useAuth();
   
   // Variable para determinar si el usuario puede crear formularios
   const canCreateForms = isGlobalAdmin || isProjectAdmin;
@@ -39,6 +39,7 @@ const Forms = () => {
       setLoading(true);
       setError(null);
       
+      // Verificar la sesión actual
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
@@ -50,7 +51,11 @@ const Forms = () => {
         setLoading(false);
         return;
       }
+
+      // Intentar obtener el perfil para actualizar roles
+      await refreshUserProfile();
       
+      // Obtener los formularios con manejo de errores mejorado
       const { data, error } = await supabase
         .from('forms')
         .select('*');
@@ -204,14 +209,26 @@ const Forms = () => {
           <h1 className="text-3xl font-bold text-gray-900">Formularios</h1>
           <p className="text-gray-500 mt-1">Gestiona tus formularios y plantillas</p>
         </div>
-        {canCreateForms && (
+        <div className="flex space-x-2">
           <Button 
-            className="bg-dynamo-600 hover:bg-dynamo-700"
-            onClick={createForm}
+            variant="outline" 
+            onClick={fetchForms}
+            disabled={loading}
+            className="mr-2"
           >
-            <Plus className="h-4 w-4 mr-2" /> Crear formulario
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="ml-1 md:inline hidden">Actualizar</span>
           </Button>
-        )}
+          {canCreateForms && (
+            <Button 
+              className="bg-dynamo-600 hover:bg-dynamo-700"
+              onClick={createForm}
+              disabled={loading}
+            >
+              <Plus className="h-4 w-4 mr-2" /> Crear formulario
+            </Button>
+          )}
+        </div>
       </div>
 
       {loading ? (
