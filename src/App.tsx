@@ -16,7 +16,14 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import FormEdit from "./pages/FormEdit";
 import FormResponses from "./pages/FormResponses";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1, // Reducir los reintentos para tener errores más claros
+      refetchOnWindowFocus: false, // Desactivar recargas automáticas al cambiar de pestaña
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -29,17 +36,17 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/forms" element={
-              <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin={true}>
+              <ProtectedRoute>
                 <Forms />
               </ProtectedRoute>
             } />
             <Route path="/forms/:formId/edit" element={
-              <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin={true}>
+              <ProtectedRoute>
                 <FormEdit />
               </ProtectedRoute>
             } />
             <Route path="/forms/:formId/responses" element={
-              <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin={true}>
+              <ProtectedRoute>
                 <FormResponses />
               </ProtectedRoute>
             } />

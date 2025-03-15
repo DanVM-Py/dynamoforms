@@ -1,7 +1,8 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { customSupabase } from "@/integrations/supabase/customClient";
+import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
+import { toast } from "@/components/ui/use-toast";
 
 interface AuthContextType {
   session: Session | null;
@@ -28,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Get initial session
-    customSupabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -39,8 +40,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = customSupabase.auth.onAuthStateChange(
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
+        console.log("Auth state changed:", event);
         setSession(newSession);
         setUser(newSession?.user ?? null);
         
@@ -64,15 +66,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUserProfile = async (userId: string) => {
     try {
       setLoading(true);
-      const { data, error } = await customSupabase
+      
+      // Si detectamos que existe un usuario pero no hay sesión, intentamos recuperar la sesión
+      if (!session && userId) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData.session) {
+          setSession(sessionData.session);
+        }
+      }
+      
+      const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .single();
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching user profile:", error);
+        
+        // Intentar crear perfil si no existe
+        if (error.code === 'PGRST116') {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData.user) {
+            const { error: createError } = await supabase
+              .from("profiles")
+              .insert([{ 
+                id: userId, 
+                email: userData.user.email, 
+                name: userData.user.user_metadata.name || userData.user.email?.split('@')[0] || 'Usuario',
+                role: 'user' 
+              }]);
+            
+            if (createError) {
+              console.error("Error creating user profile:", createError);
+              toast({
+                title: "Error de perfil",
+                description: "No se pudo crear el perfil de usuario. Por favor, contacta al administrador.",
+                variant: "destructive"
+              });
+            } else {
+              // Intentar nuevamente obtener el perfil
+              await fetchUserProfile(userId);
+            }
+          }
+        } else {
+          toast({
+            title: "Error de perfil",
+            description: "No se pudo cargar el perfil de usuario. Por favor, inténtalo de nuevo.",
+            variant: "destructive"
+          });
+        }
+        setLoading(false);
+        return;
+      }
       
       setUserProfile(data);
+      
       // Check if user has global_admin role
       setIsGlobalAdmin(data.role === "global_admin");
       
@@ -80,17 +129,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsApprover(data.role === "approver");
       
       // Check if user is project admin for any project
-      const { data: projectAdminData, error: projectAdminError } = await customSupabase
+      const { data: projectAdminData, error: projectAdminError } = await supabase
         .from("project_admins")
         .select("*")
         .eq("user_id", userId);
         
-      if (projectAdminError) throw projectAdminError;
-      
-      setIsProjectAdmin(projectAdminData && projectAdminData.length > 0);
+      if (projectAdminError) {
+        console.error("Error fetching project admin status:", projectAdminError);
+      } else {
+        setIsProjectAdmin(projectAdminData && projectAdminData.length > 0);
+      }
       
     } catch (error) {
-      console.error("Error fetching user profile:", error);
+      console.error("Error in user profile workflow:", error);
     } finally {
       setLoading(false);
     }
@@ -104,9 +155,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
-      await customSupabase.auth.signOut();
+      setLoading(true);
+      await supabase.auth.signOut();
+      toast({
+        title: "Sesión finalizada",
+        description: "Has cerrado sesión correctamente."
+      });
     } catch (error) {
       console.error("Error signing out:", error);
+      toast({
+        title: "Error al cerrar sesión",
+        description: "No se pudo cerrar sesión. Por favor intenta nuevamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 

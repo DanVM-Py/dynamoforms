@@ -13,6 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
 
 const loginFormSchema = z.object({
   email: z.string().email("Ingresa un correo electrónico válido"),
@@ -30,6 +33,14 @@ export default function Auth() {
   const [authError, setAuthError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    // Redirect if user is already authenticated
+    if (user && !authLoading) {
+      navigate("/");
+    }
+  }, [user, authLoading, navigate]);
 
   // Login form
   const loginForm = useForm<z.infer<typeof loginFormSchema>>({
@@ -55,6 +66,7 @@ export default function Auth() {
       setLoading(true);
       setAuthError(null);
 
+      console.log("Intentando iniciar sesión con:", data.email);
       const { error } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
@@ -70,10 +82,20 @@ export default function Auth() {
       navigate("/");
     } catch (error: any) {
       console.error("Error logging in:", error);
-      setAuthError(error.message || "Error al iniciar sesión");
+      let errorMessage = "Verifica tus credenciales e intenta nuevamente";
+      
+      if (error.message?.includes("Invalid login credentials")) {
+        errorMessage = "Credenciales inválidas. Por favor verifica tu email y contraseña.";
+      } else if (error.message?.includes("Email not confirmed")) {
+        errorMessage = "Tu email no ha sido confirmado. Por favor revisa tu bandeja de entrada.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setAuthError(errorMessage);
       toast({
         title: "Error de inicio de sesión",
-        description: error.message || "Verifica tus credenciales e intenta nuevamente",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -86,6 +108,7 @@ export default function Auth() {
       setLoading(true);
       setAuthError(null);
 
+      console.log("Intentando registrar:", data.email);
       const { error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -100,23 +123,44 @@ export default function Auth() {
 
       toast({
         title: "Registro exitoso",
-        description: "Tu cuenta ha sido creada. Verifica tu correo electrónico para confirmar.",
+        description: "Tu cuenta ha sido creada. Si es necesario verificar tu correo, recibirás un email con instrucciones.",
       });
 
       loginForm.setValue("email", data.email);
       loginForm.setValue("password", data.password);
     } catch (error: any) {
       console.error("Error registering:", error);
-      setAuthError(error.message || "Error al registrarse");
+      let errorMessage = "No se pudo crear la cuenta.";
+      
+      if (error.message?.includes("already registered")) {
+        errorMessage = "Este correo ya está registrado. Intenta iniciar sesión.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setAuthError(errorMessage);
       toast({
         title: "Error de registro",
-        description: error.message || "No se pudo crear la cuenta",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <PageContainer>
+        <div className="flex items-center justify-center min-h-[80vh]">
+          <div className="flex flex-col items-center">
+            <Loader2 className="h-8 w-8 animate-spin text-dynamo-600 mb-2" />
+            <p className="text-gray-600">Verificando sesión...</p>
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer>
@@ -184,7 +228,12 @@ export default function Auth() {
                       className="w-full bg-dynamo-600 hover:bg-dynamo-700" 
                       disabled={loading}
                     >
-                      {loading ? "Procesando..." : "Iniciar Sesión"}
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Procesando...
+                        </>
+                      ) : "Iniciar Sesión"}
                     </Button>
                   </form>
                 </Form>
@@ -251,7 +300,12 @@ export default function Auth() {
                       className="w-full bg-dynamo-600 hover:bg-dynamo-700" 
                       disabled={loading}
                     >
-                      {loading ? "Procesando..." : "Registrarse"}
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Procesando...
+                        </>
+                      ) : "Registrarse"}
                     </Button>
                   </form>
                 </Form>
