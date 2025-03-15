@@ -127,7 +127,7 @@ export function Sidebar() {
                 {(isExpanded || isMobileMenuOpen) && (
                   <div className="ml-3 overflow-hidden">
                     <p className="text-sm font-medium truncate">{userProfile?.name || 'Usuario'}</p>
-                    <p className="text-xs text-gray-500 truncate">{userProfile?.role || 'Usuario'}</p>
+                    <p className="text-xs text-gray-500 truncate">{userProfile?.role || ''}</p>
                   </div>
                 )}
               </div>
