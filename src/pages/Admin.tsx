@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,7 +38,7 @@ interface UserProfile {
   id: string;
   email: string;
   name: string | null;
-  role: string;
+  role: "global_admin" | "project_admin" | "user";
 }
 
 export default function Admin() {
@@ -161,7 +162,7 @@ export default function Admin() {
       if (error) throw error;
       
       // Get user details for each admin
-      const adminsWithDetails = await Promise.all((data || []).map(async (admin) => {
+      const adminsWithDetails = await Promise.all((data || []).map(async (admin: any) => {
         const { data: userData, error: userError } = await customSupabase
           .from("profiles")
           .select("email, name")

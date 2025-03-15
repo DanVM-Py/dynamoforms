@@ -2,14 +2,37 @@
 import { Database as OriginalDatabase } from "@/integrations/supabase/types";
 
 // Extend the original Database type with our new tables
-export interface ExtendedDatabase extends OriginalDatabase {
+export interface ExtendedDatabase extends Omit<OriginalDatabase, 'public'> {
   public: {
     Tables: {
       // Include original tables
       form_responses: OriginalDatabase["public"]["Tables"]["form_responses"];
       forms: OriginalDatabase["public"]["Tables"]["forms"];
       notifications: OriginalDatabase["public"]["Tables"]["notifications"];
-      profiles: OriginalDatabase["public"]["Tables"]["profiles"];
+      profiles: {
+        Row: {
+          created_at: string;
+          email: string;
+          id: string;
+          name: string | null;
+          role: "global_admin" | "project_admin" | "user";
+        };
+        Insert: {
+          created_at?: string;
+          email: string;
+          id: string;
+          name?: string | null;
+          role?: "global_admin" | "project_admin" | "user";
+        };
+        Update: {
+          created_at?: string;
+          email?: string;
+          id?: string;
+          name?: string | null;
+          role?: "global_admin" | "project_admin" | "user";
+        };
+        Relationships: [];
+      };
       tasks: OriginalDatabase["public"]["Tables"]["tasks"];
       
       // Add new tables
