@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Save, Trash2, GripVertical } from "lucide-react";
+import { Save, Trash2, GripVertical } from "lucide-react";
 import { ComponentToolbar } from "./ComponentToolbar";
 import { FormComponentEditor } from "./FormComponentEditor";
 import { EmptyState } from "./EmptyState";
@@ -17,6 +17,10 @@ export interface FormComponent {
   options?: { label: string; value: string }[];
   placeholder?: string;
   helpText?: string;
+  maxLength?: number;
+  maxImages?: number;
+  includeText?: boolean;
+  selectionType?: 'single' | 'multiple';
 }
 
 export interface FormSchema {
@@ -47,11 +51,30 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
       required: false,
     };
 
+    // Set default values based on component type
     if (componentType === 'select' || componentType === 'radio' || componentType === 'checkbox') {
       newComponent.options = [
         { label: 'Opción 1', value: 'option1' },
         { label: 'Opción 2', value: 'option2' }
       ];
+    }
+    
+    if (componentType === 'text') {
+      newComponent.maxLength = 300;
+      newComponent.placeholder = 'Escribe aquí...';
+    }
+    
+    if (componentType === 'textarea') {
+      newComponent.maxLength = 1000;
+      newComponent.placeholder = 'Escribe aquí...';
+    }
+    
+    if (componentType === 'image_single') {
+      newComponent.maxImages = 1;
+    }
+    
+    if (componentType === 'image_multiple') {
+      newComponent.maxImages = 5;
     }
 
     setEditingComponent(newComponent);
@@ -67,10 +90,11 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
       case 'phone': return 'Teléfono';
       case 'date': return 'Fecha';
       case 'time': return 'Hora';
-      case 'select': return 'Selección';
+      case 'select': return 'Lista Desplegable';
       case 'radio': return 'Opción Única';
       case 'checkbox': return 'Opciones Múltiples';
-      case 'image': return 'Imagen';
+      case 'image_single': return 'Imagen Única';
+      case 'image_multiple': return 'Múltiples Imágenes';
       case 'signature': return 'Firma';
       case 'location': return 'Ubicación';
       default: return 'Nuevo Componente';
@@ -166,6 +190,11 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
                                 <span className="ml-2 text-xs text-gray-500">
                                   ({component.type})
                                 </span>
+                                {component.required && (
+                                  <span className="ml-2 text-xs text-red-500">
+                                    (Obligatorio)
+                                  </span>
+                                )}
                               </div>
                               <div className="flex space-x-2">
                                 <Button 

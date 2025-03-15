@@ -13,8 +13,16 @@ import {
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
-import { PlusCircle, X, Save, Trash2 } from "lucide-react";
+import { PlusCircle, X, Save, Trash2, Info } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface FormComponent {
   id: string;
@@ -24,6 +32,10 @@ interface FormComponent {
   options?: { label: string; value: string }[];
   placeholder?: string;
   helpText?: string;
+  maxLength?: number;
+  maxImages?: number;
+  includeText?: boolean;
+  selectionType?: 'single' | 'multiple';
 }
 
 interface FormComponentEditorProps {
@@ -37,11 +49,24 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
   onSave,
   onCancel,
 }) => {
-  const [editedComponent, setEditedComponent] = useState<FormComponent>({...component});
+  const [editedComponent, setEditedComponent] = useState<FormComponent>({
+    ...component,
+    maxLength: component.maxLength || (component.type === 'text' ? 300 : component.type === 'textarea' ? 1000 : undefined),
+    maxImages: component.maxImages || 1,
+    includeText: component.includeText || false,
+    selectionType: component.selectionType || 'single'
+  });
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setEditedComponent(prev => ({...prev, [name]: value}));
+  };
+  
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
+    const value = parseInt(e.target.value);
+    if (!isNaN(value) && value > 0) {
+      setEditedComponent(prev => ({...prev, [field]: value}));
+    }
   };
   
   const handleRequiredChange = (checked: boolean) => {
@@ -87,7 +112,13 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
     }));
   };
   
+  const handleSwitchChange = (checked: boolean, field: string) => {
+    setEditedComponent(prev => ({...prev, [field]: checked}));
+  };
+  
   const needsOptions = ['select', 'radio', 'checkbox'].includes(editedComponent.type);
+  const isTextField = ['text', 'textarea'].includes(editedComponent.type);
+  const isImageField = ['image_single', 'image_multiple'].includes(editedComponent.type);
   
   return (
     <Card className="border-2 border-primary">
@@ -101,14 +132,13 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[400px] pr-4">
-          <Tabs defaultValue="basic">
-            <TabsList className="mb-4">
-              <TabsTrigger value="basic">Básico</TabsTrigger>
-              {needsOptions && <TabsTrigger value="options">Opciones</TabsTrigger>}
-              <TabsTrigger value="advanced">Avanzado</TabsTrigger>
+          <Tabs defaultValue="general">
+            <TabsList className="mb-4 w-full">
+              <TabsTrigger value="general" className="flex-1">Configuración General</TabsTrigger>
+              <TabsTrigger value="specific" className="flex-1">Configuración Específica</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="basic" className="space-y-4">
+            <TabsContent value="general" className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="label">Etiqueta</Label>
                 <Input 
@@ -120,86 +150,182 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
                 />
               </div>
               
-              <div className="flex items-center space-x-2">
-                <Switch 
-                  id="required"
-                  checked={editedComponent.required}
-                  onCheckedChange={handleRequiredChange}
-                />
-                <Label htmlFor="required">Obligatorio</Label>
-              </div>
-              
-              {['text', 'textarea', 'email', 'phone', 'number', 'select'].includes(editedComponent.type) && (
-                <div className="space-y-2">
-                  <Label htmlFor="placeholder">Texto de ayuda (placeholder)</Label>
-                  <Input 
-                    id="placeholder"
-                    name="placeholder"
-                    value={editedComponent.placeholder || ''}
-                    onChange={handleChange}
-                    placeholder="Texto de ayuda para el usuario"
-                  />
-                </div>
-              )}
-            </TabsContent>
-            
-            {needsOptions && (
-              <TabsContent value="options" className="space-y-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-sm font-medium">Opciones</h3>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleAddOption}
-                  >
-                    <PlusCircle className="h-4 w-4 mr-2" />
-                    Añadir Opción
-                  </Button>
-                </div>
-                
-                {editedComponent.options?.map((option, index) => (
-                  <div key={index} className="flex space-x-2 items-start">
-                    <div className="flex-1 space-y-2">
-                      <Label htmlFor={`option-label-${index}`}>Etiqueta</Label>
-                      <Input 
-                        id={`option-label-${index}`}
-                        value={option.label}
-                        onChange={(e) => handleOptionChange(index, 'label', e.target.value)}
-                      />
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <Label htmlFor={`option-value-${index}`}>Valor</Label>
-                      <Input 
-                        id={`option-value-${index}`}
-                        value={option.value}
-                        onChange={(e) => handleOptionChange(index, 'value', e.target.value)}
-                      />
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => handleRemoveOption(index)}
-                      className="mt-7"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
-                ))}
-              </TabsContent>
-            )}
-            
-            <TabsContent value="advanced" className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="helpText">Texto de ayuda</Label>
+                <Label htmlFor="helpText">Texto de ayuda para el usuario</Label>
                 <Textarea 
                   id="helpText"
                   name="helpText"
                   value={editedComponent.helpText || ''}
                   onChange={handleChange}
-                  placeholder="Texto de ayuda adicional para el usuario"
+                  placeholder="Información adicional para ayudar al usuario a completar este campo"
                   rows={3}
                 />
               </div>
+              
+              <div className="flex items-center space-x-2 pt-2">
+                <Switch 
+                  id="required"
+                  checked={editedComponent.required}
+                  onCheckedChange={handleRequiredChange}
+                />
+                <Label htmlFor="required">Campo obligatorio</Label>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="specific" className="space-y-4">
+              {isTextField && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="placeholder">Texto de ejemplo (placeholder)</Label>
+                    <Input 
+                      id="placeholder"
+                      name="placeholder"
+                      value={editedComponent.placeholder || ''}
+                      onChange={handleChange}
+                      placeholder="Texto de ejemplo que se muestra al usuario"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="maxLength">Longitud máxima de caracteres</Label>
+                    <Input 
+                      id="maxLength"
+                      type="number"
+                      value={editedComponent.maxLength || ''}
+                      onChange={(e) => handleNumberChange(e, 'maxLength')}
+                      min={1}
+                      max={10000}
+                    />
+                    <p className="text-xs text-gray-500">
+                      {editedComponent.type === 'text' ? 'Recomendado: 300 caracteres' : 'Recomendado: 1000 caracteres'}
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {isImageField && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="maxImages">Cantidad máxima de imágenes</Label>
+                    <Input 
+                      id="maxImages"
+                      type="number"
+                      value={editedComponent.maxImages || 1}
+                      onChange={(e) => handleNumberChange(e, 'maxImages')}
+                      min={1}
+                      max={10}
+                      disabled={editedComponent.type === 'image_single'}
+                    />
+                    {editedComponent.type === 'image_single' && (
+                      <p className="text-xs text-gray-500">
+                        Este tipo de componente solo permite una imagen.
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Switch 
+                      id="includeText"
+                      checked={editedComponent.includeText}
+                      onCheckedChange={(checked) => handleSwitchChange(checked, 'includeText')}
+                    />
+                    <Label htmlFor="includeText">Incluir campo de texto con la imagen</Label>
+                  </div>
+                </div>
+              )}
+              
+              {needsOptions && (
+                <div className="space-y-4">
+                  {editedComponent.type === 'checkbox' && (
+                    <div className="space-y-2">
+                      <Label>Tipo de selección</Label>
+                      <RadioGroup 
+                        value={editedComponent.selectionType || 'multiple'} 
+                        onValueChange={(val) => setEditedComponent(prev => ({...prev, selectionType: val as 'single' | 'multiple'}))}
+                        className="flex flex-col space-y-1"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="single" id="selection-single" />
+                          <Label htmlFor="selection-single">Selección única (radio)</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="multiple" id="selection-multiple" />
+                          <Label htmlFor="selection-multiple">Selección múltiple (checkbox)</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-sm font-medium">Opciones</h3>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleAddOption}
+                    >
+                      <PlusCircle className="h-4 w-4 mr-2" />
+                      Añadir Opción
+                    </Button>
+                  </div>
+                  
+                  {editedComponent.options?.map((option, index) => (
+                    <div key={index} className="flex space-x-2 items-start">
+                      <div className="flex-1 space-y-2">
+                        <Label htmlFor={`option-label-${index}`}>Etiqueta</Label>
+                        <Input 
+                          id={`option-label-${index}`}
+                          value={option.label}
+                          onChange={(e) => handleOptionChange(index, 'label', e.target.value)}
+                        />
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <Label htmlFor={`option-value-${index}`}>Valor</Label>
+                        <Input 
+                          id={`option-value-${index}`}
+                          value={option.value}
+                          onChange={(e) => handleOptionChange(index, 'value', e.target.value)}
+                        />
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleRemoveOption(index)}
+                        className="mt-7"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {editedComponent.type === 'signature' && (
+                <div className="p-4 border rounded-md bg-gray-50">
+                  <div className="flex items-start">
+                    <Info className="h-5 w-5 text-blue-500 mr-2 mt-0.5" />
+                    <div>
+                      <h3 className="font-medium">Componente de Firma</h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Este componente permite a los usuarios dibujar su firma directamente en la aplicación. Los datos se almacenarán como una imagen.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {editedComponent.type === 'location' && (
+                <div className="p-4 border rounded-md bg-gray-50">
+                  <div className="flex items-start">
+                    <Info className="h-5 w-5 text-blue-500 mr-2 mt-0.5" />
+                    <div>
+                      <h3 className="font-medium">Componente de Geolocalización</h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Este componente capturará automáticamente la ubicación GPS del usuario cuando complete el formulario.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </ScrollArea>

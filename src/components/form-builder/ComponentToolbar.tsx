@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -7,7 +7,10 @@ import {
   DropdownMenuItem, 
   DropdownMenuLabel, 
   DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { 
@@ -23,7 +26,12 @@ import {
   CheckSquare, 
   Image, 
   PenTool, 
-  MapPin
+  MapPin,
+  FileText,
+  SquareCheckBig,
+  Images,
+  Signature,
+  MapPinned
 } from "lucide-react";
 
 interface ComponentToolbarProps {
@@ -39,26 +47,84 @@ export const ComponentToolbar: React.FC<ComponentToolbarProps> = ({ onAddCompone
           Agregar Componente
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56">
+      <DropdownMenuContent className="w-64">
         <DropdownMenuLabel>Tipos de Componentes</DropdownMenuLabel>
         <DropdownMenuSeparator />
         
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-xs text-gray-500">Texto</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => onAddComponent("text")}>
-            <Type className="mr-2 h-4 w-4" />
-            <span>Texto Corto</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onAddComponent("textarea")}>
-            <AlignLeft className="mr-2 h-4 w-4" />
-            <span>Texto Largo</span>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
+        {/* Texto Libre */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <FileText className="mr-2 h-4 w-4" />
+            <span>Texto Libre</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuItem onClick={() => onAddComponent("text")}>
+              <Type className="mr-2 h-4 w-4" />
+              <span>Texto Normal (300 caracteres)</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onAddComponent("textarea")}>
+              <AlignLeft className="mr-2 h-4 w-4" />
+              <span>Texto Grande (1000 caracteres)</span>
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        
+        {/* Opción Múltiple */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <SquareCheckBig className="mr-2 h-4 w-4" />
+            <span>Opción Múltiple</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuItem onClick={() => onAddComponent("radio")}>
+              <ListFilter className="mr-2 h-4 w-4" />
+              <span>Opción Única</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onAddComponent("checkbox")}>
+              <CheckSquare className="mr-2 h-4 w-4" />
+              <span>Opciones Múltiples</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onAddComponent("select")}>
+              <ListFilter className="mr-2 h-4 w-4" />
+              <span>Lista Desplegable</span>
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        
+        {/* Cargar Imagen */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <Images className="mr-2 h-4 w-4" />
+            <span>Cargar Imagen</span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuItem onClick={() => onAddComponent("image_single")}>
+              <Image className="mr-2 h-4 w-4" />
+              <span>Imagen Única</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onAddComponent("image_multiple")}>
+              <Images className="mr-2 h-4 w-4" />
+              <span>Múltiples Imágenes</span>
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        
+        {/* Cargar Firma */}
+        <DropdownMenuItem onClick={() => onAddComponent("signature")}>
+          <Signature className="mr-2 h-4 w-4" />
+          <span>Cargar Firma</span>
+        </DropdownMenuItem>
+        
+        {/* Geolocalización */}
+        <DropdownMenuItem onClick={() => onAddComponent("location")}>
+          <MapPinned className="mr-2 h-4 w-4" />
+          <span>Geolocalización</span>
+        </DropdownMenuItem>
         
         <DropdownMenuSeparator />
         
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-xs text-gray-500">Numérico y Fechas</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-xs text-gray-500">Otros Campos</DropdownMenuLabel>
           <DropdownMenuItem onClick={() => onAddComponent("number")}>
             <Hash className="mr-2 h-4 w-4" />
             <span>Número</span>
@@ -71,12 +137,6 @@ export const ComponentToolbar: React.FC<ComponentToolbarProps> = ({ onAddCompone
             <Clock className="mr-2 h-4 w-4" />
             <span>Hora</span>
           </DropdownMenuItem>
-        </DropdownMenuGroup>
-        
-        <DropdownMenuSeparator />
-        
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-xs text-gray-500">Contacto</DropdownMenuLabel>
           <DropdownMenuItem onClick={() => onAddComponent("email")}>
             <Mail className="mr-2 h-4 w-4" />
             <span>Correo Electrónico</span>
@@ -84,42 +144,6 @@ export const ComponentToolbar: React.FC<ComponentToolbarProps> = ({ onAddCompone
           <DropdownMenuItem onClick={() => onAddComponent("phone")}>
             <Phone className="mr-2 h-4 w-4" />
             <span>Teléfono</span>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        
-        <DropdownMenuSeparator />
-        
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-xs text-gray-500">Opciones</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => onAddComponent("select")}>
-            <ListFilter className="mr-2 h-4 w-4" />
-            <span>Selección</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onAddComponent("radio")}>
-            <ListFilter className="mr-2 h-4 w-4" />
-            <span>Opción Única</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onAddComponent("checkbox")}>
-            <CheckSquare className="mr-2 h-4 w-4" />
-            <span>Opciones Múltiples</span>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        
-        <DropdownMenuSeparator />
-        
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-xs text-gray-500">Especiales</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => onAddComponent("image")}>
-            <Image className="mr-2 h-4 w-4" />
-            <span>Imagen</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onAddComponent("signature")}>
-            <PenTool className="mr-2 h-4 w-4" />
-            <span>Firma</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onAddComponent("location")}>
-            <MapPin className="mr-2 h-4 w-4" />
-            <span>Ubicación</span>
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>
