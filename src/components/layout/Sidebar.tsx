@@ -15,6 +15,11 @@ export function Sidebar() {
   const params = useParams();
   const { user, userProfile, isGlobalAdmin, isProjectAdmin, signOut } = useAuth();
   
+  // Get the current project ID from session storage or localStorage if available
+  const getProjectIdFromStorage = () => {
+    return sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
+  };
+  
   // Get the current project ID from the URL if available - look for it in various parts of the path
   const getProjectIdFromUrl = () => {
     if (params.projectId) return params.projectId;
@@ -24,7 +29,16 @@ export function Sidebar() {
     return projectMatch ? projectMatch[1] : null;
   };
 
-  const projectId = getProjectIdFromUrl();
+  // Get project ID with priority: URL params > session storage > localStorage
+  const projectId = getProjectIdFromUrl() || getProjectIdFromStorage();
+  
+  // Store the project ID in session storage when it changes from URL
+  useEffect(() => {
+    const urlProjectId = getProjectIdFromUrl();
+    if (urlProjectId) {
+      sessionStorage.setItem('currentProjectId', urlProjectId);
+    }
+  }, [location.pathname, params]);
 
   useEffect(() => {
     setIsExpanded(!isMobile);
@@ -199,3 +213,4 @@ export function Sidebar() {
     </>
   );
 }
+
