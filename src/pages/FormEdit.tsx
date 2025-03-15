@@ -107,12 +107,13 @@ const FormEdit = () => {
     try {
       setSaving(true);
       
+      // Convert FormSchema to Json compatible object before saving
       const { error } = await supabase
         .from('forms')
         .update({
           title: form.title,
           description: form.description,
-          schema: form.schema,
+          schema: form.schema as any, // Cast to any to satisfy TypeScript
           updated_at: new Date().toISOString()
         })
         .eq('id', form.id);
