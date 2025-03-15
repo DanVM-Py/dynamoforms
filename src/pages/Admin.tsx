@@ -1,223 +1,57 @@
-
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { customSupabase } from "@/integrations/supabase/customClient";
+import { TabsContent, TabsList, TabsTrigger, Tabs } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
-import { Building2, Plus, User, Users } from "lucide-react";
-import { Project, ProjectAdmin } from "@/types/supabase";
-
-const projectCreateSchema = z.object({
-  name: z.string().min(2, "Ingresa un nombre válido para el proyecto"),
-  description: z.string().optional(),
-});
-
-const projectAdminSchema = z.object({
-  email: z.string().email("Ingresa un correo electrónico válido"),
-  projectId: z.string().uuid("Selecciona un proyecto válido"),
-});
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UserProfile {
   id: string;
+  name: string;
   email: string;
-  name: string | null;
-  role: "global_admin" | "project_admin" | "user";
+  role: "global_admin" | "project_admin" | "user" | "approver"; // Actualizado para incluir 'approver'
+  created_at: string;
 }
 
-export default function Admin() {
-  const [loading, setLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectAdmins, setProjectAdmins] = useState<ProjectAdmin[]>([]);
-  const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
-  const navigate = useNavigate();
+const Admin = () => {
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-
-  // Project create form
-  const projectForm = useForm<z.infer<typeof projectCreateSchema>>({
-    resolver: zodResolver(projectCreateSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-    },
-  });
-
-  // Project admin form
-  const projectAdminForm = useForm<z.infer<typeof projectAdminSchema>>({
-    resolver: zodResolver(projectAdminSchema),
-    defaultValues: {
-      email: "",
-      projectId: "",
-    },
-  });
+  const { user, userProfile, isGlobalAdmin, refreshUserProfile } = useAuth();
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [editingRole, setEditingRole] = useState(false);
+  const [newRole, setNewRole] = useState<UserProfile["role"]>("user");
 
   useEffect(() => {
-    // Check if user is logged in and fetch profile data
-    const checkAuth = async () => {
-      try {
-        const { data: { session } } = await customSupabase.auth.getSession();
-        
-        if (!session) {
-          navigate("/auth");
-          return;
-        }
-        
-        // Fetch user profile including role
-        const { data: profileData, error: profileError } = await customSupabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
-          
-        if (profileError) throw profileError;
-        
-        setCurrentUser(profileData);
-        
-        // Check if user is global admin
-        if (profileData.role === "global_admin") {
-          setIsGlobalAdmin(true);
-          fetchProjects();
-          fetchProjectAdmins();
-        } else {
-          // If not global admin, redirect to home
-          toast({
-            title: "Acceso denegado",
-            description: "No tienes permiso para acceder a esta página",
-            variant: "destructive",
-          });
-          navigate("/");
-        }
-        
-      } catch (error: any) {
-        console.error("Auth check error:", error);
-        toast({
-          title: "Error de autenticación",
-          description: error.message || "No se pudo verificar tu sesión",
-          variant: "destructive",
-        });
-        navigate("/auth");
-      }
-    };
-    
-    checkAuth();
-  }, [navigate, toast]);
-
-  const fetchProjects = async () => {
-    try {
-      const { data, error } = await customSupabase
-        .from("projects")
-        .select("*")
-        .order("created_at", { ascending: false });
-        
-      if (error) throw error;
-      
-      setProjects(data || []);
-    } catch (error: any) {
-      console.error("Error fetching projects:", error);
+    if (!isGlobalAdmin) {
       toast({
-        title: "Error al cargar proyectos",
-        description: error.message || "No se pudieron cargar los proyectos",
+        title: "Acceso denegado",
+        description: "Debes ser administrador global para acceder a esta página.",
         variant: "destructive",
       });
+      return;
     }
-  };
+    fetchUsers();
+  }, [isGlobalAdmin]);
 
-  const fetchProjectAdmins = async () => {
-    try {
-      const { data, error } = await customSupabase
-        .from("project_admins")
-        .select(`
-          *,
-          projects:project_id (name)
-        `);
-        
-      if (error) throw error;
-      
-      // Get user details for each admin
-      const adminsWithDetails = await Promise.all((data || []).map(async (admin: any) => {
-        const { data: userData, error: userError } = await customSupabase
-          .from("profiles")
-          .select("email, name")
-          .eq("id", admin.user_id)
-          .single();
-          
-        if (userError) {
-          console.error("Error fetching user details:", userError);
-          return {
-            ...admin,
-            user_email: "Error al cargar",
-            user_name: "Error al cargar",
-            project_name: admin.projects?.name || "Error al cargar",
-          };
-        }
-        
-        return {
-          ...admin,
-          user_email: userData.email,
-          user_name: userData.name,
-          project_name: admin.projects?.name || "Error al cargar",
-        };
-      }));
-      
-      setProjectAdmins(adminsWithDetails);
-    } catch (error: any) {
-      console.error("Error fetching project admins:", error);
-      toast({
-        title: "Error al cargar administradores",
-        description: error.message || "No se pudieron cargar los administradores de proyectos",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleCreateProject = async (data: z.infer<typeof projectCreateSchema>) => {
+  const fetchUsers = async () => {
     try {
       setLoading(true);
-      setAuthError(null);
-
-      // Get current user session
-      const { data: { session } } = await customSupabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error("No hay sesión activa");
-      }
-
-      // Create the project
-      const { error } = await customSupabase
-        .from("projects")
-        .insert({
-          name: data.name,
-          description: data.description || null,
-          created_by: session.user.id
-        });
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      toast({
-        title: "Proyecto creado",
-        description: `Se ha creado el proyecto "${data.name}"`,
-      });
-
-      projectForm.reset();
-      fetchProjects();
+      setUsers(data as UserProfile[]);
     } catch (error: any) {
-      console.error("Error creating project:", error);
-      setAuthError(error.message || "Error al crear proyecto");
+      console.error('Error fetching users:', error);
       toast({
-        title: "Error al crear proyecto",
-        description: error.message || "No se pudo crear el proyecto",
+        title: "Error al cargar usuarios",
+        description: "No se pudieron cargar los usuarios. Por favor, intenta nuevamente.",
         variant: "destructive",
       });
     } finally {
@@ -225,307 +59,144 @@ export default function Admin() {
     }
   };
 
-  const handleAssignProjectAdmin = async (data: z.infer<typeof projectAdminSchema>) => {
+  const handleRoleChange = (userId: string, newRole: UserProfile["role"]) => {
+    setSelectedUser(users.find(user => user.id === userId) || null);
+    setEditingRole(true);
+    setNewRole(newRole);
+  };
+
+  const confirmRoleChange = async () => {
+    if (!selectedUser) return;
+
     try {
       setLoading(true);
-      setAuthError(null);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', selectedUser.id);
 
-      // Get current user session
-      const { data: { session } } = await customSupabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error("No hay sesión activa");
-      }
-
-      // Find user by email
-      const { data: userData, error: userError } = await customSupabase
-        .from("profiles")
-        .select("id")
-        .eq("email", data.email)
-        .single();
-        
-      if (userError) {
-        throw new Error(`No se encontró usuario con email ${data.email}`);
-      }
-
-      // Assign user as project admin
-      const { error } = await customSupabase
-        .from("project_admins")
-        .insert({
-          project_id: data.projectId,
-          user_id: userData.id,
-          assigned_by: session.user.id
-        });
-
-      if (error) {
-        if (error.code === '23505') {
-          throw new Error(`El usuario ya es administrador de este proyecto`);
-        }
-        throw error;
-      }
+      if (error) throw error;
 
       toast({
-        title: "Administrador asignado",
-        description: `Se ha asignado a ${data.email} como administrador del proyecto`,
+        title: "Rol actualizado",
+        description: `El rol de ${selectedUser.name} ha sido actualizado a ${newRole}.`,
       });
 
-      projectAdminForm.reset();
-      fetchProjectAdmins();
+      fetchUsers();
+      refreshUserProfile();
     } catch (error: any) {
-      console.error("Error assigning project admin:", error);
-      setAuthError(error.message || "Error al asignar administrador");
+      console.error('Error updating role:', error);
       toast({
-        title: "Error al asignar administrador",
-        description: error.message || "No se pudo asignar el administrador al proyecto",
+        title: "Error al actualizar rol",
+        description: "No se pudo actualizar el rol del usuario. Por favor, intenta nuevamente.",
         variant: "destructive",
       });
     } finally {
+      setEditingRole(false);
       setLoading(false);
     }
   };
 
-  if (!isGlobalAdmin) {
-    return (
-      <PageContainer>
-        <div className="flex items-center justify-center min-h-[80vh]">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle className="text-2xl text-center">Acceso restringido</CardTitle>
-              <CardDescription className="text-center">
-                Esta página es solo para administradores globales
-              </CardDescription>
-            </CardHeader>
-            <CardFooter>
-              <Button 
-                className="w-full" 
-                onClick={() => navigate("/")}
-              >
-                Volver al inicio
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-      </PageContainer>
-    );
-  }
+  const cancelRoleChange = () => {
+    setEditingRole(false);
+    setSelectedUser(null);
+  };
 
   return (
     <PageContainer>
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Panel de Administración</h1>
-        
-        {authError && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertDescription>{authError}</AlertDescription>
-          </Alert>
-        )}
-        
-        <Tabs defaultValue="projects">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="projects">
-              <Building2 className="mr-2 h-4 w-4" />
-              Proyectos
-            </TabsTrigger>
-            <TabsTrigger value="admins">
-              <Users className="mr-2 h-4 w-4" />
-              Administradores de Proyecto
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="projects">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Crear Nuevo Proyecto</CardTitle>
-                  <CardDescription>
-                    Crea un nuevo proyecto en el sistema
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Form {...projectForm}>
-                    <form onSubmit={projectForm.handleSubmit(handleCreateProject)} className="space-y-4">
-                      <FormField
-                        control={projectForm.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Nombre del Proyecto</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="Nombre del proyecto" 
-                                {...field} 
-                                disabled={loading}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={projectForm.control}
-                        name="description"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Descripción (opcional)</FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                placeholder="Descripción del proyecto" 
-                                {...field} 
-                                disabled={loading}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button 
-                        type="submit" 
-                        className="w-full bg-dynamo-600 hover:bg-dynamo-700" 
-                        disabled={loading}
-                      >
-                        {loading ? "Creando..." : "Crear Proyecto"}
-                      </Button>
-                    </form>
-                  </Form>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Proyectos Existentes</CardTitle>
-                  <CardDescription>
-                    Lista de proyectos en el sistema
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {projects.length === 0 ? (
-                    <div className="text-center py-6 text-muted-foreground">
-                      No hay proyectos creados aún
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {projects.map((project) => (
-                        <div key={project.id} className="p-4 border rounded-lg">
-                          <h3 className="font-medium">{project.name}</h3>
-                          {project.description && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {project.description}
-                            </p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Creado: {new Date(project.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="admins">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Asignar Administrador de Proyecto</CardTitle>
-                  <CardDescription>
-                    Asigna un usuario como administrador de un proyecto
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Form {...projectAdminForm}>
-                    <form onSubmit={projectAdminForm.handleSubmit(handleAssignProjectAdmin)} className="space-y-4">
-                      <FormField
-                        control={projectAdminForm.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email del Usuario</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="email"
-                                placeholder="usuario@ejemplo.com" 
-                                {...field} 
-                                disabled={loading}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={projectAdminForm.control}
-                        name="projectId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Proyecto</FormLabel>
-                            <FormControl>
-                              <select
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                {...field}
-                                disabled={loading || projects.length === 0}
-                              >
-                                <option value="">Selecciona un proyecto</option>
-                                {projects.map((project) => (
-                                  <option key={project.id} value={project.id}>
-                                    {project.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button 
-                        type="submit" 
-                        className="w-full bg-dynamo-600 hover:bg-dynamo-700" 
-                        disabled={loading || projects.length === 0}
-                      >
-                        {loading ? "Asignando..." : "Asignar como Administrador"}
-                      </Button>
-                    </form>
-                  </Form>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Administradores de Proyectos</CardTitle>
-                  <CardDescription>
-                    Lista de administradores asignados a proyectos
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {projectAdmins.length === 0 ? (
-                    <div className="text-center py-6 text-muted-foreground">
-                      No hay administradores de proyectos asignados aún
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {projectAdmins.map((admin) => (
-                        <div key={admin.id} className="p-4 border rounded-lg">
-                          <h3 className="font-medium">{admin.user_name || admin.user_email}</h3>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Email: {admin.user_email}
-                          </p>
-                          <p className="text-sm font-medium mt-2">
-                            Proyecto: {admin.project_name}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Asignado: {new Date(admin.assigned_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Administración</h1>
+        <p className="text-gray-500 mt-1">Gestiona los usuarios y roles del sistema</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Usuarios</CardTitle>
+          <CardDescription>Administra los roles de los usuarios en el sistema.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center p-8">
+              <div className="animate-pulse text-gray-500">Cargando usuarios...</div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Nombre
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Rol
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {users.map((user) => (
+                    <tr key={user.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {user.name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.email}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.role}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        {editingRole && selectedUser?.id === user.id ? (
+                          <div className="flex space-x-2">
+                            <select
+                              value={newRole}
+                              onChange={(e) => setNewRole(e.target.value as UserProfile["role"])}
+                              className="shadow-sm focus:ring-dynamo-500 focus:border-dynamo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                            >
+                              <option value="user">Usuario</option>
+                              <option value="project_admin">Admin Proyecto</option>
+                              <option value="global_admin">Admin Global</option>
+                              <option value="approver">Aprobador</option>
+                            </select>
+                            <Button size="sm" onClick={confirmRoleChange} className="bg-dynamo-600 hover:bg-dynamo-700">
+                              Confirmar
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={cancelRoleChange}>
+                              Cancelar
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex space-x-2">
+                            <Button size="sm" variant="outline" onClick={() => handleRoleChange(user.id, "user")}>
+                              Usuario
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleRoleChange(user.id, "project_admin")}>
+                              Admin Proyecto
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleRoleChange(user.id, "global_admin")}>
+                              Admin Global
+                            </Button>
+                             <Button size="sm" variant="outline" onClick={() => handleRoleChange(user.id, "approver")}>
+                              Aprobador
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </PageContainer>
   );
-}
+};
+
+export default Admin;

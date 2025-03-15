@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { FileText, Plus, MoreVertical, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Form {
   id: string;
@@ -23,6 +24,10 @@ const Forms = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isGlobalAdmin, isProjectAdmin, user } = useAuth();
+  
+  // Variable para determinar si el usuario puede crear formularios
+  const canCreateForms = isGlobalAdmin || isProjectAdmin;
 
   useEffect(() => {
     fetchForms();
@@ -92,6 +97,16 @@ const Forms = () => {
         return;
       }
       
+      // Solo permitir a administradores crear formularios
+      if (!canCreateForms) {
+        toast({
+          title: "Permiso denegado",
+          description: "Solo los administradores pueden crear formularios.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('forms')
         .insert([
@@ -147,12 +162,15 @@ const Forms = () => {
           <h1 className="text-3xl font-bold text-gray-900">Formularios</h1>
           <p className="text-gray-500 mt-1">Gestiona tus formularios y plantillas</p>
         </div>
-        <Button 
-          className="bg-dynamo-600 hover:bg-dynamo-700"
-          onClick={createForm}
-        >
-          <Plus className="h-4 w-4 mr-2" /> Crear formulario
-        </Button>
+        {/* Solo mostrar el botón "Crear formulario" a administradores */}
+        {canCreateForms && (
+          <Button 
+            className="bg-dynamo-600 hover:bg-dynamo-700"
+            onClick={createForm}
+          >
+            <Plus className="h-4 w-4 mr-2" /> Crear formulario
+          </Button>
+        )}
       </div>
 
       {loading ? (
@@ -195,7 +213,7 @@ const Forms = () => {
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-between border-t pt-4">
-                  <Button variant="outline" size="sm" onClick={() => navigate(`/forms/${form.id}/edit`)}>Editar</Button>
+                  <Button variant="outline" size="sm" onClick={() => navigate(`/forms/${form.id}/edit`)}>Ver detalles</Button>
                   <Button variant="secondary" size="sm" onClick={() => navigate(`/forms/${form.id}/responses`)}>Ver respuestas</Button>
                 </CardFooter>
               </Card>
@@ -205,20 +223,27 @@ const Forms = () => {
               <div className="mb-4 text-gray-400">
                 <FileText className="h-12 w-12 mx-auto mb-2" />
                 <p className="text-lg font-medium">No hay formularios disponibles</p>
-                <p className="text-sm text-gray-500">Crea tu primer formulario para comenzar</p>
+                <p className="text-sm text-gray-500">
+                  {canCreateForms 
+                    ? "Crea tu primer formulario para comenzar" 
+                    : "No hay formularios disponibles para mostrar"}
+                </p>
               </div>
             </div>
           )}
 
-          <Card className="flex flex-col items-center justify-center h-full min-h-[220px] border-dashed hover:bg-gray-50 cursor-pointer" onClick={createForm}>
-            <div className="p-3 bg-dynamo-50 rounded-full mb-3">
-              <Plus className="h-6 w-6 text-dynamo-600" />
-            </div>
-            <p className="text-lg font-medium text-dynamo-600">Crear nuevo formulario</p>
-            <p className="text-sm text-gray-500 text-center mt-2">
-              Diseña formularios personalizados<br />con lógica avanzada
-            </p>
-          </Card>
+          {/* Solo mostrar la tarjeta "Crear nuevo formulario" a administradores */}
+          {canCreateForms && (
+            <Card className="flex flex-col items-center justify-center h-full min-h-[220px] border-dashed hover:bg-gray-50 cursor-pointer" onClick={createForm}>
+              <div className="p-3 bg-dynamo-50 rounded-full mb-3">
+                <Plus className="h-6 w-6 text-dynamo-600" />
+              </div>
+              <p className="text-lg font-medium text-dynamo-600">Crear nuevo formulario</p>
+              <p className="text-sm text-gray-500 text-center mt-2">
+                Diseña formularios personalizados<br />con lógica avanzada
+              </p>
+            </Card>
+          )}
         </div>
       )}
     </PageContainer>

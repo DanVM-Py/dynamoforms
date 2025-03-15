@@ -36,6 +36,18 @@ const ProtectedRoute = ({
     return <Navigate to="/auth" replace />;
   }
 
+  // Si hay algun requisito de rol pero el perfil no se ha cargado, mostrar loader
+  if ((requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover) && !userProfile) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="flex flex-col items-center">
+          <Loader2 className="h-8 w-8 animate-spin text-dynamo-600 mb-2" />
+          <p className="text-gray-600">Verificando permisos...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (requireGlobalAdmin && !isGlobalAdmin) {
     return <Navigate to="/" replace />;
   }

@@ -28,8 +28,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isApprover, setIsApprover] = useState(false);
 
   useEffect(() => {
+    console.log("AuthProvider initialized");
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Initial session:", session ? "exists" : "null");
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -66,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUserProfile = async (userId: string) => {
     try {
       setLoading(true);
+      console.log("Fetching user profile for user ID:", userId);
       
       // Si detectamos que existe un usuario pero no hay sesión, intentamos recuperar la sesión
       if (!session && userId) {
@@ -79,21 +82,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from("profiles")
         .select("*")
         .eq("id", userId)
-        .single();
+        .maybeSingle(); // Usamos maybeSingle en lugar de single para evitar errores
         
       if (error) {
         console.error("Error fetching user profile:", error);
         
         // Intentar crear perfil si no existe
-        if (error.code === 'PGRST116') {
+        if (error.code === 'PGRST116' || !data) {
           const { data: userData } = await supabase.auth.getUser();
           if (userData.user) {
+            console.log("Creating new profile for user:", userData.user.email);
+            
+            // Usar directamente el cliente SQL para evitar recursión RLS
             const { error: createError } = await supabase
               .from("profiles")
               .insert([{ 
                 id: userId, 
                 email: userData.user.email, 
-                name: userData.user.user_metadata.name || userData.user.email?.split('@')[0] || 'Usuario',
+                name: userData.user.user_metadata?.name || userData.user.email?.split('@')[0] || 'Usuario',
                 role: 'user' 
               }]);
             
@@ -105,8 +111,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 variant: "destructive"
               });
             } else {
-              // Intentar nuevamente obtener el perfil
-              await fetchUserProfile(userId);
+              console.log("Profile created successfully, retrieving it now");
+              // Esperar un momento para que los cambios se propagen
+              setTimeout(() => fetchUserProfile(userId), 1000);
+              return;
             }
           }
         } else {
@@ -120,24 +128,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      setUserProfile(data);
-      
-      // Check if user has global_admin role
-      setIsGlobalAdmin(data.role === "global_admin");
-      
-      // Check if user is approver
-      setIsApprover(data.role === "approver");
-      
-      // Check if user is project admin for any project
-      const { data: projectAdminData, error: projectAdminError } = await supabase
-        .from("project_admins")
-        .select("*")
-        .eq("user_id", userId);
+      if (data) {
+        console.log("User profile retrieved:", data.role);
+        setUserProfile(data);
         
-      if (projectAdminError) {
-        console.error("Error fetching project admin status:", projectAdminError);
+        // Check if user has global_admin role
+        setIsGlobalAdmin(data.role === "global_admin");
+        
+        // Check if user is approver
+        setIsApprover(data.role === "approver");
+        
+        // Check if user is project admin for any project
+        const { data: projectAdminData, error: projectAdminError } = await supabase
+          .from("project_admins")
+          .select("*")
+          .eq("user_id", userId);
+          
+        if (projectAdminError) {
+          console.error("Error fetching project admin status:", projectAdminError);
+        } else {
+          setIsProjectAdmin(projectAdminData && projectAdminData.length > 0);
+          console.log("Project admin status:", projectAdminData && projectAdminData.length > 0);
+        }
       } else {
-        setIsProjectAdmin(projectAdminData && projectAdminData.length > 0);
+        console.log("No user profile found, but no error was returned");
+        // Si no hay error pero tampoco data, intentamos crear el perfil
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData.user) {
+          console.log("Creating new profile for user:", userData.user.email);
+          const { error: createError } = await supabase
+            .from("profiles")
+            .insert([{ 
+              id: userId, 
+              email: userData.user.email, 
+              name: userData.user.user_metadata?.name || userData.user.email?.split('@')[0] || 'Usuario',
+              role: 'user' 
+            }]);
+          
+          if (createError) {
+            console.error("Error creating user profile:", createError);
+          } else {
+            console.log("Profile created successfully, retrieving it now");
+            // Esperar un momento para que los cambios se propagen
+            setTimeout(() => fetchUserProfile(userId), 1000);
+            return;
+          }
+        }
       }
       
     } catch (error) {

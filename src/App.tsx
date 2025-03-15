@@ -35,36 +35,46 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            
+            {/* Todos los usuarios pueden ver la lista de formularios */}
             <Route path="/forms" element={
               <ProtectedRoute>
                 <Forms />
               </ProtectedRoute>
             } />
+            
+            {/* Restringir la edición solo a administradores */}
             <Route path="/forms/:formId/edit" element={
-              <ProtectedRoute>
+              <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin={false}>
                 <FormEdit />
               </ProtectedRoute>
             } />
+            
+            {/* Restringir ver respuestas solo a administradores */}
             <Route path="/forms/:formId/responses" element={
-              <ProtectedRoute>
+              <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin={false}>
                 <FormResponses />
               </ProtectedRoute>
             } />
+            
             <Route path="/tasks" element={
               <ProtectedRoute>
                 <Tasks />
               </ProtectedRoute>
             } />
+            
             <Route path="/notifications" element={
               <ProtectedRoute>
                 <Notifications />
               </ProtectedRoute>
             } />
+            
             <Route path="/admin" element={
               <ProtectedRoute requireGlobalAdmin>
                 <Admin />
               </ProtectedRoute>
             } />
+            
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

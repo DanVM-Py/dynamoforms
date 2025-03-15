@@ -103,23 +103,14 @@ export function Sidebar() {
         <div className="mt-6 flex flex-col flex-1 gap-y-1 px-3">
           <MenuItem icon={Home} text="Inicio" to="/" />
           
-          {/* Solo los administradores pueden ver todos los enlaces */}
-          {(isGlobalAdmin || isProjectAdmin) && (
-            <>
-              <MenuItem icon={FileText} text="Formularios" to="/forms" />
-              <MenuItem icon={CheckSquare} text="Tareas" to="/tasks" />
-              <MenuItem icon={Bell} text="Notificaciones" to="/notifications" />
-            </>
-          )}
+          {/* Todos los usuarios pueden ver el enlace a Formularios */}
+          <MenuItem icon={FileText} text="Formularios" to="/forms" />
           
-          {/* Los usuarios normales solo ven las tareas e inicio */}
-          {!isGlobalAdmin && !isProjectAdmin && (
-            <>
-              <MenuItem icon={CheckSquare} text="Tareas" to="/tasks" />
-              <MenuItem icon={Bell} text="Notificaciones" to="/notifications" />
-            </>
-          )}
+          {/* Todos los usuarios ven tareas y notificaciones */}
+          <MenuItem icon={CheckSquare} text="Tareas" to="/tasks" />
+          <MenuItem icon={Bell} text="Notificaciones" to="/notifications" />
           
+          {/* Solo administradores globales ven la administración */}
           {isGlobalAdmin && (
             <MenuItem icon={Users} text="Administración" to="/admin" />
           )}
