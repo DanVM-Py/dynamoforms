@@ -54,6 +54,7 @@ export type Database = {
           created_by: string
           description: string | null
           id: string
+          project_id: string | null
           schema: Json
           status: Database["public"]["Enums"]["form_status"]
           title: string
@@ -64,6 +65,7 @@ export type Database = {
           created_by: string
           description?: string | null
           id?: string
+          project_id?: string | null
           schema?: Json
           status?: Database["public"]["Enums"]["form_status"]
           title: string
@@ -74,6 +76,7 @@ export type Database = {
           created_by?: string
           description?: string | null
           id?: string
+          project_id?: string | null
           schema?: Json
           status?: Database["public"]["Enums"]["form_status"]
           title?: string
@@ -87,6 +90,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "forms_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
         ]
       }
       notifications: {
@@ -95,6 +105,7 @@ export type Database = {
           id: string
           message: string
           metadata: Json | null
+          project_id: string | null
           sent_at: string | null
           status: Database["public"]["Enums"]["notification_status"]
           title: string
@@ -106,6 +117,7 @@ export type Database = {
           id?: string
           message: string
           metadata?: Json | null
+          project_id?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["notification_status"]
           title: string
@@ -117,6 +129,7 @@ export type Database = {
           id?: string
           message?: string
           metadata?: Json | null
+          project_id?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["notification_status"]
           title?: string
@@ -124,6 +137,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_user_id_fkey"
             columns: ["user_id"]
@@ -157,6 +177,84 @@ export type Database = {
         }
         Relationships: []
       }
+      project_admins: {
+        Row: {
+          assigned_at: string
+          assigned_by: string
+          id: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by: string
+          id?: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string
+          id?: string
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_admins_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_admins_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_admins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assigned_to: string
@@ -166,6 +264,7 @@ export type Database = {
           form_id: string | null
           form_response_id: string | null
           id: string
+          project_id: string | null
           status: Database["public"]["Enums"]["task_status"]
           title: string
           updated_at: string
@@ -178,6 +277,7 @@ export type Database = {
           form_id?: string | null
           form_response_id?: string | null
           id?: string
+          project_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           title: string
           updated_at?: string
@@ -190,6 +290,7 @@ export type Database = {
           form_id?: string | null
           form_response_id?: string | null
           id?: string
+          project_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           title?: string
           updated_at?: string
@@ -216,6 +317,13 @@ export type Database = {
             referencedRelation: "form_responses"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -230,7 +338,12 @@ export type Database = {
       notification_status: "sent" | "failed" | "retrying"
       notification_type: "email" | "whatsapp"
       task_status: "pending" | "in_progress" | "completed"
-      user_role: "admin" | "user" | "approver"
+      user_role:
+        | "admin"
+        | "user"
+        | "approver"
+        | "global_admin"
+        | "project_admin"
     }
     CompositeTypes: {
       [_ in never]: never
