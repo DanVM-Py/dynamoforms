@@ -18,7 +18,7 @@ const ProtectedRoute = ({
   requireRegularUser = false,
   requireApprover = false
 }: ProtectedRouteProps) => {
-  const { user, userProfile, loading, isGlobalAdmin, isProjectAdmin } = useAuth();
+  const { user, userProfile, loading, isGlobalAdmin, isProjectAdmin, isApprover } = useAuth();
 
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Cargando...</div>;
@@ -40,7 +40,7 @@ const ProtectedRoute = ({
     return <Navigate to="/" replace />;
   }
 
-  if (requireApprover && userProfile?.role !== 'approver') {
+  if (requireApprover && !isApprover) {
     return <Navigate to="/" replace />;
   }
 

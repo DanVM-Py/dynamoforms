@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Check if user has global_admin role
       setIsGlobalAdmin(data.role === "global_admin");
       
-      // Check if user is approver
+      // Check if user is approver - corregido para usar el tipo correcto
       setIsApprover(data.role === "approver");
       
       // Check if user is project admin for any project
