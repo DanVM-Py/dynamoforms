@@ -9,25 +9,10 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft, Save } from "lucide-react";
-import { FormBuilder } from "@/components/form-builder/FormBuilder";
+import { FormBuilder, FormSchema } from "@/components/form-builder/FormBuilder";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-
-// Define the FormComponent interface
-interface FormComponent {
-  id: string;
-  type: string;
-  label: string;
-  required: boolean;
-  options?: { label: string; value: string }[];
-  placeholder?: string;
-  helpText?: string;
-}
-
-// Define the FormSchema interface
-interface FormSchema {
-  components: FormComponent[];
-}
+import { FormRenderer } from "@/components/form-renderer/FormRenderer";
 
 const FormEdit = () => {
   const { formId } = useParams();
@@ -171,6 +156,7 @@ const FormEdit = () => {
             <TabsList className="mb-4">
               <TabsTrigger value="basic-info">Información Básica</TabsTrigger>
               <TabsTrigger value="form-builder">Editor de Componentes</TabsTrigger>
+              <TabsTrigger value="preview">Vista Previa</TabsTrigger>
             </TabsList>
             
             <TabsContent value="basic-info">
@@ -221,6 +207,56 @@ const FormEdit = () => {
                 onSave={handleSave}
                 saving={saving}
               />
+            </TabsContent>
+            
+            <TabsContent value="preview">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Vista previa del formulario</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-4">
+                    <h2 className="text-xl font-bold">{form.title}</h2>
+                    {form.description && (
+                      <p className="text-gray-600 mt-2">{form.description}</p>
+                    )}
+                  </div>
+                  
+                  <div className="bg-white p-4 border rounded-md">
+                    {form.schema.components.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>Este formulario aún no tiene componentes.</p>
+                        <p className="text-sm mt-2">
+                          Agrega componentes en la pestaña "Editor de Componentes".
+                        </p>
+                      </div>
+                    ) : (
+                      <FormRenderer 
+                        formId={form.id}
+                        schema={form.schema}
+                        readOnly={true}
+                      />
+                    )}
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    onClick={() => setActiveTab("form-builder")}
+                    variant="outline"
+                    className="mr-2"
+                  >
+                    Volver al editor
+                  </Button>
+                  <Button 
+                    onClick={handleSave} 
+                    disabled={saving}
+                    className="bg-dynamo-600 hover:bg-dynamo-700"
+                  >
+                    {saving ? 'Guardando...' : 'Guardar cambios'}
+                    {!saving && <Save className="ml-2 h-4 w-4" />}
+                  </Button>
+                </CardFooter>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>

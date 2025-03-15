@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -5,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Image as ImageIcon, PenTool } from "lucide-react";
+import { MapPin, Image as ImageIcon, PenTool, Calendar, Clock, Hash, Mail, Phone } from "lucide-react";
 import { FormComponent } from "./FormBuilder";
 
 interface FormComponentPreviewProps {
@@ -30,23 +31,84 @@ export const FormComponentPreview: React.FC<FormComponentPreviewProps> = ({ comp
   
   switch (type) {
     case 'text':
-    case 'email':
-    case 'phone':
-    case 'number':
-    case 'date':
-    case 'time':
       return (
         <div className="space-y-1">
           {renderLabel()}
-          <Input
-            type={type === 'number' ? 'number' : type === 'date' ? 'date' : type === 'time' ? 'time' : 'text'}
-            placeholder={placeholder}
-            readOnly
-          />
+          <Input type="text" placeholder={placeholder} readOnly />
           {renderHelpText()}
         </div>
       );
       
+    case 'email':
+      return (
+        <div className="space-y-1">
+          {renderLabel()}
+          <div className="flex">
+            <div className="flex items-center px-3 bg-gray-50 border border-r-0 border-gray-300 rounded-l-md">
+              <Mail className="h-4 w-4 text-gray-500" />
+            </div>
+            <Input className="rounded-l-none" type="email" placeholder={placeholder || "ejemplo@correo.com"} readOnly />
+          </div>
+          {renderHelpText()}
+        </div>
+      );
+      
+    case 'phone':
+      return (
+        <div className="space-y-1">
+          {renderLabel()}
+          <div className="flex">
+            <div className="flex items-center px-3 bg-gray-50 border border-r-0 border-gray-300 rounded-l-md">
+              <Phone className="h-4 w-4 text-gray-500" />
+            </div>
+            <Input className="rounded-l-none" type="tel" placeholder={placeholder || "+52 555 123 4567"} readOnly />
+          </div>
+          {renderHelpText()}
+        </div>
+      );
+      
+    case 'number':
+      return (
+        <div className="space-y-1">
+          {renderLabel()}
+          <div className="flex">
+            <div className="flex items-center px-3 bg-gray-50 border border-r-0 border-gray-300 rounded-l-md">
+              <Hash className="h-4 w-4 text-gray-500" />
+            </div>
+            <Input className="rounded-l-none" type="number" placeholder={placeholder || "0"} readOnly />
+          </div>
+          {renderHelpText()}
+        </div>
+      );
+      
+    case 'date':
+      return (
+        <div className="space-y-1">
+          {renderLabel()}
+          <div className="flex">
+            <div className="flex items-center px-3 bg-gray-50 border border-r-0 border-gray-300 rounded-l-md">
+              <Calendar className="h-4 w-4 text-gray-500" />
+            </div>
+            <Input className="rounded-l-none" type="date" readOnly />
+          </div>
+          {renderHelpText()}
+        </div>
+      );
+      
+    case 'time':
+      return (
+        <div className="space-y-1">
+          {renderLabel()}
+          <div className="flex">
+            <div className="flex items-center px-3 bg-gray-50 border border-r-0 border-gray-300 rounded-l-md">
+              <Clock className="h-4 w-4 text-gray-500" />
+            </div>
+            <Input className="rounded-l-none" type="time" readOnly />
+          </div>
+          {renderHelpText()}
+        </div>
+      );
+    
     case 'textarea':
       return (
         <div className="space-y-1">
@@ -110,9 +172,10 @@ export const FormComponentPreview: React.FC<FormComponentPreviewProps> = ({ comp
       return (
         <div className="space-y-1">
           {renderLabel()}
-          <div className="border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center justify-center bg-gray-50">
+          <div className="border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center justify-center bg-gray-50 h-40">
             <ImageIcon className="h-10 w-10 text-gray-400 mb-2" />
             <p className="text-sm text-gray-500">Subir imagen</p>
+            <p className="text-xs text-gray-400 mt-1">Se guardará en almacenamiento seguro</p>
           </div>
           {renderHelpText()}
         </div>
@@ -122,9 +185,10 @@ export const FormComponentPreview: React.FC<FormComponentPreviewProps> = ({ comp
       return (
         <div className="space-y-1">
           {renderLabel()}
-          <div className="border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center justify-center bg-gray-50 h-32">
+          <div className="border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center justify-center bg-gray-50 h-40">
             <PenTool className="h-10 w-10 text-gray-400 mb-2" />
             <p className="text-sm text-gray-500">Firma aquí</p>
+            <p className="text-xs text-gray-400 mt-1">Guardaremos tu firma como imagen</p>
           </div>
           {renderHelpText()}
         </div>
@@ -134,9 +198,10 @@ export const FormComponentPreview: React.FC<FormComponentPreviewProps> = ({ comp
       return (
         <div className="space-y-1">
           {renderLabel()}
-          <div className="border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center justify-center bg-gray-50 h-32">
+          <div className="border-2 border-dashed border-gray-300 rounded-md p-6 flex flex-col items-center justify-center bg-gray-50 h-40">
             <MapPin className="h-10 w-10 text-gray-400 mb-2" />
             <p className="text-sm text-gray-500">Seleccionar ubicación</p>
+            <p className="text-xs text-gray-400 mt-1">Haz click para elegir en el mapa</p>
           </div>
           {renderHelpText()}
         </div>
