@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,8 +17,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { Loader2, ChevronDown, ChevronRight, Info } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { v4 as uuidv4 } from "uuid";
 
-interface FormRendererProps {
+export interface FormRendererProps {
   formId: string;
   schema: FormSchema;
   readOnly?: boolean;
@@ -30,7 +32,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
   schema, 
   readOnly = false,
   onSubmitSuccess,
-  isPublic
+  isPublic = false
 }) => {
   const { toast } = useToast();
   const [formValues, setFormValues] = useState<Record<string, any>>({});
@@ -112,12 +114,17 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
         }
       }
       
+      // Handle public form submissions differently
+      const userId = isPublic 
+        ? uuidv4() // Generate anonymous user ID for public submissions
+        : (await supabase.auth.getUser()).data.user?.id;
+      
       const { data, error } = await supabase
         .from('form_responses')
         .insert({
           form_id: formId,
           response_data: processedValues,
-          user_id: (await supabase.auth.getUser()).data.user?.id,
+          user_id: userId,
         })
         .select('id')
         .single();
@@ -444,3 +451,4 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
     </form>
   );
 };
+

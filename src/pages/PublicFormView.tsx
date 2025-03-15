@@ -138,7 +138,7 @@ const PublicFormView = () => {
             <FormRenderer 
               formId={form.id} 
               schema={form.schema}
-              onSubmit={handleSubmit}
+              onSubmitSuccess={() => navigate(`/public/forms/${formId}/success`)}
               readOnly={false}
               isPublic={true}
             />

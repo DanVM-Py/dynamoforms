@@ -16,6 +16,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import FormEdit from "./pages/FormEdit";
 import FormResponses from "./pages/FormResponses";
 import Projects from "./pages/Projects";
+import ProjectRoles from "./pages/ProjectRoles";
 import PublicFormView from "./pages/PublicFormView";
 import PublicFormSuccess from "./pages/PublicFormSuccess";
 
@@ -48,6 +49,13 @@ const App = () => (
             <Route path="/projects" element={
               <ProtectedRoute requireGlobalAdmin>
                 <Projects />
+              </ProtectedRoute>
+            } />
+            
+            {/* Project roles management - accessible to global and project admins */}
+            <Route path="/projects/:projectId/roles" element={
+              <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin={true}>
+                <ProjectRoles />
               </ProtectedRoute>
             } />
             
