@@ -46,7 +46,7 @@ export const processFormInheritance = async (
     console.log(`Se encontraron ${templates.length} plantillas de tareas aplicables.`);
     
     // Process each template
-    for (const template of templates) {
+    for (const template of templates as TaskTemplate[]) {
       await createTaskFromTemplate(template, formId, formResponseId, responseData, projectId, submitterId);
     }
     
@@ -143,6 +143,7 @@ const createTaskFromTemplate = async (
         title: 'Nueva tarea asignada',
         message: `Se te ha asignado una nueva tarea: ${template.title}`,
         type: 'task_assigned',
+        read: false,
         project_id: projectId || template.project_id,
         metadata: {
           task_id: task.id,

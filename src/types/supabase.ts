@@ -1,4 +1,3 @@
-
 export type Json =
   | string
   | number
@@ -636,11 +635,12 @@ export interface Database {
   }
 }
 
+export type ExtendedDatabase = Database;
+
 export type TableRow<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
 export type TableInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
 export type TableUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']
 
-// Define frequently used types
 export type Task = TableRow<'tasks'> & {
   source_form?: {
     id: string
@@ -664,6 +664,25 @@ export type FormResponse = TableRow<'form_responses'>
 export type Project = TableRow<'projects'>
 export type Profile = TableRow<'profiles'>
 export type Role = TableRow<'roles'>
-export type UserRole = TableRow<'user_roles'>
-export type FormRole = TableRow<'form_roles'>
+
+export type UserRole = TableRow<'user_roles'> & {
+  user_name?: string;
+  user_email?: string;
+  role_name?: string;
+  profiles?: {
+    name?: string;
+    email?: string;
+  };
+  roles?: {
+    name?: string;
+  };
+}
+
+export type FormRole = TableRow<'form_roles'> & {
+  role_name?: string;
+  roles?: {
+    name?: string;
+  };
+}
+
 export type Notification = TableRow<'notifications'>

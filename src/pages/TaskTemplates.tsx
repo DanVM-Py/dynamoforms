@@ -273,7 +273,21 @@ const TaskTemplates = () => {
   // Populate form state when editing an existing template
   useEffect(() => {
     if (selectedTemplate) {
-      setFormState(selectedTemplate);
+      // Fix the spread type error by explicitly defining what we're copying
+      setFormState({
+        id: selectedTemplate.id,
+        title: selectedTemplate.title,
+        description: selectedTemplate.description,
+        source_form_id: selectedTemplate.source_form_id,
+        target_form_id: selectedTemplate.target_form_id,
+        assignment_type: selectedTemplate.assignment_type,
+        default_assignee: selectedTemplate.default_assignee,
+        assignee_form_field: selectedTemplate.assignee_form_field,
+        due_days: selectedTemplate.due_days,
+        is_active: selectedTemplate.is_active,
+        inheritance_mapping: selectedTemplate.inheritance_mapping,
+        project_id: selectedTemplate.project_id
+      });
     }
   }, [selectedTemplate]);
   
