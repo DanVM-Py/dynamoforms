@@ -95,61 +95,75 @@ const ProjectUsers = () => {
     },
   });
 
-  // Fetch project users with their info and roles - fixed to avoid relationship naming conflicts
+  // Fetch project users with their info and roles - fixed to query separately to avoid relationship conflicts
   const { data: projectUsers, isLoading } = useQuery({
     queryKey: ["projectUsers", projectId, roleFilter, statusFilter],
     queryFn: async () => {
+      // First, get the project users with the specified filters
       let query = supabase
         .from("project_users")
-        .select(`
-          id,
-          project_id,
-          user_id,
-          status,
-          invited_at,
-          invited_by,
-          activated_at,
-          user:user_id (
-            email,
-            full_name
-          ),
-          role:user_id (
-            user_roles (
-              role_id,
-              roles (
-                id,
-                name
-              )
-            )
-          )
-        `)
+        .select("*")
         .eq("project_id", projectId);
-
-      if (roleFilter) {
-        query = query.eq("role.user_roles.roles.id", roleFilter);
-      }
 
       if (statusFilter) {
         query = query.eq("status", statusFilter);
       }
 
-      const { data, error } = await query;
+      const { data: projectUsersData, error: projectUsersError } = await query;
+      
+      if (projectUsersError) throw projectUsersError;
+      if (!projectUsersData) return [];
 
-      if (error) throw error;
+      // Process each project user to get associated profile and role information
+      const enrichedUsers = await Promise.all(
+        projectUsersData.map(async (pu) => {
+          // Get user profile information
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("email, full_name")
+            .eq("id", pu.user_id)
+            .single();
 
-      // Transform data to include role and user information
-      return data.map((item) => ({
-        id: item.id,
-        project_id: item.project_id,
-        user_id: item.user_id,
-        status: item.status,
-        invited_at: item.invited_at,
-        invited_by: item.invited_by,
-        activated_at: item.activated_at,
-        email: item.user?.email,
-        full_name: item.user?.full_name,
-        role_name: item.role?.user_roles?.[0]?.roles?.name,
-      })) as ProjectUser[];
+          // Get user role information if a role filter is applied
+          let roleName = undefined;
+          if (roleFilter) {
+            const { data: userRoleData } = await supabase
+              .from("user_roles")
+              .select("roles(name)")
+              .eq("user_id", pu.user_id)
+              .eq("role_id", roleFilter)
+              .eq("project_id", projectId)
+              .single();
+
+            // If role filter is applied but user doesn't have the role, skip this user
+            if (!userRoleData) return null;
+            
+            roleName = userRoleData.roles?.name;
+          } else {
+            // Get any role the user might have for this project
+            const { data: userRoleData } = await supabase
+              .from("user_roles")
+              .select("roles(name)")
+              .eq("user_id", pu.user_id)
+              .eq("project_id", projectId);
+
+            if (userRoleData && userRoleData.length > 0 && userRoleData[0].roles) {
+              roleName = userRoleData[0].roles.name;
+            }
+          }
+
+          // Return the enriched user object
+          return {
+            ...pu,
+            email: profileData?.email,
+            full_name: profileData?.full_name,
+            role_name: roleName,
+          } as ProjectUser;
+        })
+      );
+
+      // Filter out any null values (users that didn't match the role filter)
+      return enrichedUsers.filter(Boolean) as ProjectUser[];
     },
   });
 
@@ -200,7 +214,7 @@ const ProjectUsers = () => {
         throw new Error("User is already assigned to another project");
       }
 
-      // Create project user record - fixed by adding the required invited_by field
+      // Create project user record - including the invited_by field
       const { error: insertError } = await supabase
         .from("project_users")
         .insert({
@@ -214,7 +228,7 @@ const ProjectUsers = () => {
         throw insertError;
       }
 
-      // If a role was specified, assign the user to that role - fixed by changing created_by to assigned_by
+      // If a role was specified, assign the user to that role
       if (values.roleId) {
         const { error: roleError } = await supabase
           .from("user_roles")
