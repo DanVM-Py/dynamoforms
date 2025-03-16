@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   BrowserRouter as Router,
@@ -20,7 +21,7 @@ import PublicFormSuccess from './pages/PublicFormSuccess';
 import NotFound from './pages/NotFound';
 import { Toaster } from "@/components/ui/toaster"
 import ProtectedRoute from './components/ProtectedRoute';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ProjectRoles from './pages/ProjectRoles';
 import ProjectUsers from './pages/ProjectUsers';
 
