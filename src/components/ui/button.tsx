@@ -42,25 +42,29 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, openInNew = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, openInNew = false, onClick, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
     
     // For buttons that need to open in new tab
-    if (openInNew && props.onClick) {
-      const originalOnClick = props.onClick;
-      props.onClick = (e) => {
-        originalOnClick(e);
+    const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+      if (onClick) {
+        onClick(e);
+      }
+      
+      if (openInNew) {
+        // Handle opening in new tab through the onClick handler
+        // instead of relying on target/rel attributes
+        window.open(props.href, '_blank', 'noopener,noreferrer');
         e.preventDefault();
-      };
-    }
+      }
+    };
     
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
+        onClick={handleClick}
         {...props}
-        target={openInNew ? "_blank" : undefined}
-        rel={openInNew ? "noopener noreferrer" : undefined}
       />
     )
   }

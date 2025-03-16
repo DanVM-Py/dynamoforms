@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -39,14 +38,11 @@ const Forms = () => {
   const { toast } = useToast();
   const { isGlobalAdmin, isProjectAdmin, user, refreshUserProfile } = useAuth();
   
-  // Variable para determinar si el usuario puede crear formularios
   const canCreateForms = isGlobalAdmin || isProjectAdmin;
 
-  // Add state for delete confirmation dialog
   const [formToDelete, setFormToDelete] = useState<Form | null>(null);
   const [deleting, setDeleting] = useState(false);
   
-  // Set default tab based on user role
   const [activeTab, setActiveTab] = useState(canCreateForms ? "editor" : "operational");
 
   useEffect(() => {
@@ -66,7 +62,6 @@ const Forms = () => {
       setLoading(true);
       setError(null);
       
-      // Verificar la sesión actual
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
@@ -87,10 +82,8 @@ const Forms = () => {
         projects:project_id (name)
       `);
       
-      // Si no es global_admin, filtramos según los roles del usuario
       if (!isGlobalAdmin) {
         if (isProjectAdmin) {
-          // Project admin: obtener los formularios de los proyectos que administra
           const { data: projectAdminData } = await supabase
             .from('project_admins')
             .select('project_id')
@@ -102,7 +95,6 @@ const Forms = () => {
             console.log("Filtering by project admin projects:", projectIds);
           }
         } else {
-          // Regular user: obtener formularios según roles de proyecto
           const { data: userRolesData } = await supabase
             .from('user_roles')
             .select(`
@@ -124,12 +116,10 @@ const Forms = () => {
         }
       }
 
-      // Only fetch active forms for operational view
       if (activeTab === "operational") {
         query = query.eq('status', 'active');
       }
       
-      // Obtener los formularios con manejo de errores mejorado
       const { data, error } = await query;
         
       if (error) {
@@ -140,7 +130,6 @@ const Forms = () => {
       if (data) {
         console.log("Forms retrieved:", data.length);
         
-        // Si no hay error, procesar los datos normalmente
         const formattedForms = data.map(form => ({
           ...form,
           project_name: form.projects?.name || 'Sin proyecto',
@@ -150,7 +139,6 @@ const Forms = () => {
         
         setForms(formattedForms);
         
-        // Intentar obtener los conteos de respuestas
         try {
           const formsWithResponses = await Promise.all(
             data.map(async (form) => {
@@ -238,7 +226,6 @@ const Forms = () => {
         
         setProjects(projectsData);
         
-        // Seleccionar el primer proyecto por defecto
         if (projectsData.length > 0 && !selectedProject) {
           setSelectedProject(projectsData[0].id);
         }
@@ -261,7 +248,6 @@ const Forms = () => {
         return;
       }
       
-      // Solo permitir a administradores crear formularios
       if (!canCreateForms) {
         toast({
           title: "Permiso denegado",
@@ -271,7 +257,6 @@ const Forms = () => {
         return;
       }
       
-      // Si es project_admin, debe seleccionar un proyecto
       if (isProjectAdmin && !isGlobalAdmin && !selectedProject) {
         toast({
           title: "Proyecto requerido",
@@ -281,14 +266,11 @@ const Forms = () => {
         return;
       }
       
-      // Determinar el project_id
       let projectId = null;
       
       if (isProjectAdmin && !isGlobalAdmin) {
-        // Para project_admin, usar el proyecto seleccionado
         projectId = selectedProject;
       } else if (isGlobalAdmin && selectedProject) {
-        // Para global_admin, usar el proyecto seleccionado si hay uno
         projectId = selectedProject;
       }
       
@@ -319,7 +301,6 @@ const Forms = () => {
       if (data) {
         navigate(`/forms/${data.id}/edit`);
       } else {
-        // Actualizamos la lista de formularios después de crear uno nuevo
         fetchForms();
       }
     } catch (error: any) {
@@ -333,7 +314,6 @@ const Forms = () => {
   };
 
   const handleOpenPublicFormLink = (formId: string) => {
-    // Open the public form URL in a new tab
     window.open(`/public/forms/${formId}`, '_blank');
   };
 
@@ -417,15 +397,6 @@ const Forms = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Proyecto:</span>
-              <div className="flex items-center">
-                <Building2 className="h-3 w-3 mr-1 text-dynamo-600" />
-                <span>{form.project_name}</span>
-              </div>
-            </div>
-          </div>
         </CardContent>
         <CardFooter className="flex justify-center border-t pt-4">
           <Button 
@@ -470,7 +441,6 @@ const Forms = () => {
     try {
       setDeleting(true);
       
-      // Check if there are any responses to this form
       const { count, error: countError } = await supabase
         .from('form_responses')
         .select('*', { count: 'exact', head: true })
@@ -478,7 +448,6 @@ const Forms = () => {
       
       if (countError) throw countError;
       
-      // If there are responses, delete them first
       if (count && count > 0) {
         const { error: responsesDeleteError } = await supabase
           .from('form_responses')
@@ -488,7 +457,6 @@ const Forms = () => {
         if (responsesDeleteError) throw responsesDeleteError;
       }
       
-      // Now delete the form
       const { error: formDeleteError } = await supabase
         .from('forms')
         .delete()
@@ -496,7 +464,6 @@ const Forms = () => {
       
       if (formDeleteError) throw formDeleteError;
       
-      // Update form list
       setForms(forms.filter(form => form.id !== formToDelete.id));
       
       toast({
@@ -519,7 +486,6 @@ const Forms = () => {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    // Refresh forms with different criteria when changing tabs
     setLoading(true);
     setTimeout(() => {
       fetchForms();
@@ -555,7 +521,6 @@ const Forms = () => {
         </div>
       </div>
 
-      {/* Tabs only visible if user is admin */}
       {canCreateForms && (
         <Tabs defaultValue={activeTab} onValueChange={handleTabChange} className="mb-6">
           <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -624,7 +589,6 @@ const Forms = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!formToDelete} onOpenChange={(open) => !open && setFormToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
