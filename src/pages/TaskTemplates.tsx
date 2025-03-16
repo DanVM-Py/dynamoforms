@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -19,7 +18,6 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Form, TaskTemplate } from "@/types/supabase";
 
-// Define form field interface
 interface FormField {
   id: string;
   label: string;
@@ -42,7 +40,6 @@ const TaskTemplates = () => {
     target: []
   });
   
-  // Form state for creating or editing templates
   const [formState, setFormState] = useState<Partial<TaskTemplate>>({
     title: '',
     description: '',
@@ -57,7 +54,6 @@ const TaskTemplates = () => {
     project_id: projectId || null
   });
   
-  // Fetch task templates for the current project
   const { data: templates, isLoading: isLoadingTemplates } = useQuery({
     queryKey: ['taskTemplates', projectId],
     queryFn: async () => {
@@ -80,7 +76,6 @@ const TaskTemplates = () => {
     }
   });
   
-  // Fetch forms for use in selectors
   const { data: forms } = useQuery({
     queryKey: ['forms', projectId],
     queryFn: async () => {
@@ -97,7 +92,6 @@ const TaskTemplates = () => {
     }
   });
   
-  // Fetch users for assignee selector
   const { data: users } = useQuery({
     queryKey: ['profiles'],
     queryFn: async () => {
@@ -110,7 +104,6 @@ const TaskTemplates = () => {
     }
   });
   
-  // Create/update task template mutation
   const saveTemplateMutation = useMutation({
     mutationFn: async (template: Partial<TaskTemplate>) => {
       if (!template.title || !template.source_form_id || !template.target_form_id || !template.assignment_type) {
@@ -126,7 +119,6 @@ const TaskTemplates = () => {
       };
       
       if (template.id) {
-        // Update existing template
         const { data, error } = await supabase
           .from('task_templates')
           .update(completeTemplate)
@@ -137,7 +129,6 @@ const TaskTemplates = () => {
         if (error) throw error;
         return data;
       } else {
-        // Create new template
         const { data, error } = await supabase
           .from('task_templates')
           .insert(completeTemplate)
@@ -180,7 +171,6 @@ const TaskTemplates = () => {
     }
   });
   
-  // Delete task template mutation
   const deleteTemplateMutation = useMutation({
     mutationFn: async (templateId: string) => {
       const { error } = await supabase
@@ -207,11 +197,9 @@ const TaskTemplates = () => {
     }
   });
   
-  // Fetch form schema when source or target form changes
   useEffect(() => {
     const fetchFormSchemas = async () => {
       if (formState.source_form_id) {
-        // Fetch source form schema
         const { data: sourceForm, error: sourceError } = await supabase
           .from('forms')
           .select('schema')
@@ -220,7 +208,6 @@ const TaskTemplates = () => {
         
         if (!sourceError && sourceForm?.schema) {
           try {
-            // Extract field information for mapping
             const schema = sourceForm.schema as { components: any[] };
             const fields = (schema.components || [])
               .filter(comp => comp.type !== 'info_text' && !comp.type.startsWith('group'))
@@ -239,7 +226,6 @@ const TaskTemplates = () => {
       }
       
       if (formState.target_form_id) {
-        // Fetch target form schema
         const { data: targetForm, error: targetError } = await supabase
           .from('forms')
           .select('schema')
@@ -248,7 +234,6 @@ const TaskTemplates = () => {
         
         if (!targetError && targetForm?.schema) {
           try {
-            // Extract field information for mapping
             const schema = targetForm.schema as { components: any[] };
             const fields = (schema.components || [])
               .filter(comp => comp.type !== 'info_text' && !comp.type.startsWith('group'))
@@ -270,10 +255,8 @@ const TaskTemplates = () => {
     fetchFormSchemas();
   }, [formState.source_form_id, formState.target_form_id]);
   
-  // Populate form state when editing an existing template
   useEffect(() => {
     if (selectedTemplate) {
-      // Fix the spread type error by explicitly defining what we're copying
       setFormState({
         id: selectedTemplate.id,
         title: selectedTemplate.title,
@@ -286,7 +269,8 @@ const TaskTemplates = () => {
         due_days: selectedTemplate.due_days,
         is_active: selectedTemplate.is_active,
         inheritance_mapping: selectedTemplate.inheritance_mapping,
-        project_id: selectedTemplate.project_id
+        project_id: selectedTemplate.project_id,
+        created_at: selectedTemplate.created_at
       });
     }
   }, [selectedTemplate]);
@@ -350,7 +334,6 @@ const TaskTemplates = () => {
       </div>
       
       {isCreating || selectedTemplate ? (
-        // Template Form
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>
@@ -626,7 +609,6 @@ const TaskTemplates = () => {
           </CardFooter>
         </Card>
       ) : (
-        // Template List
         <div className="mb-6 flex justify-end">
           <Button 
             onClick={() => setIsCreating(true)}

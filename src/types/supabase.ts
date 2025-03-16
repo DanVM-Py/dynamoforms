@@ -1,3 +1,4 @@
+
 export type Json =
   | string
   | number
@@ -56,7 +57,7 @@ export interface Database {
           schema: Json
           id: string
           created_by: string
-          status: "draft" | "published" | "closed"
+          status: "draft" | "published" | "closed" | "active"
           created_at: string
           updated_at: string
           is_public: boolean
@@ -68,7 +69,7 @@ export interface Database {
           schema?: Json
           id?: string
           created_by: string
-          status?: "draft" | "published" | "closed"
+          status?: "draft" | "published" | "closed" | "active"
           created_at?: string
           updated_at?: string
           is_public?: boolean
@@ -80,7 +81,7 @@ export interface Database {
           schema?: Json
           id?: string
           created_by?: string
-          status?: "draft" | "published" | "closed"
+          status?: "draft" | "published" | "closed" | "active"
           created_at?: string
           updated_at?: string
           is_public?: boolean
@@ -287,6 +288,10 @@ export interface Database {
           user_id: string
           created_at: string
           created_by: string
+          status: string
+          invited_at: string
+          invited_by: string
+          activated_at: string | null
         }
         Insert: {
           id?: string
@@ -294,6 +299,10 @@ export interface Database {
           user_id: string
           created_at?: string
           created_by: string
+          status: string
+          invited_at?: string
+          invited_by: string
+          activated_at?: string | null
         }
         Update: {
           id?: string
@@ -301,6 +310,10 @@ export interface Database {
           user_id?: string
           created_at?: string
           created_by?: string
+          status?: string
+          invited_at?: string
+          invited_by?: string
+          activated_at?: string | null
         }
         Relationships: [
           {
@@ -417,6 +430,7 @@ export interface Database {
           form_response_id: string | null
           project_id: string | null
           source_form_id: string | null
+          priority?: string | null
         }
         Insert: {
           id?: string
@@ -431,6 +445,7 @@ export interface Database {
           form_response_id?: string | null
           project_id?: string | null
           source_form_id?: string | null
+          priority?: string | null
         }
         Update: {
           id?: string
@@ -445,6 +460,7 @@ export interface Database {
           form_response_id?: string | null
           project_id?: string | null
           source_form_id?: string | null
+          priority?: string | null
         }
         Relationships: [
           {
@@ -561,6 +577,7 @@ export interface Database {
           role_id: string
           created_at: string
           created_by: string
+          project_id: string
         }
         Insert: {
           id?: string
@@ -568,6 +585,7 @@ export interface Database {
           role_id: string
           created_at?: string
           created_by: string
+          project_id: string
         }
         Update: {
           id?: string
@@ -575,6 +593,7 @@ export interface Database {
           role_id?: string
           created_at?: string
           created_by?: string
+          project_id?: string
         }
         Relationships: [
           {
@@ -646,6 +665,8 @@ export type Task = TableRow<'tasks'> & {
     id: string
     title: string
   }
+  assignee_name?: string
+  priority?: string
 }
 
 export type TaskTemplate = TableRow<'task_templates'> & {
@@ -683,6 +704,12 @@ export type FormRole = TableRow<'form_roles'> & {
   roles?: {
     name?: string;
   };
+}
+
+export type ProjectUser = TableRow<'project_users'> & {
+  email?: string;
+  full_name?: string;
+  role_name?: string;
 }
 
 export type Notification = TableRow<'notifications'>
