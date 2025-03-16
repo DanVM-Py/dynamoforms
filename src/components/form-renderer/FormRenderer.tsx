@@ -3,17 +3,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SignatureField } from "../form-builder/SignatureField";
-import { ImageUploadField } from "../form-builder/ImageUploadField";
-import { LocationField } from "../form-builder/LocationField";
-import { FormComponent, FormSchema } from "../form-builder/FormBuilder";
-import { uploadBase64Image } from "@/utils/fileUploadUtils";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ImageUploader } from "../ImageUploader";
+import { SignatureField } from "./SignatureField";
+import { LocationField } from "./LocationField";
+import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
-import { Loader2, ChevronDown, ChevronRight, Info } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { v4 as uuidv4 } from "uuid";
@@ -21,228 +25,207 @@ import { FileUploader } from "../FileUploader";
 
 export interface FormRendererProps {
   formId: string;
-  schema: FormSchema;
+  schema: {
+    components: any[];
+    groups?: any[];
+    title?: string;
+    description?: string;
+  };
   readOnly?: boolean;
-  onSubmitSuccess?: (responseId: string) => void;
+  onSuccess?: () => void;
+  onSubmit?: (data: any) => void;
   isPublic?: boolean;
 }
 
-export const FormRenderer: React.FC<FormRendererProps> = ({ 
-  formId, 
-  schema, 
+export const FormRenderer: React.FC<FormRendererProps> = ({
+  formId,
+  schema,
   readOnly = false,
-  onSubmitSuccess,
-  isPublic = false
+  onSuccess,
+  onSubmit,
+  isPublic = false,
 }) => {
-  const { toast } = useToast();
-  const [formValues, setFormValues] = useState<Record<string, any>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formData, setFormData] = useState<any>({});
+  const [errors, setErrors] = useState<any>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
-    const initialState: Record<string, boolean> = {};
-    schema.groups?.forEach(group => {
-      initialState[group.id] = group.expanded !== false;
-    });
-    return initialState;
-  });
-  
-  const toggleGroup = (groupId: string) => {
-    setExpandedGroups(prev => ({
-      ...prev,
-      [groupId]: !prev[groupId]
-    }));
+
+  const validateField = (component: any, value: any) => {
+    if (component.required && (!value || (typeof value === 'string' && value.trim() === ''))) {
+      return `${component.label} es requerido.`;
+    }
+    return null;
   };
-  
-  const handleInputChange = (componentId: string, value: any) => {
-    setFormValues((prev) => ({
-      ...prev,
-      [componentId]: value
-    }));
+
+  const handleInputChange = (id: string, value: any) => {
+    setFormData(prev => ({ ...prev, [id]: value }));
     
-    if (errors[componentId]) {
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[componentId];
-        return newErrors;
-      });
+    const component = schema.components.find(c => c.id === id);
+    if (component) {
+      const error = validateField(component, value);
+      setErrors(prevErrors => ({ ...prevErrors, [id]: error }));
     }
   };
-  
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    
-    schema.components.forEach((component) => {
-      if (component.required) {
-        const value = formValues[component.id];
-        
-        if (value === undefined || value === null || value === '') {
-          newErrors[component.id] = 'Este campo es obligatorio';
-        }
-      }
-    });
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (readOnly) return;
-    
-    if (!validateForm()) {
+
+    let newErrors: any = {};
+    schema.components.forEach(component => {
+      const value = formData[component.id];
+      const error = validateField(component, value);
+      if (error) {
+        newErrors[component.id] = error;
+      }
+    });
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
       toast({
-        title: "Error en el formulario",
-        description: "Por favor, completa todos los campos obligatorios.",
+        title: "Error",
+        description: "Por favor, corrige los errores en el formulario.",
         variant: "destructive",
       });
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      const processedValues = { ...formValues };
-      
-      for (const component of schema.components) {
-        if (component.type === 'signature') {
-          const signatureDataUrl = formValues[component.id];
-          if (signatureDataUrl && signatureDataUrl.startsWith('data:image')) {
-            const signatureUrl = await uploadBase64Image(signatureDataUrl, 'signatures');
-            processedValues[component.id] = signatureUrl;
-          }
-        }
+      const submissionData = {
+        form_id: formId,
+        data: formData,
+      };
+
+      if (onSubmit) {
+        onSubmit(submissionData);
+        return;
       }
-      
-      const userId = isPublic 
-        ? uuidv4() // Generate anonymous user ID for public submissions
-        : (await supabase.auth.getUser()).data.user?.id;
-      
+
       const { data, error } = await supabase
-        .from('form_responses')
-        .insert({
-          form_id: formId,
-          response_data: processedValues,
-          user_id: userId,
-        })
-        .select('id')
-        .single();
-      
-      if (error) throw error;
-      
+        .from('form_submissions')
+        .insert([submissionData])
+        .select()
+
+      if (error) {
+        console.error("Error al enviar el formulario:", error);
+        toast({
+          title: "Error",
+          description: "Hubo un error al enviar el formulario. Inténtalo de nuevo.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       toast({
         title: "Formulario enviado",
-        description: "Tu respuesta ha sido enviada correctamente.",
+        description: "El formulario se ha enviado correctamente.",
       });
-      
-      setFormValues({});
-      
-      if (onSubmitSuccess && data?.id) {
-        onSubmitSuccess(data.id);
+
+      setFormData({});
+      setErrors({});
+
+      if (onSuccess) {
+        onSuccess();
       }
     } catch (error) {
-      console.error('Error al enviar el formulario:', error);
+      console.error("Error al enviar el formulario:", error);
       toast({
-        title: "Error al enviar",
-        description: "Hubo un problema al enviar tu respuesta. Por favor, inténtalo de nuevo.",
+        title: "Error",
+        description: "Hubo un error al enviar el formulario. Inténtalo de nuevo.",
         variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
     }
   };
-  
-  const renderFormComponent = (component: FormComponent) => {
-    const { id, type, label, required, options, placeholder, helpText, content } = component;
-    const value = formValues[id];
+
+  const renderComponent = (component: any) => {
+    const { id, label, type, required, helpText, conditionalDisplay } = component;
+    
+    if (conditionalDisplay) {
+      const controllingValue = formData[conditionalDisplay.controlledBy];
+      const shouldShow = conditionalDisplay.showWhen === 'equals'
+        ? controllingValue === conditionalDisplay.value
+        : controllingValue !== conditionalDisplay.value;
+      
+      if (!shouldShow) {
+        return null;
+      }
+    }
+    
     const error = errors[id];
     
     switch (type) {
-      case 'text':
-      case 'email':
-      case 'phone':
-      case 'number':
+      case "text":
         return (
-          <div className="space-y-2" key={id}>
-            <Label htmlFor={id}>
+          <div key={id} className="space-y-2">
+            <Label htmlFor={id} className={required ? "required" : ""}>
               {label}
-              {required && <span className="ml-1 text-red-500">*</span>}
             </Label>
+            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
             <Input
+              type="text"
               id={id}
-              type={type === 'number' ? 'number' : 'text'}
-              placeholder={placeholder}
-              value={value || ''}
+              placeholder={component.placeholder}
+              disabled={readOnly}
+              required={required}
               onChange={(e) => handleInputChange(id, e.target.value)}
-              readOnly={readOnly}
-              className={error ? 'border-red-500' : ''}
             />
             {error && <p className="text-red-500 text-xs">{error}</p>}
-            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
           </div>
         );
-        
-      case 'date':
-      case 'time':
+      case "textarea":
         return (
-          <div className="space-y-2" key={id}>
-            <Label htmlFor={id}>
+          <div key={id} className="space-y-2">
+            <Label htmlFor={id} className={required ? "required" : ""}>
               {label}
-              {required && <span className="ml-1 text-red-500">*</span>}
             </Label>
-            <Input
-              id={id}
-              type={type}
-              value={value || ''}
-              onChange={(e) => handleInputChange(id, e.target.value)}
-              readOnly={readOnly}
-              className={error ? 'border-red-500' : ''}
-            />
-            {error && <p className="text-red-500 text-xs">{error}</p>}
             {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
-          </div>
-        );
-        
-      case 'textarea':
-        return (
-          <div className="space-y-2" key={id}>
-            <Label htmlFor={id}>
-              {label}
-              {required && <span className="ml-1 text-red-500">*</span>}
-            </Label>
             <Textarea
               id={id}
-              placeholder={placeholder}
-              value={value || ''}
+              placeholder={component.placeholder}
+              disabled={readOnly}
+              required={required}
               onChange={(e) => handleInputChange(id, e.target.value)}
-              readOnly={readOnly}
-              className={error ? 'border-red-500' : ''}
             />
             {error && <p className="text-red-500 text-xs">{error}</p>}
-            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
           </div>
         );
-        
-      case 'select':
+      case "number":
         return (
-          <div className="space-y-2" key={id}>
-            <Label htmlFor={id}>
+          <div key={id} className="space-y-2">
+            <Label htmlFor={id} className={required ? "required" : ""}>
               {label}
-              {required && <span className="ml-1 text-red-500">*</span>}
             </Label>
+            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
+            <Input
+              type="number"
+              id={id}
+              placeholder={component.placeholder}
+              disabled={readOnly}
+              required={required}
+              onChange={(e) => handleInputChange(id, e.target.value)}
+            />
+            {error && <p className="text-red-500 text-xs">{error}</p>}
+          </div>
+        );
+      case "select":
+        return (
+          <div key={id} className="space-y-2">
+            <Label htmlFor={id} className={required ? "required" : ""}>
+              {label}
+            </Label>
+            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
             <Select
               disabled={readOnly}
-              value={value || ''}
-              onValueChange={(val) => handleInputChange(id, val)}
+              onValueChange={(value) => handleInputChange(id, value)}
             >
-              <SelectTrigger 
-                id={id}
-                className={error ? 'border-red-500' : ''}
-              >
-                <SelectValue placeholder={placeholder || "Seleccione una opción"} />
+              <SelectTrigger id={id}>
+                <SelectValue placeholder={component.placeholder || `Selecciona ${label}`} />
               </SelectTrigger>
               <SelectContent>
-                {options?.map((option) => (
+                {component.options?.map((option: any) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -250,73 +233,70 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
               </SelectContent>
             </Select>
             {error && <p className="text-red-500 text-xs">{error}</p>}
-            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
           </div>
         );
-        
-      case 'radio':
+      case "radio":
         return (
-          <div className="space-y-2" key={id}>
-            <div>
-              <Label>
-                {label}
-                {required && <span className="ml-1 text-red-500">*</span>}
-              </Label>
-            </div>
-            <RadioGroup
-              disabled={readOnly}
-              value={value || ''}
-              onValueChange={(val) => handleInputChange(id, val)}
-              className={error ? 'border border-red-500 p-2 rounded-md' : ''}
-            >
-              {options?.map((option) => (
+          <div key={id} className="space-y-2">
+            <Label className={required ? "required" : ""}>{label}</Label>
+            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
+            <RadioGroup disabled={readOnly} onValueChange={(value) => handleInputChange(id, value)}>
+              {component.options?.map((option: any) => (
                 <div key={option.value} className="flex items-center space-x-2">
-                  <RadioGroupItem value={option.value} id={`${id}-${option.value}`} />
-                  <Label htmlFor={`${id}-${option.value}`}>{option.label}</Label>
+                  <RadioGroupItem value={option.value} id={`radio-${option.value}`} />
+                  <Label htmlFor={`radio-${option.value}`}>{option.label}</Label>
                 </div>
               ))}
             </RadioGroup>
             {error && <p className="text-red-500 text-xs">{error}</p>}
-            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
           </div>
         );
-        
-      case 'checkbox':
+      case "checkbox":
         return (
-          <div className="space-y-2" key={id}>
-            <div>
-              <Label>
-                {label}
-                {required && <span className="ml-1 text-red-500">*</span>}
-              </Label>
-            </div>
-            <div className={`space-y-2 ${error ? 'border border-red-500 p-2 rounded-md' : ''}`}>
-              {options?.map((option) => {
-                const isChecked = Array.isArray(value) 
-                  ? value.includes(option.value)
-                  : false;
-                  
-                return (
-                  <div key={option.value} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`${id}-${option.value}`}
-                      checked={isChecked}
-                      disabled={readOnly}
-                      onCheckedChange={(checked) => {
-                        const currentValues = Array.isArray(value) ? [...value] : [];
-                        const newValues = checked
-                          ? [...currentValues, option.value]
-                          : currentValues.filter(v => v !== option.value);
-                        handleInputChange(id, newValues);
-                      }}
-                    />
-                    <Label htmlFor={`${id}-${option.value}`}>{option.label}</Label>
-                  </div>
-                );
-              })}
+          <div key={id} className="space-y-2">
+            <Label className={required ? "required" : ""}>{label}</Label>
+            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
+            <div className="space-y-2">
+              {component.options?.map((option: any) => (
+                <div key={option.value} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`check-${option.value}`}
+                    disabled={readOnly}
+                    onCheckedChange={(checked) => {
+                      let currentValues = formData[id] || [];
+                      if (!Array.isArray(currentValues)) {
+                        currentValues = [];
+                      }
+                      
+                      let newValues = checked
+                        ? [...currentValues, option.value]
+                        : currentValues.filter((v: any) => v !== option.value);
+                      
+                      handleInputChange(id, newValues);
+                    }}
+                  />
+                  <Label htmlFor={`check-${option.value}`}>{option.label}</Label>
+                </div>
+              ))}
             </div>
             {error && <p className="text-red-500 text-xs">{error}</p>}
-            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
+          </div>
+        );
+      case "image_single":
+      case "image_multiple":
+        return (
+          <div key={id}>
+            <ImageUploader
+              maxImages={component.maxImages || 1}
+              includeText={component.includeText || false}
+              previewMode={readOnly}
+              label={label}
+              helpText={helpText}
+              onChange={(files, texts) => {
+                handleInputChange(id, { files, texts });
+              }}
+            />
+            {error && <p className="text-red-500 text-xs">{error}</p>}
           </div>
         );
         
@@ -356,87 +336,120 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
           </div>
         );
         
-      case 'image':
-        return (
-          <div key={id}>
-            <ImageUploadField
-              label={label}
-              required={required}
-              helpText={helpText}
-              value={value}
-              onChange={(val) => handleInputChange(id, val)}
-              readOnly={readOnly}
-            />
-            {error && <p className="text-red-500 text-xs">{error}</p>}
-          </div>
-        );
-        
-      case 'signature':
+      case "signature":
         return (
           <div key={id}>
             <SignatureField
+              formId={formId}
+              componentId={id}
               label={label}
               required={required}
-              helpText={helpText}
-              value={value}
-              onChange={(val) => handleInputChange(id, val)}
               readOnly={readOnly}
+              helpText={helpText}
+              onChange={(data) => handleInputChange(id, data)}
             />
             {error && <p className="text-red-500 text-xs">{error}</p>}
           </div>
         );
-        
-      case 'location':
+      case "location":
         return (
           <div key={id}>
             <LocationField
+              formId={formId}
+              componentId={id}
               label={label}
               required={required}
-              helpText={helpText}
-              value={value}
-              onChange={(val) => handleInputChange(id, val)}
               readOnly={readOnly}
+              helpText={helpText}
+              onChange={(data) => handleInputChange(id, data)}
             />
             {error && <p className="text-red-500 text-xs">{error}</p>}
           </div>
         );
-
-      case 'info_text':
+      case "info_text":
         return (
-          <div key={id} className="p-4 bg-gray-50 border rounded-md mb-4">
-            <div className="flex items-start mb-2">
-              <Info className="h-5 w-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
-              <h3 className="font-medium">{label}</h3>
-            </div>
-            <div className="mt-2 pl-7 whitespace-pre-line text-gray-700">
-              {content || "Texto informativo para los usuarios del formulario"}
-            </div>
+          <div key={id} className="text-sm text-gray-700">
+            {component.content}
           </div>
         );
-        
+      case "date":
+        return (
+          <div key={id} className="space-y-2">
+            <Label htmlFor={id} className={required ? "required" : ""}>
+              {label}
+            </Label>
+            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
+            <Input
+              type="date"
+              id={id}
+              disabled={readOnly}
+              required={required}
+              onChange={(e) => handleInputChange(id, e.target.value)}
+            />
+            {error && <p className="text-red-500 text-xs">{error}</p>}
+          </div>
+        );
+      case "time":
+        return (
+          <div key={id} className="space-y-2">
+            <Label htmlFor={id} className={required ? "required" : ""}>
+              {label}
+            </Label>
+            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
+            <Input
+              type="time"
+              id={id}
+              disabled={readOnly}
+              required={required}
+              onChange={(e) => handleInputChange(id, e.target.value)}
+            />
+            {error && <p className="text-red-500 text-xs">{error}</p>}
+          </div>
+        );
+      case "email":
+        return (
+          <div key={id} className="space-y-2">
+            <Label htmlFor={id} className={required ? "required" : ""}>
+              {label}
+            </Label>
+            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
+            <Input
+              type="email"
+              id={id}
+              placeholder={component.placeholder || "correo@ejemplo.com"}
+              disabled={readOnly}
+              required={required}
+              onChange={(e) => handleInputChange(id, e.target.value)}
+            />
+            {error && <p className="text-red-500 text-xs">{error}</p>}
+          </div>
+        );
+      case "phone":
+        return (
+          <div key={id} className="space-y-2">
+            <Label htmlFor={id} className={required ? "required" : ""}>
+              {label}
+            </Label>
+            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
+            <Input
+              type="tel"
+              id={id}
+              placeholder={component.placeholder || "(123) 456-7890"}
+              disabled={readOnly}
+              required={required}
+              onChange={(e) => handleInputChange(id, e.target.value)}
+            />
+            {error && <p className="text-red-500 text-xs">{error}</p>}
+          </div>
+        );
       default:
         return (
-          <div key={id} className="p-4 border border-gray-200 rounded-md text-center text-gray-500">
-            Componente no soportado: {type}
+          <div key={id}>
+            Tipo de componente no soportado: {type}
           </div>
         );
     }
   };
-
-  const groupedComponents: Record<string, FormComponent[]> = {};
-  const ungroupedComponents: FormComponent[] = [];
-
-  schema.groups?.forEach(group => {
-    groupedComponents[group.id] = [];
-  });
-
-  schema.components.forEach(component => {
-    if (component.groupId && groupedComponents[component.groupId]) {
-      groupedComponents[component.groupId].push(component);
-    } else {
-      ungroupedComponents.push(component);
-    }
-  });
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -449,47 +462,34 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
         </div>
       )}
       
-      {schema.groups?.map(group => (
-        <Collapsible 
-          key={group.id} 
-          open={expandedGroups[group.id]} 
-          className="border rounded-md overflow-hidden mb-6"
-        >
-          <CardHeader className="py-3 px-4 bg-gray-50 cursor-pointer border-b" onClick={() => toggleGroup(group.id)}>
-            <div className="flex items-center">
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="p-0 mr-2">
-                  {expandedGroups[group.id] ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                </Button>
-              </CollapsibleTrigger>
-              <CardTitle className="text-md font-medium">{group.title}</CardTitle>
-            </div>
-            {group.description && <p className="text-sm text-gray-500 mt-1">{group.description}</p>}
-          </CardHeader>
-          <CollapsibleContent>
-            <CardContent className="p-4 space-y-4">
-              {groupedComponents[group.id].map(renderFormComponent)}
-            </CardContent>
-          </CollapsibleContent>
-        </Collapsible>
-      ))}
-      
-      <div className="space-y-4">
-        {ungroupedComponents.map(renderFormComponent)}
-      </div>
-      
+      {schema.groups && schema.groups.length > 0 ? (
+        schema.groups.map((group: any) => (
+          <Collapsible key={group.id} className="w-full">
+            <CollapsibleTrigger className="flex items-center justify-between py-2 px-4 w-full text-lg font-semibold text-left rounded-md shadow-sm bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1">
+              {group.title}
+              <ChevronDown className="h-4 w-4 shrink-0 ml-2 transition-transform duration-200 peer-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pl-4 space-y-4">
+              {schema.components
+                .filter((component: any) => component.groupId === group.id)
+                .map((component: any) => renderComponent(component))}
+            </CollapsibleContent>
+          </Collapsible>
+        ))
+      ) : (
+        schema.components.map((component: any) => renderComponent(component))
+      )}
+
       {!readOnly && (
-        <Button 
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full bg-dynamo-600 hover:bg-dynamo-700"
-        >
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isSubmitting ? 'Enviando...' : 'Enviar formulario'}
+        <Button disabled={isSubmitting}>
+          {isSubmitting ? (
+            <>
+              Enviando...
+              <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+            </>
+          ) : (
+            "Enviar"
+          )}
         </Button>
       )}
     </form>

@@ -99,8 +99,6 @@ export const FormComponentPreview: React.FC<FormComponentPreviewProps> = ({ comp
             maxImages={component.maxImages || 1}
             includeText={component.includeText || false}
             previewMode={true}
-            label={component.label}
-            helpText={component.helpText}
           />
         );
       case "file_single":
@@ -110,8 +108,6 @@ export const FormComponentPreview: React.FC<FormComponentPreviewProps> = ({ comp
             acceptedTypes={component.acceptedFileTypes || ['.pdf', '.docx', '.jpg', '.png']}
             includeText={component.includeText || false}
             previewMode={true}
-            label={component.label}
-            helpText={component.helpText}
           />
         );
       case "file_multiple":
@@ -121,8 +117,6 @@ export const FormComponentPreview: React.FC<FormComponentPreviewProps> = ({ comp
             acceptedTypes={component.acceptedFileTypes || ['.pdf', '.docx', '.jpg', '.png']}
             includeText={component.includeText || false}
             previewMode={true}
-            label={component.label}
-            helpText={component.helpText}
           />
         );
       case "signature":

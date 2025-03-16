@@ -669,7 +669,11 @@ const FormEdit = () => {
                     ) : (
                       <FormRenderer 
                         formId={form.id}
-                        schema={form.schema}
+                        schema={{
+                          ...form.schema,
+                          title: form.title,
+                          description: form.description
+                        }}
                         readOnly={true}
                       />
                     )}
