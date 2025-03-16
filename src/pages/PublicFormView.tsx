@@ -31,30 +31,54 @@ const PublicFormView = () => {
       setLoading(true);
       setError(null);
       
-      console.log("Fetching public form with ID:", id);
+      console.log("[PublicFormView] Fetching public form with ID:", id);
       
-      const { data, error } = await customSupabase
+      // First try getting form without the single() to avoid errors
+      const { data, error: queryError } = await customSupabase
         .from('forms')
         .select('*')
-        .eq('id', id)
-        .eq('status', 'active') // Only fetch active forms
-        .eq('is_public', true) // Make sure we're only getting public forms
-        .single();
+        .eq('id', id);
+        
+      console.log("[PublicFormView] Fetched form data:", data);
       
-      if (error) {
-        console.error('Error fetching form:', error);
-        throw error;
+      if (queryError) {
+        console.error('[PublicFormView] Error querying form:', queryError);
+        throw queryError;
       }
       
-      if (data) {
-        console.log("Form data retrieved:", data);
-        setForm(data);
-      } else {
-        setError("Formulario no encontrado o no está activo.");
+      if (!data || data.length === 0) {
+        console.error('[PublicFormView] No form found with ID:', id);
+        setError("Formulario no encontrado.");
+        setLoading(false);
+        return;
       }
+      
+      const formData = data[0];
+      
+      console.log("[PublicFormView] Form status:", formData.status);
+      console.log("[PublicFormView] Form is_public:", formData.is_public);
+      
+      // Check if form is active and public
+      if (formData.status !== 'active') {
+        console.error('[PublicFormView] Form is not active:', formData.status);
+        setError("Este formulario no está activo.");
+        setLoading(false);
+        return;
+      }
+      
+      if (!formData.is_public) {
+        console.error('[PublicFormView] Form is not public');
+        setError("Este formulario no está disponible públicamente.");
+        setLoading(false);
+        return;
+      }
+      
+      console.log("[PublicFormView] Form data is valid, setting form");
+      setForm(formData);
+      
     } catch (error: any) {
-      console.error('Error al cargar el formulario:', error);
-      setError("No se pudo cargar el formulario. Puede que no exista o no esté activo.");
+      console.error('[PublicFormView] Error loading form:', error);
+      setError("No se pudo cargar el formulario. Error: " + (error.message || "Desconocido"));
     } finally {
       setLoading(false);
     }
@@ -69,13 +93,13 @@ const PublicFormView = () => {
       // Create an anonymous user ID for tracking purposes
       const anonymousUserId = uuidv4();
       
-      console.log("Submitting public form response:", {
+      console.log("[PublicFormView] Submitting public form response:", {
         form_id: formId,
         user_id: anonymousUserId,
         response_data: formData
       });
       
-      const { error } = await customSupabase
+      const { data, error } = await customSupabase
         .from('form_responses')
         .insert({
           form_id: formId,
@@ -84,7 +108,12 @@ const PublicFormView = () => {
           submitted_at: new Date().toISOString()
         });
       
-      if (error) throw error;
+      if (error) {
+        console.error('[PublicFormView] Error submitting form:', error);
+        throw error;
+      }
+      
+      console.log('[PublicFormView] Form submission successful:', data);
       
       toast({
         title: "Respuesta enviada",
@@ -95,10 +124,10 @@ const PublicFormView = () => {
       navigate(`/public/forms/${formId}/success`);
       
     } catch (error: any) {
-      console.error('Error al enviar el formulario:', error);
+      console.error('[PublicFormView] Error submitting form:', error);
       toast({
         title: "Error al enviar",
-        description: "No se pudo enviar tu respuesta. Por favor, intenta nuevamente.",
+        description: "No se pudo enviar tu respuesta: " + (error.message || "Error desconocido"),
         variant: "destructive",
       });
     } finally {
@@ -152,7 +181,7 @@ const PublicFormView = () => {
             <FormRenderer 
               formId={form.id} 
               schema={form.schema}
-              onSuccess={() => navigate(`/public/forms/${formId}/success`)}
+              onSubmit={handleSubmit}
               readOnly={false}
               isPublic={true}
             />

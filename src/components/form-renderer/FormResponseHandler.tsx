@@ -21,7 +21,7 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
         // Select the appropriate client based on whether this is a public form
         const client = isPublic ? customSupabase : supabase;
         
-        console.log("Triggering task creation for form response:", {
+        console.log("[FormResponseHandler] Triggering task creation for form response:", {
           formResponseId: responseId,
           sourceFormId: formId,
           isPublic
@@ -36,12 +36,12 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
         });
 
         if (error) {
-          console.error("Error triggering task creation:", error);
+          console.error("[FormResponseHandler] Error triggering task creation:", error);
         } else {
-          console.log("Task creation triggered successfully:", data);
+          console.log("[FormResponseHandler] Task creation triggered successfully:", data);
         }
       } catch (err) {
-        console.error("Failed to trigger task creation:", err);
+        console.error("[FormResponseHandler] Failed to trigger task creation:", err);
       }
     };
 

@@ -16,6 +16,11 @@ export const customSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBL
     detectSessionInUrl: false
   },
   global: {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    },
     fetch: (url, options) => {
       return fetch(url, { 
         ...options, 
@@ -23,7 +28,8 @@ export const customSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBL
         headers: {
           ...options?.headers,
           'Pragma': 'no-cache',
-          'Cache-Control': 'no-cache'
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Expires': '0'
         }
       });
     }
