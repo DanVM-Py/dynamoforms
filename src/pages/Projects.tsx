@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
@@ -37,6 +36,7 @@ interface Project {
   created_by: string;
   admin_count?: number;
   forms_count?: number;
+  users_count?: number;
 }
 
 interface Profile {
@@ -89,10 +89,11 @@ const Projects = () => {
         
         setProjects(formattedProjects);
         
-        // Obtener administradores de proyecto
+        // Fetch metrics for each project
         for (const project of formattedProjects) {
           fetchProjectAdmins(project.id);
           fetchProjectFormCount(project.id);
+          fetchProjectUserCount(project.id);
         }
       }
     } catch (error: any) {
@@ -131,30 +132,27 @@ const Projects = () => {
 
   const fetchProjectAdmins = async (projectId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('project_admins')
         .select(`
           user_id,
           profiles:user_id (name, email)
-        `)
+        `, { count: 'exact' })
         .eq('project_id', projectId);
         
       if (error) throw error;
       
-      if (data) {
-        const admins = data.map(admin => admin.user_id);
-        setProjectAdmins(prev => ({
+      setProjects(prevProjects => 
+        prevProjects.map(p => 
+          p.id === projectId ? { ...p, admin_count: count || 0 } : p
+        )
+      );
+      
+      if (data && data.length > 0) {
+        setProjectAdminIds(prev => ({
           ...prev,
-          [projectId]: admins
+          [projectId]: data[0].user_id
         }));
-        
-        // Guardar el primer administrador como el principal (para edición)
-        if (data.length > 0) {
-          setProjectAdminIds(prev => ({
-            ...prev,
-            [projectId]: data[0].user_id
-          }));
-        }
       }
     } catch (error) {
       console.error(`Error fetching admins for project ${projectId}:`, error);
@@ -170,12 +168,32 @@ const Projects = () => {
         
       if (error) throw error;
       
-      setFormCounts(prev => ({
-        ...prev,
-        [projectId]: count || 0
-      }));
+      setProjects(prevProjects => 
+        prevProjects.map(p => 
+          p.id === projectId ? { ...p, forms_count: count || 0 } : p
+        )
+      );
     } catch (error) {
       console.error(`Error fetching form count for project ${projectId}:`, error);
+    }
+  };
+
+  const fetchProjectUserCount = async (projectId: string) => {
+    try {
+      const { count, error } = await supabase
+        .from('user_roles')
+        .select('*', { count: 'exact', head: true })
+        .eq('project_id', projectId);
+        
+      if (error) throw error;
+      
+      setProjects(prevProjects => 
+        prevProjects.map(p => 
+          p.id === projectId ? { ...p, users_count: count || 0 } : p
+        )
+      );
+    } catch (error) {
+      console.error(`Error fetching user count for project ${projectId}:`, error);
     }
   };
 
@@ -355,7 +373,6 @@ const Projects = () => {
     return user ? user.name : 'Usuario desconocido';
   };
 
-  // Si no es administrador global, no mostrar esta página
   if (!isGlobalAdmin) {
     return (
       <PageContainer>
@@ -487,7 +504,6 @@ const Projects = () => {
         </div>
       )}
 
-      {/* Modal de edición de proyecto */}
       {editingProject && (
         <EditProjectModal
           isOpen={!!editingProject}
