@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +41,12 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
 }) => {
   const [editedComponent, setEditedComponent] = useState<FormComponent>({
     ...component,
-    maxLength: component.maxLength || (component.type === 'text' ? 300 : component.type === 'textarea' ? 1000 : undefined),
+    maxLength: component.maxLength || (
+      component.type === 'text' ? 300 : 
+      component.type === 'textarea' ? 1000 : 
+      component.type === 'number' ? 10 : // Default maxLength for number fields
+      undefined
+    ),
     maxImages: component.maxImages || 1,
     maxFiles: component.maxFiles || 1,
     includeText: component.includeText || false,
@@ -187,8 +191,8 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
             { label: 'Opción 2', value: 'option2' }
           ]) 
         : undefined,
-      maxLength: ['text', 'textarea'].includes(type) 
-        ? (type === 'text' ? 300 : 1000) 
+      maxLength: ['text', 'textarea', 'number'].includes(type) 
+        ? (type === 'text' ? 300 : type === 'textarea' ? 1000 : type === 'number' ? 10 : undefined) 
         : undefined,
       maxImages: ['image_single', 'image_multiple'].includes(type) 
         ? (type === 'image_single' ? 1 : 5) 
@@ -199,7 +203,7 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
       acceptedFileTypes: ['file_single', 'file_multiple'].includes(type)
         ? (editedComponent.acceptedFileTypes || ['.pdf', '.docx', '.jpg', '.png'])
         : undefined,
-      includeText: ['image_single', 'image_multiple'].includes(type) 
+      includeText: ['image_single', 'image_multiple', 'file_single', 'file_multiple'].includes(type) 
         ? editedComponent.includeText 
         : undefined,
       placeholder: ['text', 'textarea', 'email', 'number', 'phone'].includes(type) 
@@ -235,6 +239,7 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
   
   const needsOptions = ['select', 'radio', 'checkbox'].includes(editedComponent.type);
   const isTextField = ['text', 'textarea'].includes(editedComponent.type);
+  const isNumberField = editedComponent.type === 'number';
   const isImageField = ['image_single', 'image_multiple'].includes(editedComponent.type);
   const isFileField = ['file_single', 'file_multiple'].includes(editedComponent.type);
   const isInfoTextField = editedComponent.type === 'info_text';
@@ -402,6 +407,36 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
                     />
                     <p className="text-xs text-gray-500">
                       {editedComponent.type === 'text' ? 'Recomendado: 300 caracteres' : 'Recomendado: 1000 caracteres'}
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {isNumberField && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="placeholder">Texto de ejemplo (placeholder)</Label>
+                    <Input 
+                      id="placeholder"
+                      name="placeholder"
+                      value={editedComponent.placeholder || ''}
+                      onChange={handleChange}
+                      placeholder="Texto de ejemplo que se muestra al usuario"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="maxLength">Longitud máxima de caracteres</Label>
+                    <Input 
+                      id="maxLength"
+                      type="number"
+                      value={editedComponent.maxLength || ''}
+                      onChange={(e) => handleNumberChange(e, 'maxLength')}
+                      min={1}
+                      max={20}
+                    />
+                    <p className="text-xs text-gray-500">
+                      Recomendado: Hasta 10 caracteres para números
                     </p>
                   </div>
                 </div>

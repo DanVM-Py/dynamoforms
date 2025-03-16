@@ -48,12 +48,59 @@ export type Database = {
           },
         ]
       }
+      form_roles: {
+        Row: {
+          created_at: string
+          created_by: string
+          form_id: string
+          id: string
+          role_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          form_id: string
+          id?: string
+          role_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          form_id?: string
+          id?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_roles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_roles_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       forms: {
         Row: {
           created_at: string
           created_by: string
           description: string | null
           id: string
+          is_public: boolean
           project_id: string | null
           schema: Json
           status: Database["public"]["Enums"]["form_status"]
@@ -65,6 +112,7 @@ export type Database = {
           created_by: string
           description?: string | null
           id?: string
+          is_public?: boolean
           project_id?: string | null
           schema?: Json
           status?: Database["public"]["Enums"]["form_status"]
@@ -76,6 +124,7 @@ export type Database = {
           created_by?: string
           description?: string | null
           id?: string
+          is_public?: boolean
           project_id?: string | null
           schema?: Json
           status?: Database["public"]["Enums"]["form_status"]
@@ -255,6 +304,45 @@ export type Database = {
           },
         ]
       }
+      roles: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roles_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assigned_to: string
@@ -326,6 +414,62 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          assigned_at: string
+          assigned_by: string
+          id: string
+          project_id: string
+          role_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by: string
+          id?: string
+          project_id: string
+          role_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string
+          id?: string
+          project_id?: string
+          role_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -345,6 +489,13 @@ export type Database = {
         Args: {
           user_uuid: string
           project_uuid: string
+        }
+        Returns: boolean
+      }
+      user_has_form_access: {
+        Args: {
+          user_uuid: string
+          form_uuid: string
         }
         Returns: boolean
       }
