@@ -21,6 +21,12 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
         // Select the appropriate client based on whether this is a public form
         const client = isPublic ? customSupabase : supabase;
         
+        console.log("Triggering task creation for form response:", {
+          formResponseId: responseId,
+          sourceFormId: formId,
+          isPublic
+        });
+        
         // Trigger the edge function to create chained tasks
         const { data, error } = await client.functions.invoke('create-chained-task', {
           body: {

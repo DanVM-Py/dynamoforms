@@ -31,16 +31,23 @@ const PublicFormView = () => {
       setLoading(true);
       setError(null);
       
+      console.log("Fetching public form with ID:", id);
+      
       const { data, error } = await customSupabase
         .from('forms')
         .select('*')
         .eq('id', id)
         .eq('status', 'active') // Only fetch active forms
+        .eq('is_public', true) // Make sure we're only getting public forms
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching form:', error);
+        throw error;
+      }
       
       if (data) {
+        console.log("Form data retrieved:", data);
         setForm(data);
       } else {
         setError("Formulario no encontrado o no está activo.");
@@ -61,6 +68,12 @@ const PublicFormView = () => {
       
       // Create an anonymous user ID for tracking purposes
       const anonymousUserId = uuidv4();
+      
+      console.log("Submitting public form response:", {
+        form_id: formId,
+        user_id: anonymousUserId,
+        response_data: formData
+      });
       
       const { error } = await customSupabase
         .from('form_responses')
