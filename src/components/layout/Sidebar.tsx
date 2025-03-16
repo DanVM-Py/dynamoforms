@@ -146,7 +146,7 @@ export function Sidebar() {
             {(isExpanded || isMobileMenuOpen) && (
               <>
                 <span
-                  className={`ml-3 text-sm ${isActive ? 'font-medium text-dynamo-700' : 'text-gray-600'} flex-1`}
+                  className={`ml-3 text-sm ${isActive ? 'font-medium text-dynamo-700' : 'text-gray-600'} flex-1 text-left`}
                 >
                   {title}
                 </span>
@@ -250,19 +250,22 @@ export function Sidebar() {
             />
           </MenuGroup>
           
-          {/* Administration group - only shown to admin users */}
-          {isGlobalAdmin && (
+          {/* Administration group - visible to both global admins and project admins */}
+          {(isGlobalAdmin || (isProjectAdmin && projectId)) && (
             <MenuGroup 
               title="Administración" 
               icon={Settings} 
               id="administration"
-              paths={['/projects', '/admin']}
+              paths={['/projects', '/admin', '/projects/' + projectId + '/roles', '/projects/' + projectId + '/users']}
             >
-              <MenuItem 
-                icon={Building2} 
-                text="Proyectos" 
-                to="/projects" 
-              />
+              {/* Projects link only shown to global admins */}
+              {isGlobalAdmin && (
+                <MenuItem 
+                  icon={Building2} 
+                  text="Proyectos" 
+                  to="/projects" 
+                />
+              )}
               
               {/* Mostrar enlace de Roles si hay un projectId en el contexto y el usuario tiene permisos */}
               {canAccessProjectRoles && (
@@ -284,11 +287,14 @@ export function Sidebar() {
                 />
               )}
               
-              <MenuItem 
-                icon={Users} 
-                text="Administración" 
-                to="/admin" 
-              />
+              {/* Admin section only visible to global admins */}
+              {isGlobalAdmin && (
+                <MenuItem 
+                  icon={Users} 
+                  text="Administración" 
+                  to="/admin" 
+                />
+              )}
             </MenuGroup>
           )}
         </div>
