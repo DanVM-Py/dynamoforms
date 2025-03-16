@@ -447,6 +447,83 @@ export type Database = {
           },
         ]
       }
+      task_templates: {
+        Row: {
+          assignee_form_field: string | null
+          assignment_type: string
+          created_at: string
+          default_assignee: string | null
+          description: string | null
+          due_days: number | null
+          id: string
+          inheritance_mapping: Json | null
+          is_active: boolean
+          project_id: string | null
+          source_form_id: string
+          target_form_id: string
+          title: string
+        }
+        Insert: {
+          assignee_form_field?: string | null
+          assignment_type: string
+          created_at?: string
+          default_assignee?: string | null
+          description?: string | null
+          due_days?: number | null
+          id?: string
+          inheritance_mapping?: Json | null
+          is_active?: boolean
+          project_id?: string | null
+          source_form_id: string
+          target_form_id: string
+          title: string
+        }
+        Update: {
+          assignee_form_field?: string | null
+          assignment_type?: string
+          created_at?: string
+          default_assignee?: string | null
+          description?: string | null
+          due_days?: number | null
+          id?: string
+          inheritance_mapping?: Json | null
+          is_active?: boolean
+          project_id?: string | null
+          source_form_id?: string
+          target_form_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_templates_default_assignee_fkey"
+            columns: ["default_assignee"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_templates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_templates_source_form_id_fkey"
+            columns: ["source_form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_templates_target_form_id_fkey"
+            columns: ["target_form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assigned_to: string

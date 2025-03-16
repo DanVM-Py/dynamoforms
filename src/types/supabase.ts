@@ -347,6 +347,84 @@ export interface ExtendedDatabase extends Omit<OriginalDatabase, 'public'> {
           }
         ];
       };
+      // Add task_templates table
+      task_templates: {
+        Row: {
+          id: string;
+          title: string;
+          description: string | null;
+          source_form_id: string;
+          target_form_id: string;
+          assignment_type: 'static' | 'dynamic';
+          default_assignee: string | null;
+          assignee_form_field: string | null;
+          due_days: number | null;
+          is_active: boolean;
+          created_at: string;
+          inheritance_mapping: Record<string, string> | null;
+          project_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description?: string | null;
+          source_form_id: string;
+          target_form_id: string;
+          assignment_type: 'static' | 'dynamic';
+          default_assignee?: string | null;
+          assignee_form_field?: string | null;
+          due_days?: number | null;
+          is_active?: boolean;
+          created_at?: string;
+          inheritance_mapping?: Record<string, string> | null;
+          project_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          description?: string | null;
+          source_form_id?: string;
+          target_form_id?: string;
+          assignment_type?: 'static' | 'dynamic';
+          default_assignee?: string | null;
+          assignee_form_field?: string | null;
+          due_days?: number | null;
+          is_active?: boolean;
+          created_at?: string;
+          inheritance_mapping?: Record<string, string> | null;
+          project_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_templates_source_form_id_fkey";
+            columns: ["source_form_id"];
+            isOneToOne: false;
+            referencedRelation: "forms";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_templates_target_form_id_fkey";
+            columns: ["target_form_id"];
+            isOneToOne: false;
+            referencedRelation: "forms";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_templates_default_assignee_fkey";
+            columns: ["default_assignee"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_templates_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Views: OriginalDatabase["public"]["Views"];
     Functions: {
@@ -437,4 +515,55 @@ export interface FormRole {
   created_at: string;
   created_by: string;
   role_name?: string;
+}
+
+// Add TaskTemplate interface
+export interface TaskTemplate {
+  id: string;
+  title: string;
+  description: string | null;
+  source_form_id: string;
+  target_form_id: string;
+  assignment_type: 'static' | 'dynamic';
+  default_assignee: string | null;
+  assignee_form_field: string | null;
+  due_days: number | null;
+  is_active: boolean;
+  created_at: string;
+  inheritance_mapping: Record<string, string> | null;
+  project_id: string | null;
+  source_form?: {
+    id: string;
+    title: string;
+  };
+  target_form?: {
+    id: string;
+    title: string;
+  };
+}
+
+// Add Task interface with source_form_id field
+export interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  assigned_to: string;
+  status: "pending" | "in_progress" | "completed";
+  project_id: string | null;
+  form_id: string | null;
+  form_response_id: string | null;
+  due_date: string | null;
+  created_at: string;
+  updated_at: string;
+  source_form_id?: string | null;
+  assignee_name?: string;
+  priority?: string;
+  form?: {
+    id: string;
+    title: string;
+  };
+  source_form?: {
+    id: string;
+    title: string;
+  };
 }
