@@ -51,9 +51,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         onClick(e);
       }
       
-      if (openInNew) {
-        // Handle opening in new tab through the onClick handler
-        // instead of relying on target/rel attributes
+      if (openInNew && props.href) {
         window.open(props.href, '_blank', 'noopener,noreferrer');
         e.preventDefault();
       }

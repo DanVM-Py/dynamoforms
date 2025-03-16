@@ -13,6 +13,7 @@ import Admin from './pages/Admin';
 import Notifications from './pages/Notifications';
 import Projects from './pages/Projects';
 import Tasks from './pages/Tasks';
+import TaskTemplates from './pages/TaskTemplates';
 import Forms from './pages/Forms';
 import FormEdit from './pages/FormEdit';
 import FormResponses from './pages/FormResponses';
@@ -74,6 +75,16 @@ function App() {
               <Route path="/tasks" element={
                 <ProtectedRoute>
                   <Tasks />
+                </ProtectedRoute>
+              } />
+              <Route path="/task-templates" element={
+                <ProtectedRoute requireProjectAdmin>
+                  <TaskTemplates />
+                </ProtectedRoute>
+              } />
+              <Route path="/projects/:projectId/task-templates" element={
+                <ProtectedRoute requireProjectAdmin>
+                  <TaskTemplates />
                 </ProtectedRoute>
               } />
               <Route path="/forms" element={

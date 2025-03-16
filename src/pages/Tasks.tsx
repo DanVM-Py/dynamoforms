@@ -3,11 +3,14 @@ import { useEffect, useState } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, CheckCircle, Clock, Tag, AlertCircle } from "lucide-react";
+import { User, CheckCircle, Clock, Tag, AlertCircle, FileText, Link as LinkIcon, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { useNavigate } from "react-router-dom";
 import { Database } from "@/integrations/supabase/types";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Task {
   id: string;
@@ -18,21 +21,34 @@ interface Task {
   status: Database["public"]["Enums"]["task_status"];
   assigned_to: string;
   assignee_name?: string;
+  form_id: string | null;
+  source_form_id: string | null;
+  form_response_id: string | null;
+  form?: {
+    id: string;
+    title: string;
+  };
+  source_form?: {
+    id: string;
+    title: string;
+  };
+  metadata?: {
+    source_template_id?: string;
+    inheritance_mapping?: Record<string, string>;
+    source_response_data?: Record<string, any>;
+  };
 }
 
 const Tasks = () => {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>("all");
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    fetchTasks();
-  }, []);
-
-  const fetchTasks = async () => {
-    try {
-      setLoading(true);
-      
+  // Fetch tasks using React Query
+  const { data: tasks, isLoading } = useQuery({
+    queryKey: ['tasks'],
+    queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
@@ -41,8 +57,7 @@ const Tasks = () => {
           description: "Debes iniciar sesión para ver tus tareas.",
           variant: "destructive",
         });
-        setLoading(false);
-        return;
+        return [];
       }
 
       // Obtener tareas y unir con información de perfiles para obtener los nombres
@@ -50,7 +65,9 @@ const Tasks = () => {
         .from('tasks')
         .select(`
           *,
-          profiles:assigned_to (name)
+          profiles:assigned_to (name),
+          form:form_id (id, title),
+          source_form:source_form_id (id, title)
         `);
 
       if (error) throw error;
@@ -63,18 +80,38 @@ const Tasks = () => {
         priority: ['alta', 'media', 'baja'][Math.floor(Math.random() * 3)]
       }));
       
-      setTasks(tasksWithAssignees);
-    } catch (error) {
-      console.error('Error fetching tasks:', error);
+      return tasksWithAssignees as Task[];
+    }
+  });
+
+  // Update task status mutation
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ taskId, newStatus }: { taskId: string, newStatus: Database["public"]["Enums"]["task_status"] }) => {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: newStatus })
+        .eq('id', taskId);
+        
+      if (error) throw error;
+      return { taskId, newStatus };
+    },
+    onSuccess: ({ taskId, newStatus }) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      
       toast({
-        title: "Error al cargar tareas",
-        description: "No se pudieron cargar las tareas. Por favor, intenta nuevamente.",
+        title: "Tarea actualizada",
+        description: `El estado de la tarea ha sido actualizado a: ${getStatusLabel(newStatus)}`,
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating task:', error);
+      toast({
+        title: "Error al actualizar tarea",
+        description: "No se pudo actualizar el estado de la tarea. Por favor, intenta nuevamente.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  });
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -113,49 +150,79 @@ const Tasks = () => {
     });
   };
 
-  const updateTaskStatus = async (taskId: string, newStatus: Database["public"]["Enums"]["task_status"]) => {
-    try {
-      const { error } = await supabase
-        .from('tasks')
-        .update({ status: newStatus })
-        .eq('id', taskId);
-        
-      if (error) throw error;
+  const updateTaskStatus = (taskId: string, newStatus: Database["public"]["Enums"]["task_status"]) => {
+    updateTaskMutation.mutate({ taskId, newStatus });
+  };
+
+  const handleOpenForm = (task: Task) => {
+    // If this task has a form, open it in a new tab
+    if (task.form_id) {
+      let url = `/public/forms/${task.form_id}`;
       
-      // Actualizar localmente el estado
-      setTasks(prev => 
-        prev.map(task => task.id === taskId ? {...task, status: newStatus} : task)
-      );
+      // If there's a source form response, add it to the URL for data inheritance
+      if (task.form_response_id && task.metadata?.inheritance_mapping) {
+        url += `?source_response_id=${task.form_response_id}`;
+      }
       
-      toast({
-        title: "Tarea actualizada",
-        description: `El estado de la tarea ha sido actualizado a: ${getStatusLabel(newStatus)}`,
-      });
-    } catch (error) {
-      console.error('Error updating task:', error);
-      toast({
-        title: "Error al actualizar tarea",
-        description: "No se pudo actualizar el estado de la tarea. Por favor, intenta nuevamente.",
-        variant: "destructive",
-      });
+      window.open(url, '_blank');
     }
+  };
+
+  const filteredTasks = () => {
+    if (!tasks) return [];
+    
+    switch (activeTab) {
+      case 'pending':
+        return tasks.filter(task => task.status === 'pending');
+      case 'in_progress':
+        return tasks.filter(task => task.status === 'in_progress');
+      case 'completed':
+        return tasks.filter(task => task.status === 'completed');
+      default:
+        return tasks;
+    }
+  };
+
+  const handleCreateTaskTemplate = () => {
+    navigate('/task-templates');
   };
 
   return (
     <PageContainer>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Tareas</h1>
-        <p className="text-gray-500 mt-1">Gestiona y visualiza las tareas asignadas</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Tareas</h1>
+            <p className="text-gray-500 mt-1">Gestiona y visualiza las tareas asignadas</p>
+          </div>
+          <div>
+            <Button 
+              onClick={handleCreateTaskTemplate}
+              className="bg-dynamo-600 hover:bg-dynamo-700"
+            >
+              Configurar Plantillas
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {loading ? (
+      <Tabs defaultValue="all" className="mb-6" onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="all">Todas</TabsTrigger>
+          <TabsTrigger value="pending">Pendientes</TabsTrigger>
+          <TabsTrigger value="in_progress">En Progreso</TabsTrigger>
+          <TabsTrigger value="completed">Completadas</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {isLoading ? (
         <div className="flex justify-center p-8">
           <div className="animate-pulse text-gray-500">Cargando tareas...</div>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {tasks.length > 0 ? (
-            tasks.map((task) => (
+          {filteredTasks().length > 0 ? (
+            filteredTasks().map((task) => (
               <Card key={task.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-2">
                   <div className="flex justify-between">
@@ -182,6 +249,20 @@ const Tasks = () => {
                         Prioridad: {task.priority || 'No definida'}
                       </Badge>
                     </div>
+                    
+                    {task.form && (
+                      <div className="flex items-center text-sm">
+                        <FileText className="h-4 w-4 mr-2 text-gray-500" />
+                        <span>Formulario: {task.form.title}</span>
+                      </div>
+                    )}
+                    
+                    {task.source_form && (
+                      <div className="flex items-center text-sm">
+                        <LinkIcon className="h-4 w-4 mr-2 text-gray-500" />
+                        <span>Origen: {task.source_form.title}</span>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
                 <CardFooter className="border-t pt-4 flex justify-between">
@@ -192,27 +273,51 @@ const Tasks = () => {
                         size="sm"
                         onClick={() => updateTaskStatus(task.id, 'in_progress')}
                       >
-                        Rechazar
+                        Iniciar
                       </Button>
-                      <Button 
-                        variant="default" 
-                        size="sm"
-                        className="bg-dynamo-600 hover:bg-dynamo-700"
-                        onClick={() => updateTaskStatus(task.id, 'completed')}
-                      >
-                        Aprobar
-                      </Button>
+                      {task.form_id && (
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          className="bg-dynamo-600 hover:bg-dynamo-700"
+                          onClick={() => handleOpenForm(task)}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-1" />
+                          Ejecutar Formulario
+                        </Button>
+                      )}
                     </>
                   )}
                   {task.status === "in_progress" && (
-                    <Button 
-                      variant="default" 
-                      size="sm"
-                      className="w-full bg-dynamo-600 hover:bg-dynamo-700"
-                      onClick={() => updateTaskStatus(task.id, 'completed')}
-                    >
-                      Marcar como completada
-                    </Button>
+                    <>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => updateTaskStatus(task.id, 'pending')}
+                      >
+                        Pausar
+                      </Button>
+                      {task.form_id ? (
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          className="bg-dynamo-600 hover:bg-dynamo-700"
+                          onClick={() => handleOpenForm(task)}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-1" />
+                          Ejecutar Formulario
+                        </Button>
+                      ) : (
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          className="bg-dynamo-600 hover:bg-dynamo-700"
+                          onClick={() => updateTaskStatus(task.id, 'completed')}
+                        >
+                          Completar
+                        </Button>
+                      )}
+                    </>
                   )}
                   {task.status === "completed" && (
                     <div className="flex items-center text-green-600 w-full justify-center">
