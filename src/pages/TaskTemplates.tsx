@@ -15,9 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { FormSchema } from "@/components/form-builder/FormBuilder";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Database } from "@/types/supabase";
 
 // Define task template interface
 interface TaskTemplate {
@@ -137,11 +137,23 @@ const TaskTemplates = () => {
   // Create/update task template mutation
   const saveTemplateMutation = useMutation({
     mutationFn: async (template: Partial<TaskTemplate>) => {
+      if (!template.title || !template.source_form_id || !template.target_form_id || !template.assignment_type) {
+        throw new Error("Faltan campos requeridos");
+      }
+      
+      const completeTemplate = {
+        ...template,
+        title: template.title,
+        source_form_id: template.source_form_id,
+        target_form_id: template.target_form_id,
+        assignment_type: template.assignment_type
+      };
+      
       if (template.id) {
         // Update existing template
         const { data, error } = await supabase
           .from('task_templates')
-          .update(template)
+          .update(completeTemplate)
           .eq('id', template.id)
           .select()
           .single();
@@ -152,7 +164,7 @@ const TaskTemplates = () => {
         // Create new template
         const { data, error } = await supabase
           .from('task_templates')
-          .insert(template)
+          .insert(completeTemplate)
           .select()
           .single();
         
@@ -178,15 +190,15 @@ const TaskTemplates = () => {
         project_id: projectId || null
       });
       toast({
-        title: "Task template saved",
-        description: "The task template has been saved successfully.",
+        title: "Plantilla guardada",
+        description: "La plantilla de tarea ha sido guardada correctamente.",
       });
     },
     onError: (error) => {
-      console.error("Error saving task template:", error);
+      console.error("Error al guardar la plantilla:", error);
       toast({
         title: "Error",
-        description: "Failed to save task template. Please try again.",
+        description: "No se pudo guardar la plantilla. Por favor, inténtelo de nuevo.",
         variant: "destructive",
       });
     }
@@ -205,15 +217,15 @@ const TaskTemplates = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({queryKey: ['taskTemplates']});
       toast({
-        title: "Task template deleted",
-        description: "The task template has been deleted successfully.",
+        title: "Plantilla eliminada",
+        description: "La plantilla de tarea ha sido eliminada correctamente.",
       });
     },
     onError: (error) => {
-      console.error("Error deleting task template:", error);
+      console.error("Error al eliminar la plantilla:", error);
       toast({
         title: "Error",
-        description: "Failed to delete task template. Please try again.",
+        description: "No se pudo eliminar la plantilla. Por favor, inténtelo de nuevo.",
         variant: "destructive",
       });
     }
@@ -282,8 +294,8 @@ const TaskTemplates = () => {
   const handleSaveTemplate = () => {
     if (!formState.title || !formState.source_form_id || !formState.target_form_id) {
       toast({
-        title: "Missing required fields",
-        description: "Please fill in all required fields.",
+        title: "Faltan campos requeridos",
+        description: "Por favor, complete todos los campos obligatorios.",
         variant: "destructive",
       });
       return;
@@ -325,15 +337,15 @@ const TaskTemplates = () => {
             className="text-gray-600"
           >
             <ChevronLeft className="h-4 w-4 mr-1" />
-            Back to Project
+            Volver al Proyecto
           </Button>
         </div>
       )}
       
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">Task Templates</h1>
+        <h1 className="text-3xl font-bold">Plantillas de Tareas</h1>
         <p className="text-gray-500 mt-1">
-          Configure automations to create tasks when forms are submitted
+          Configure automatizaciones para crear tareas cuando se envían formularios
         </p>
       </div>
       
@@ -342,28 +354,28 @@ const TaskTemplates = () => {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>
-              {selectedTemplate ? 'Edit Task Template' : 'Create Task Template'}
+              {selectedTemplate ? 'Editar Plantilla de Tarea' : 'Crear Plantilla de Tarea'}
             </CardTitle>
             <CardDescription>
-              Define how tasks are automatically created when forms are submitted
+              Defina cómo se crean automáticamente las tareas cuando se envían formularios
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="title">Template Name *</Label>
+                  <Label htmlFor="title">Nombre de la Plantilla *</Label>
                   <Input
                     id="title"
                     name="title"
                     value={formState.title || ''}
                     onChange={handleInputChange}
-                    placeholder="E.g., Project Approval Request"
+                    placeholder="Ej: Solicitud de Aprobación de Proyecto"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="is_active">Status</Label>
+                  <Label htmlFor="is_active">Estado</Label>
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="is_active"
@@ -371,25 +383,25 @@ const TaskTemplates = () => {
                       onCheckedChange={(checked) => handleSwitchChange('is_active', checked)}
                     />
                     <Label htmlFor="is_active" className="cursor-pointer">
-                      {formState.is_active ? 'Active' : 'Inactive'}
+                      {formState.is_active ? 'Activa' : 'Inactiva'}
                     </Label>
                   </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">Descripción</Label>
                   <Textarea
                     id="description"
                     name="description"
                     value={formState.description || ''}
                     onChange={handleInputChange}
-                    placeholder="Describe the purpose of this task template"
+                    placeholder="Describa el propósito de esta plantilla de tarea"
                     rows={3}
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="due_days">Due Days</Label>
+                  <Label htmlFor="due_days">Días de Vencimiento</Label>
                   <div className="flex items-center space-x-2">
                     <Input
                       id="due_days"
@@ -401,23 +413,23 @@ const TaskTemplates = () => {
                       className="w-24"
                       min={1}
                     />
-                    <span className="text-gray-500 text-sm">days after task creation</span>
+                    <span className="text-gray-500 text-sm">días después de la creación de la tarea</span>
                   </div>
                 </div>
               </div>
               
               <div className="border-t pt-6">
-                <h3 className="text-lg font-medium mb-4">Form Trigger Configuration</h3>
+                <h3 className="text-lg font-medium mb-4">Configuración del Disparador de Formulario</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="source_form_id">Source Form (Trigger) *</Label>
+                    <Label htmlFor="source_form_id">Formulario de Origen (Disparador) *</Label>
                     <Select
                       value={formState.source_form_id || ''}
                       onValueChange={(value) => handleSelectChange('source_form_id', value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a form" />
+                        <SelectValue placeholder="Seleccionar un formulario" />
                       </SelectTrigger>
                       <SelectContent>
                         {forms?.map(form => (
@@ -428,18 +440,18 @@ const TaskTemplates = () => {
                       </SelectContent>
                     </Select>
                     <p className="text-sm text-gray-500">
-                      When this form is submitted, a task will be created
+                      Cuando se envía este formulario, se creará una tarea
                     </p>
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="target_form_id">Target Form *</Label>
+                    <Label htmlFor="target_form_id">Formulario Destino *</Label>
                     <Select
                       value={formState.target_form_id || ''}
                       onValueChange={(value) => handleSelectChange('target_form_id', value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a form" />
+                        <SelectValue placeholder="Seleccionar un formulario" />
                       </SelectTrigger>
                       <SelectContent>
                         {forms?.map(form => (
@@ -450,18 +462,18 @@ const TaskTemplates = () => {
                       </SelectContent>
                     </Select>
                     <p className="text-sm text-gray-500">
-                      The form that needs to be completed for this task
+                      El formulario que debe completarse para esta tarea
                     </p>
                   </div>
                 </div>
               </div>
               
               <div className="border-t pt-6">
-                <h3 className="text-lg font-medium mb-4">Task Assignment</h3>
+                <h3 className="text-lg font-medium mb-4">Asignación de Tareas</h3>
                 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="assignment_type">Assignment Type *</Label>
+                    <Label htmlFor="assignment_type">Tipo de Asignación *</Label>
                     <div className="flex flex-col space-y-2">
                       <div className="flex items-center space-x-2">
                         <input
@@ -474,7 +486,7 @@ const TaskTemplates = () => {
                           className="h-4 w-4 text-primary"
                         />
                         <Label htmlFor="static" className="cursor-pointer">
-                          Static Assignment (Specific User)
+                          Asignación Estática (Usuario Específico)
                         </Label>
                       </div>
                       
@@ -489,7 +501,7 @@ const TaskTemplates = () => {
                           className="h-4 w-4 text-primary"
                         />
                         <Label htmlFor="dynamic" className="cursor-pointer">
-                          Dynamic Assignment (From Form Field)
+                          Asignación Dinámica (Desde Campo del Formulario)
                         </Label>
                       </div>
                     </div>
@@ -497,13 +509,13 @@ const TaskTemplates = () => {
                   
                   {formState.assignment_type === 'static' && (
                     <div className="space-y-2">
-                      <Label htmlFor="default_assignee">Default Assignee *</Label>
+                      <Label htmlFor="default_assignee">Asignado por Defecto *</Label>
                       <Select
                         value={formState.default_assignee || ''}
                         onValueChange={(value) => handleSelectChange('default_assignee', value)}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a user" />
+                          <SelectValue placeholder="Seleccionar un usuario" />
                         </SelectTrigger>
                         <SelectContent>
                           {users?.map(user => (
@@ -519,14 +531,14 @@ const TaskTemplates = () => {
                   {formState.assignment_type === 'dynamic' && (
                     <div className="space-y-2">
                       <Label htmlFor="assignee_form_field">
-                        Email Field from Source Form *
+                        Campo de Email del Formulario de Origen *
                       </Label>
                       <Select
                         value={formState.assignee_form_field || ''}
                         onValueChange={(value) => handleSelectChange('assignee_form_field', value)}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a field" />
+                          <SelectValue placeholder="Seleccionar un campo" />
                         </SelectTrigger>
                         <SelectContent>
                           {formFields.source
@@ -539,7 +551,7 @@ const TaskTemplates = () => {
                         </SelectContent>
                       </Select>
                       <p className="text-sm text-gray-500">
-                        This email field will be used to assign the task
+                        Este campo de email se usará para asignar la tarea
                       </p>
                     </div>
                   )}
@@ -548,9 +560,9 @@ const TaskTemplates = () => {
               
               {formState.source_form_id && formState.target_form_id && (
                 <div className="border-t pt-6">
-                  <h3 className="text-lg font-medium mb-4">Field Mapping</h3>
+                  <h3 className="text-lg font-medium mb-4">Mapeo de Campos</h3>
                   <p className="text-sm text-gray-500 mb-4">
-                    Map fields from the source form to the target form to automatically populate data
+                    Mapee campos del formulario de origen al formulario destino para poblar datos automáticamente
                   </p>
                   
                   {formFields.target.length > 0 ? (
@@ -562,10 +574,10 @@ const TaskTemplates = () => {
                             onValueChange={(value) => handleInheritanceMapping(targetField.id, value)}
                           >
                             <SelectTrigger className="w-full">
-                              <SelectValue placeholder={`Select source field for ${targetField.label}`} />
+                              <SelectValue placeholder={`Seleccionar campo origen para ${targetField.label}`} />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">No mapping</SelectItem>
+                              <SelectItem value="">Sin mapeo</SelectItem>
                               {formFields.source
                                 .filter(sourceField => sourceField.type === targetField.type)
                                 .map(sourceField => (
@@ -586,7 +598,7 @@ const TaskTemplates = () => {
                     <div className="text-amber-700 bg-amber-50 p-4 rounded flex items-center">
                       <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
                       <p className="text-sm">
-                        No fields available for mapping. Make sure both forms have compatible fields.
+                        No hay campos disponibles para mapear. Asegúrese de que ambos formularios tengan campos compatibles.
                       </p>
                     </div>
                   )}
@@ -602,14 +614,14 @@ const TaskTemplates = () => {
                 setSelectedTemplate(null);
               }}
             >
-              Cancel
+              Cancelar
             </Button>
             <Button 
               onClick={handleSaveTemplate}
               disabled={saveTemplateMutation.isPending}
               className="bg-dynamo-600 hover:bg-dynamo-700"
             >
-              {saveTemplateMutation.isPending ? 'Saving...' : 'Save Template'}
+              {saveTemplateMutation.isPending ? 'Guardando...' : 'Guardar Plantilla'}
             </Button>
           </CardFooter>
         </Card>
@@ -621,7 +633,7 @@ const TaskTemplates = () => {
             className="bg-dynamo-600 hover:bg-dynamo-700"
           >
             <Plus className="h-4 w-4 mr-2" />
-            New Task Template
+            Nueva Plantilla de Tarea
           </Button>
         </div>
       )}
@@ -630,7 +642,7 @@ const TaskTemplates = () => {
         <>
           {isLoadingTemplates ? (
             <div className="text-center py-10">
-              <div className="animate-pulse text-gray-500">Loading templates...</div>
+              <div className="animate-pulse text-gray-500">Cargando plantillas...</div>
             </div>
           ) : templates && templates.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -640,7 +652,7 @@ const TaskTemplates = () => {
                     <div className="flex justify-between items-start gap-2">
                       <CardTitle className="text-lg">{template.title}</CardTitle>
                       <Badge variant={template.is_active ? "default" : "secondary"}>
-                        {template.is_active ? "Active" : "Inactive"}
+                        {template.is_active ? "Activa" : "Inactiva"}
                       </Badge>
                     </div>
                     {template.description && (
@@ -650,26 +662,26 @@ const TaskTemplates = () => {
                   <CardContent className="pb-2">
                     <div className="space-y-3">
                       <div className="flex flex-col gap-1">
-                        <div className="text-sm font-medium">Form Trigger</div>
+                        <div className="text-sm font-medium">Disparador de Formulario</div>
                         <div className="flex items-center gap-2 text-sm">
                           <span className="text-gray-700 flex-grow truncate">
-                            {template.source_form?.title || "Unknown Form"}
+                            {template.source_form?.title || "Formulario Desconocido"}
                           </span>
                           <ArrowRight className="h-4 w-4 flex-shrink-0 text-gray-400" />
                           <span className="text-gray-700 flex-grow truncate">
-                            {template.target_form?.title || "Unknown Form"}
+                            {template.target_form?.title || "Formulario Desconocido"}
                           </span>
                         </div>
                       </div>
                       
                       <div className="flex items-center text-sm">
                         <CalendarClock className="h-4 w-4 mr-2 text-gray-500" />
-                        <span>Due in {template.due_days || 7} days</span>
+                        <span>Vence en {template.due_days || 7} días</span>
                       </div>
                       
                       <div className="flex items-center text-sm">
                         <Badge variant="outline" className="mr-2">
-                          {template.assignment_type === 'static' ? 'Static Assignment' : 'Dynamic Assignment'}
+                          {template.assignment_type === 'static' ? 'Asignación Estática' : 'Asignación Dinámica'}
                         </Badge>
                         {template.inheritance_mapping && Object.keys(template.inheritance_mapping).length > 0 && (
                           <TooltipProvider>
@@ -677,11 +689,11 @@ const TaskTemplates = () => {
                               <TooltipTrigger asChild>
                                 <Badge variant="outline" className="cursor-help">
                                   <ArrowRightLeft className="h-3 w-3 mr-1" />
-                                  {Object.keys(template.inheritance_mapping).length} Field Mappings
+                                  {Object.keys(template.inheritance_mapping).length} Campos Mapeados
                                 </Badge>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>This template will copy data between forms</p>
+                                <p>Esta plantilla copiará datos entre formularios</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -694,26 +706,26 @@ const TaskTemplates = () => {
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm">
                           <Trash2 className="h-4 w-4 mr-2 text-red-500" />
-                          Delete
+                          Eliminar
                         </Button>
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader>
-                          <DialogTitle>Delete Task Template</DialogTitle>
+                          <DialogTitle>Eliminar Plantilla de Tarea</DialogTitle>
                           <DialogDescription>
-                            Are you sure you want to delete this task template? This action cannot be undone.
+                            ¿Está seguro de que desea eliminar esta plantilla de tarea? Esta acción no se puede deshacer.
                           </DialogDescription>
                         </DialogHeader>
                         <DialogFooter>
                           <DialogClose asChild>
-                            <Button variant="outline">Cancel</Button>
+                            <Button variant="outline">Cancelar</Button>
                           </DialogClose>
                           <Button 
                             variant="destructive" 
                             onClick={() => deleteTemplateMutation.mutate(template.id)}
                             disabled={deleteTemplateMutation.isPending}
                           >
-                            {deleteTemplateMutation.isPending ? 'Deleting...' : 'Delete'}
+                            {deleteTemplateMutation.isPending ? 'Eliminando...' : 'Eliminar'}
                           </Button>
                         </DialogFooter>
                       </DialogContent>
@@ -725,7 +737,7 @@ const TaskTemplates = () => {
                       onClick={() => setSelectedTemplate(template)}
                     >
                       <Pencil className="h-4 w-4 mr-2" />
-                      Edit
+                      Editar
                     </Button>
                   </CardFooter>
                 </Card>
@@ -737,16 +749,16 @@ const TaskTemplates = () => {
                 <div className="rounded-full bg-gray-100 p-3 mb-4">
                   <AlertCircle className="h-6 w-6 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-medium mb-2">No Task Templates Found</h3>
+                <h3 className="text-lg font-medium mb-2">No se encontraron plantillas de tareas</h3>
                 <p className="text-gray-500 text-center mb-6 max-w-md">
-                  Create task templates to automate workflow between forms and assign tasks when forms are submitted.
+                  Cree plantillas de tareas para automatizar el flujo de trabajo entre formularios y asignar tareas cuando se envíen formularios.
                 </p>
                 <Button 
                   onClick={() => setIsCreating(true)}
                   className="bg-dynamo-600 hover:bg-dynamo-700"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Template
+                  Crear su primera plantilla
                 </Button>
               </CardContent>
             </Card>

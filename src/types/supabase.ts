@@ -1,4 +1,3 @@
-
 import { Database as OriginalDatabase } from "@/integrations/supabase/types";
 
 // Extend the original Database type with our new tables
@@ -15,7 +14,7 @@ export interface ExtendedDatabase extends Omit<OriginalDatabase, 'public'> {
           schema: any;
           id: string;
           created_by: string;
-          status: "draft" | "active" | "closed";
+          status: "draft" | "published" | "closed";
           created_at: string;
           updated_at: string;
           is_public: boolean;
@@ -27,7 +26,7 @@ export interface ExtendedDatabase extends Omit<OriginalDatabase, 'public'> {
           schema?: any;
           id?: string;
           created_by: string;
-          status?: "draft" | "active" | "closed";
+          status?: "draft" | "published" | "closed";
           created_at?: string;
           updated_at?: string;
           is_public?: boolean;
@@ -39,7 +38,7 @@ export interface ExtendedDatabase extends Omit<OriginalDatabase, 'public'> {
           schema?: any;
           id?: string;
           created_by?: string;
-          status?: "draft" | "active" | "closed";
+          status?: "draft" | "published" | "closed";
           created_at?: string;
           updated_at?: string;
           is_public?: boolean;
@@ -355,7 +354,7 @@ export interface ExtendedDatabase extends Omit<OriginalDatabase, 'public'> {
           description: string | null;
           source_form_id: string;
           target_form_id: string;
-          assignment_type: 'static' | 'dynamic';
+          assignment_type: "static" | "dynamic";
           default_assignee: string | null;
           assignee_form_field: string | null;
           due_days: number | null;
@@ -370,7 +369,7 @@ export interface ExtendedDatabase extends Omit<OriginalDatabase, 'public'> {
           description?: string | null;
           source_form_id: string;
           target_form_id: string;
-          assignment_type: 'static' | 'dynamic';
+          assignment_type: "static" | "dynamic";
           default_assignee?: string | null;
           assignee_form_field?: string | null;
           due_days?: number | null;
@@ -385,7 +384,7 @@ export interface ExtendedDatabase extends Omit<OriginalDatabase, 'public'> {
           description?: string | null;
           source_form_id?: string;
           target_form_id?: string;
-          assignment_type?: 'static' | 'dynamic';
+          assignment_type?: "static" | "dynamic";
           default_assignee?: string | null;
           assignee_form_field?: string | null;
           due_days?: number | null;
@@ -418,6 +417,83 @@ export interface ExtendedDatabase extends Omit<OriginalDatabase, 'public'> {
           },
           {
             foreignKeyName: "task_templates_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      tasks: {
+        Row: {
+          id: string;
+          title: string;
+          description: string | null;
+          status: "pending" | "in_progress" | "completed";
+          assigned_to: string;
+          created_at: string;
+          updated_at: string;
+          due_date: string | null;
+          form_id: string | null;
+          form_response_id: string | null;
+          project_id: string | null;
+          priority: string | null;
+          source_form_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description?: string | null;
+          status?: "pending" | "in_progress" | "completed";
+          assigned_to: string;
+          created_at?: string;
+          updated_at?: string;
+          due_date?: string | null;
+          form_id?: string | null;
+          form_response_id?: string | null;
+          project_id?: string | null;
+          priority?: string | null;
+          source_form_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          description?: string | null;
+          status?: "pending" | "in_progress" | "completed";
+          assigned_to?: string;
+          created_at?: string;
+          updated_at?: string;
+          due_date?: string | null;
+          form_id?: string | null;
+          form_response_id?: string | null;
+          project_id?: string | null;
+          priority?: string | null;
+          source_form_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assigned_to_fkey";
+            columns: ["assigned_to"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_form_id_fkey";
+            columns: ["form_id"];
+            isOneToOne: false;
+            referencedRelation: "forms";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_form_response_id_fkey";
+            columns: ["form_response_id"];
+            isOneToOne: false;
+            referencedRelation: "form_responses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey";
             columns: ["project_id"];
             isOneToOne: false;
             referencedRelation: "projects";
@@ -547,21 +623,17 @@ export interface Task {
   id: string;
   title: string;
   description: string | null;
+  status: 'pending' | 'in_progress' | 'completed';
   assigned_to: string;
-  status: "pending" | "in_progress" | "completed";
-  project_id: string | null;
-  form_id: string | null;
-  form_response_id: string | null;
-  due_date: string | null;
+  assignee_name?: string;
   created_at: string;
   updated_at: string;
-  source_form_id?: string | null;
-  assignee_name?: string;
-  priority?: string;
-  form?: {
-    id: string;
-    title: string;
-  };
+  due_date: string | null;
+  form_id: string | null;
+  form_response_id: string | null;
+  priority: string;
+  project_id: string | null;
+  source_form_id: string | null;
   source_form?: {
     id: string;
     title: string;
