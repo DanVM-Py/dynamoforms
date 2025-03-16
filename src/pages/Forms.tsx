@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -33,10 +34,8 @@ const Forms = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forms, setForms] = useState<Form[]>([]);
-  const [userAccessibleForms, setUserAccessibleForms] = useState<Form[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("operation");
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isGlobalAdmin, isProjectAdmin, user, refreshUserProfile } = useAuth();
@@ -54,7 +53,6 @@ const Forms = () => {
   useEffect(() => {
     refreshUserProfile().then(() => {
       fetchForms();
-      fetchUserAccessibleForms();
       
       if (isGlobalAdmin) {
         fetchProjects();
@@ -63,123 +61,6 @@ const Forms = () => {
       }
     });
   }, [isGlobalAdmin, isProjectAdmin]);
-  
-  // Fetch forms that the user has access to via project roles
-  const fetchUserAccessibleForms = async () => {
-    try {
-      setLoading(true);
-      
-      // Verificar la sesión actual
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        setLoading(false);
-        return;
-      }
-      
-      // Get user roles
-      const { data: userRolesData, error: userRolesError } = await supabase
-        .from('user_roles')
-        .select(`
-          role_id,
-          roles:role_id (
-            id,
-            name,
-            project_id
-          ),
-          project_id
-        `)
-        .eq('user_id', session.user.id);
-        
-      if (userRolesError) {
-        console.error('Error fetching user roles:', userRolesError);
-        setLoading(false);
-        return;
-      }
-      
-      if (!userRolesData || userRolesData.length === 0) {
-        console.log('User has no roles');
-        setLoading(false);
-        return;
-      }
-      
-      // Extract role IDs
-      const roleIds = userRolesData.map(ur => ur.role_id);
-      const projectIds = userRolesData.map(ur => ur.project_id).filter(Boolean);
-      
-      console.log('User roles:', roleIds);
-      console.log('User project IDs:', projectIds);
-      
-      // Get forms that have form_roles for the user's roles OR forms in the user's projects
-      let query = supabase
-        .from('forms')
-        .select(`
-          *,
-          projects:project_id (name)
-        `);
-      
-      // For regular users, fetch forms only from their accessible projects
-      if (!isGlobalAdmin && !isProjectAdmin) {
-        if (projectIds.length > 0) {
-          query = query.in('project_id', projectIds);
-        } else {
-          // If user has no projects, return empty array
-          setUserAccessibleForms([]);
-          setLoading(false);
-          return;
-        }
-      }
-      
-      // For admins, we'll fetch all forms (handled by fetchForms)
-      // For regular users, we get forms from their authorized projects
-      const { data: formsData, error: formsError } = await query;
-      
-      if (formsError) {
-        console.error('Error fetching accessible forms:', formsError);
-        setLoading(false);
-        return;
-      }
-      
-      // Format forms and add response counts
-      if (formsData && formsData.length > 0) {
-        const formattedForms = await Promise.all(
-          formsData.map(async (form) => {
-            try {
-              const { count, error: countError } = await supabase
-                .from('form_responses')
-                .select('*', { count: 'exact', head: true })
-                .eq('form_id', form.id);
-              
-              return {
-                ...form,
-                project_name: form.projects?.name || 'Sin proyecto',
-                responseCount: countError ? 0 : (count || 0),
-                created_at: new Date(form.created_at).toLocaleDateString('es-ES'),
-                hasAccess: true
-              };
-            } catch (err) {
-              return {
-                ...form,
-                project_name: form.projects?.name || 'Sin proyecto',
-                responseCount: 0,
-                created_at: new Date(form.created_at).toLocaleDateString('es-ES'),
-                hasAccess: true
-              };
-            }
-          })
-        );
-        
-        console.log('User accessible forms:', formattedForms);
-        setUserAccessibleForms(formattedForms);
-      } else {
-        setUserAccessibleForms([]);
-      }
-    } catch (error) {
-      console.error('Error in fetchUserAccessibleForms:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchForms = async () => {
     try {
@@ -199,37 +80,48 @@ const Forms = () => {
         return;
       }
 
-      // Skip fetching all forms for regular users
-      if (!isGlobalAdmin && !isProjectAdmin) {
-        setForms([]);
-        setLoading(false);
-        return;
-      }
+      console.log("Fetching forms for user:", session.user.id);
+      console.log("User roles:", { isGlobalAdmin, isProjectAdmin });
 
-      // Intentar obtener el perfil para actualizar roles
-      await refreshUserProfile();
-      
       let query = supabase.from('forms').select(`
         *,
         projects:project_id (name)
       `);
       
-      // Si no es global_admin, filtramos por proyectos donde es project_admin
+      // Si no es global_admin, filtramos según los roles del usuario
       if (!isGlobalAdmin) {
-        // Primero obtenemos los proyectos donde el usuario es admin
-        const { data: projectAdminData } = await supabase
-          .from('project_admins')
-          .select('project_id')
-          .eq('user_id', session.user.id);
-          
-        if (projectAdminData && projectAdminData.length > 0) {
-          const projectIds = projectAdminData.map(item => item.project_id);
-          query = query.in('project_id', projectIds);
+        if (isProjectAdmin) {
+          // Project admin: obtener los formularios de los proyectos que administra
+          const { data: projectAdminData } = await supabase
+            .from('project_admins')
+            .select('project_id')
+            .eq('user_id', session.user.id);
+            
+          if (projectAdminData && projectAdminData.length > 0) {
+            const projectIds = projectAdminData.map(item => item.project_id);
+            query = query.in('project_id', projectIds);
+            console.log("Filtering by project admin projects:", projectIds);
+          }
         } else {
-          // Si no es admin de ningún proyecto, no mostramos formularios
-          setForms([]);
-          setLoading(false);
-          return;
+          // Regular user: obtener formularios según roles de proyecto
+          const { data: userRolesData } = await supabase
+            .from('user_roles')
+            .select(`
+              role_id,
+              project_id
+            `)
+            .eq('user_id', session.user.id);
+            
+          if (userRolesData && userRolesData.length > 0) {
+            const projectIds = userRolesData
+              .map(ur => ur.project_id)
+              .filter(Boolean) as string[];
+              
+            if (projectIds.length > 0) {
+              query = query.in('project_id', projectIds);
+              console.log("Filtering by user role projects:", projectIds);
+            }
+          }
         }
       }
       
@@ -242,6 +134,8 @@ const Forms = () => {
       }
       
       if (data) {
+        console.log("Forms retrieved:", data.length);
+        
         // Si no hay error, procesar los datos normalmente
         const formattedForms = data.map(form => ({
           ...form,
@@ -284,6 +178,8 @@ const Forms = () => {
         } catch (err) {
           console.error('Error fetching form responses:', err);
         }
+      } else {
+        setForms([]);
       }
     } catch (error: any) {
       console.error('Error fetching forms:', error);
@@ -432,7 +328,9 @@ const Forms = () => {
     }
   };
 
-  const renderFormCard = (form: Form, canEdit: boolean = false) => {
+  const renderFormCard = (form: Form) => {
+    const canEdit = canCreateForms;
+    
     return (
       <Card key={form.id} className="hover:shadow-md transition-shadow">
         <CardHeader className="pb-2">
@@ -556,12 +454,8 @@ const Forms = () => {
         
       if (error) throw error;
       
-      // Update both form lists
+      // Update form list
       setForms(forms.map(f => 
-        f.id === form.id ? { ...f, status: newStatus } : f
-      ));
-      
-      setUserAccessibleForms(userAccessibleForms.map(f => 
         f.id === form.id ? { ...f, status: newStatus } : f
       ));
       
@@ -631,9 +525,8 @@ const Forms = () => {
       
       if (formDeleteError) throw formDeleteError;
       
-      // Update both form lists
+      // Update form list
       setForms(forms.filter(form => form.id !== formToDelete.id));
-      setUserAccessibleForms(userAccessibleForms.filter(form => form.id !== formToDelete.id));
       
       toast({
         title: "Formulario eliminado",
@@ -658,15 +551,12 @@ const Forms = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Formularios</h1>
-          <p className="text-gray-500 mt-1">Gestiona tus formularios y plantillas</p>
+          <p className="text-gray-500 mt-1">Gestiona y visualiza formularios según tus permisos</p>
         </div>
         <div className="flex space-x-2">
           <Button 
             variant="outline" 
-            onClick={() => {
-              fetchForms();
-              fetchUserAccessibleForms();
-            }}
+            onClick={fetchForms}
             disabled={loading}
             className="mr-2"
           >
@@ -698,75 +588,46 @@ const Forms = () => {
             <Button 
               variant="outline" 
               className="mt-4" 
-              onClick={() => {
-                fetchForms();
-                fetchUserAccessibleForms();
-              }}
+              onClick={fetchForms}
             >
               Reintentar
             </Button>
           </div>
         </div>
       ) : (
-        <Tabs defaultValue="operation" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="operation">Formularios operativos</TabsTrigger>
-            {canCreateForms && (
-              <TabsTrigger value="admin">Administración de formularios</TabsTrigger>
-            )}
-          </TabsList>
-          
-          <TabsContent value="operation">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {userAccessibleForms.length > 0 ? (
-                userAccessibleForms.map((form) => renderFormCard(form, false))
-              ) : (
-                <div className="col-span-full text-center p-8">
-                  <div className="mb-4 text-gray-400">
-                    <FileText className="h-12 w-12 mx-auto mb-2" />
-                    <p className="text-lg font-medium">No tienes formularios disponibles</p>
-                    <p className="text-sm text-gray-500">
-                      No tienes acceso a ningún formulario en este momento
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-          
-          {canCreateForms && (
-            <TabsContent value="admin">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {forms.length > 0 ? (
-                  forms.map((form) => renderFormCard(form, true))
-                ) : (
-                  <div className="col-span-full text-center p-8">
-                    <div className="mb-4 text-gray-400">
-                      <FileText className="h-12 w-12 mx-auto mb-2" />
-                      <p className="text-lg font-medium">No hay formularios disponibles</p>
-                      <p className="text-sm text-gray-500">
-                        Crea tu primer formulario para comenzar
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <Card 
-                  className="flex flex-col items-center justify-center h-full min-h-[220px] border-dashed hover:bg-gray-50 cursor-pointer" 
-                  onClick={createForm}
-                >
-                  <div className="p-3 bg-dynamo-50 rounded-full mb-3">
-                    <Plus className="h-6 w-6 text-dynamo-600" />
-                  </div>
-                  <p className="text-lg font-medium text-dynamo-600">Crear nuevo formulario</p>
-                  <p className="text-sm text-gray-500 text-center mt-2">
-                    Diseña formularios personalizados<br />con lógica avanzada
-                  </p>
-                </Card>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {forms.length > 0 ? (
+            forms.map((form) => renderFormCard(form))
+          ) : (
+            <div className="col-span-full text-center p-8">
+              <div className="mb-4 text-gray-400">
+                <FileText className="h-12 w-12 mx-auto mb-2" />
+                <p className="text-lg font-medium">No hay formularios disponibles</p>
+                <p className="text-sm text-gray-500">
+                  {canCreateForms ? 
+                    "Crea tu primer formulario para comenzar" : 
+                    "No tienes acceso a ningún formulario en este momento"
+                  }
+                </p>
               </div>
-            </TabsContent>
+            </div>
           )}
-        </Tabs>
+
+          {canCreateForms && (
+            <Card 
+              className="flex flex-col items-center justify-center h-full min-h-[220px] border-dashed hover:bg-gray-50 cursor-pointer" 
+              onClick={createForm}
+            >
+              <div className="p-3 bg-dynamo-50 rounded-full mb-3">
+                <Plus className="h-6 w-6 text-dynamo-600" />
+              </div>
+              <p className="text-lg font-medium text-dynamo-600">Crear nuevo formulario</p>
+              <p className="text-sm text-gray-500 text-center mt-2">
+                Diseña formularios personalizados<br />con lógica avanzada
+              </p>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Delete Confirmation Dialog */}
