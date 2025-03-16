@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS public.project_users (
   invited_by UUID NOT NULL,
   activated_at TIMESTAMP WITH TIME ZONE,
   FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE,
-  FOREIGN KEY (invited_by) REFERENCES auth.users(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE,
+  FOREIGN KEY (invited_by) REFERENCES public.profiles(id) ON DELETE CASCADE,
   UNIQUE (project_id, user_id)
 );
 

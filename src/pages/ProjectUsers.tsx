@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -95,7 +94,6 @@ const ProjectUsers = () => {
     queryKey: ["projectUsers", projectId, roleFilter, statusFilter],
     queryFn: async () => {
       try {
-        // Verify permissions before proceeding
         if (!user) return [];
         
         let query = supabase
@@ -116,16 +114,14 @@ const ProjectUsers = () => {
         
         if (!projectUsersData) return [];
 
-        // Fetch user profiles for each project user
         const enrichedUsers = await Promise.all(
           projectUsersData.map(async (pu) => {
             try {
-              // Use more specific queries with better error handling
               const { data: profileData } = await supabase
                 .from("profiles")
                 .select("email, name")
                 .eq("id", pu.user_id)
-                .maybeSingle(); // Use maybeSingle instead of single for safer queries
+                .maybeSingle();
 
               let roleName = undefined;
               if (roleFilter) {
@@ -160,7 +156,6 @@ const ProjectUsers = () => {
               } as ProjectUser;
             } catch (profileError) {
               console.error("Error enriching user data:", profileError);
-              // Return partial data instead of failing completely
               return {
                 ...pu,
                 email: "Error loading email",
@@ -192,152 +187,68 @@ const ProjectUsers = () => {
           throw new Error("Project ID is required");
         }
         
-        // First, find if the user exists by email (case insensitive)
-        const { data: existingUser, error: userError } = await supabase
+        const { data: existingUserProfile, error: userProfileError } = await supabase
           .from("profiles")
           .select("id, email")
           .ilike("email", values.email);
           
-        if (userError) {
-          console.error("Error checking if user exists:", userError);
-          throw new Error(`Error checking if user exists: ${userError.message}`);
+        if (userProfileError) {
+          console.error("Error checking if user profile exists:", userProfileError);
+          throw new Error(`Error checking if user profile exists: ${userProfileError.message}`);
         }
         
-        // User doesn't exist in the system, so we'll create a temporary invitation
-        if (!existingUser || existingUser.length === 0) {
-          console.log("User not found in the system, creating invitation for future signup:", values.email);
+        if (!existingUserProfile || existingUserProfile.length === 0) {
+          console.log("User profile not found, creating temporary profile:", values.email);
           
-          try {
-            // For project admins who aren't global admins, use a different approach
-            // Use the custom client for these operations to avoid RLS conflicts
-            if (!isGlobalAdmin && isProjectAdmin) {
-              // Find if user is project admin for this project specifically
-              const { data: projectAdminData } = await supabase
-                .from("project_admins")
-                .select("*")
-                .eq("user_id", user.id)
-                .eq("project_id", projectId)
-                .maybeSingle();
-                
-              if (!projectAdminData) {
-                throw new Error("You don't have permission to invite users to this project");
-              }
+          const tempUserId = crypto.randomUUID();
               
-              // Generate a temporary UUID for this invitation
-              const tempUserId = crypto.randomUUID();
-              
-              // Create a project user entry first (easier with permissions)
-              const { error: projectUserError } = await supabase
-                .from("project_users")
-                .insert({
-                  project_id: projectId,
-                  user_id: tempUserId,
-                  status: "pending",
-                  invited_by: user.id
-                });
-                
-              if (projectUserError) {
-                console.error("Error adding temporary user to project:", projectUserError);
-                throw new Error(`Error adding user to project: ${projectUserError.message}`);
-              }
-              
-              // Create a temporary profile for the invited user (sensitive to RLS)
-              const { error: profileError } = await supabase
-                .from("profiles")
-                .insert({
-                  id: tempUserId,
-                  email: values.email,
-                  name: values.email.split('@')[0], // Use part of email as name
-                  role: 'user' // Default role
-                });
-                
-              if (profileError) {
-                console.error("Error creating temporary profile:", profileError);
-                throw new Error(`Error creating user profile: ${profileError.message}`);
-              }
-              
-              // If a role was selected, assign it
-              if (values.roleId) {
-                const { error: roleError } = await supabase
-                  .from("user_roles")
-                  .insert({
-                    user_id: tempUserId,
-                    role_id: values.roleId,
-                    project_id: projectId,
-                    assigned_by: user.id
-                  });
-                  
-                if (roleError) {
-                  console.error("Error assigning role to temporary user:", roleError);
-                  // Continue even if role assignment fails
-                }
-              }
-              
-              // Return the newly created temporary user
-              return { id: tempUserId, email: values.email };
-            } else {
-              // Global admins can create profiles directly
-              // Generate a temporary UUID for this invitation
-              const tempUserId = crypto.randomUUID();
-              
-              // Create a temporary profile for the invited user
-              const { error: profileError } = await supabase
-                .from("profiles")
-                .insert({
-                  id: tempUserId,
-                  email: values.email,
-                  name: values.email.split('@')[0], // Use part of email as name
-                  role: 'user' // Default role
-                });
-                
-              if (profileError) {
-                console.error("Error creating temporary profile:", profileError);
-                throw new Error(`Error creating user profile: ${profileError.message}`);
-              }
-              
-              // Add the user to the project
-              const { error: projectUserError } = await supabase
-                .from("project_users")
-                .insert({
-                  project_id: projectId,
-                  user_id: tempUserId,
-                  status: "pending",
-                  invited_by: user.id
-                });
-                
-              if (projectUserError) {
-                console.error("Error adding temporary user to project:", projectUserError);
-                throw new Error(`Error adding user to project: ${projectUserError.message}`);
-              }
-              
-              // If a role was selected, assign it
-              if (values.roleId) {
-                const { error: roleError } = await supabase
-                  .from("user_roles")
-                  .insert({
-                    user_id: tempUserId,
-                    role_id: values.roleId,
-                    project_id: projectId,
-                    assigned_by: user.id
-                  });
-                  
-                if (roleError) {
-                  console.error("Error assigning role to temporary user:", roleError);
-                  // Continue even if role assignment fails
-                }
-              }
-              
-              // Return the newly created temporary user
-              return { id: tempUserId, email: values.email };
-            }
-          } catch (createError: any) {
-            console.error("Error in user creation flow:", createError);
-            throw createError;
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .insert({
+              id: tempUserId,
+              email: values.email,
+              name: values.email.split('@')[0],
+              role: 'user'
+            });
+            
+          if (profileError) {
+            console.error("Error creating temporary profile:", profileError);
+            throw new Error(`Error creating user profile: ${profileError.message}`);
           }
+          
+          const { error: projectUserError } = await supabase
+            .from("project_users")
+            .insert({
+              project_id: projectId,
+              user_id: tempUserId,
+              status: "pending",
+              invited_by: user.id
+            });
+            
+          if (projectUserError) {
+            console.error("Error adding temporary user to project:", projectUserError);
+            throw new Error(`Error adding user to project: ${projectUserError.message}`);
+          }
+          
+          if (values.roleId) {
+            const { error: roleError } = await supabase
+              .from("user_roles")
+              .insert({
+                user_id: tempUserId,
+                role_id: values.roleId,
+                project_id: projectId,
+                assigned_by: user.id
+              });
+              
+            if (roleError) {
+              console.error("Error assigning role to temporary user:", roleError);
+            }
+          }
+          
+          return { id: tempUserId, email: values.email };
         }
         
-        // User exists, check if they're already in this project
-        for (const existingUserRecord of existingUser) {
+        for (const existingUserRecord of existingUserProfile) {
           const { data: existingProjectUser, error: projectUserError } = await supabase
             .from("project_users")
             .select("*")
@@ -353,7 +264,6 @@ const ProjectUsers = () => {
             throw new Error(`User ${existingUserRecord.email} is already in this project`);
           }
 
-          // Now insert the user into the project
           const { error: insertError } = await supabase
             .from("project_users")
             .insert({
@@ -365,14 +275,12 @@ const ProjectUsers = () => {
 
           if (insertError) {
             console.error("Insert error:", insertError);
-            // Check if it's a unique constraint violation
             if (insertError.code === "23505") {
               throw new Error(`User ${values.email} is already assigned to this project`);
             }
             throw new Error(`Error adding user to project: ${insertError.message}`);
           }
 
-          // If a role was selected, assign it to the user
           if (values.roleId) {
             const { error: roleError } = await supabase
               .from("user_roles")
@@ -384,7 +292,6 @@ const ProjectUsers = () => {
               });
 
             if (roleError) {
-              // Log the error but don't fail the invitation
               console.error("Error assigning role:", roleError);
             }
           }
@@ -392,7 +299,6 @@ const ProjectUsers = () => {
           return existingUserRecord;
         }
         
-        // Should never get here, but TypeScript expects a return
         throw new Error("Unexpected error in user invitation flow");
       } catch (error: any) {
         console.error("Error in inviteUserMutation:", error);
