@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,7 +95,8 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
     try {
       const submissionData = {
         form_id: formId,
-        data: formData,
+        response_data: formData,
+        user_id: isPublic ? uuidv4() : (await supabase.auth.getUser()).data.user?.id,
       };
 
       if (onSubmit) {
@@ -103,9 +105,9 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
       }
 
       const { data, error } = await supabase
-        .from('form_submissions')
+        .from('form_responses')
         .insert([submissionData])
-        .select()
+        .select();
 
       if (error) {
         console.error("Error al enviar el formulario:", error);
