@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -21,7 +20,6 @@ import { Badge } from "@/components/ui/badge";
 import { AlertCircle, CheckCircle, MailPlus, FileSpreadsheet, UsersRound } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-// Define the schema for form validation
 const formSchema = z.object({
   email: z
     .string()
@@ -30,10 +28,8 @@ const formSchema = z.object({
   roleId: z.string().optional(),
 });
 
-// Define the project user status type
 type ProjectUserStatus = "active" | "pending" | "inactive" | "rejected";
 
-// Define the project user type
 type ProjectUser = {
   id: string;
   project_id: string;
@@ -57,7 +53,6 @@ const ProjectUsers = () => {
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<ProjectUserStatus | null>(null);
 
-  // Form definition
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -66,7 +61,6 @@ const ProjectUsers = () => {
     },
   });
 
-  // Fetch project details
   const { data: project } = useQuery({
     queryKey: ["project", projectId],
     queryFn: async () => {
@@ -81,7 +75,6 @@ const ProjectUsers = () => {
     },
   });
 
-  // Fetch project roles
   const { data: roles } = useQuery({
     queryKey: ["projectRoles", projectId],
     queryFn: async () => {
@@ -95,11 +88,9 @@ const ProjectUsers = () => {
     },
   });
 
-  // Fetch project users with their info and roles - fixed to query separately to avoid relationship conflicts
   const { data: projectUsers, isLoading } = useQuery({
     queryKey: ["projectUsers", projectId, roleFilter, statusFilter],
     queryFn: async () => {
-      // First, get the project users with the specified filters
       let query = supabase
         .from("project_users")
         .select("*")
@@ -114,17 +105,14 @@ const ProjectUsers = () => {
       if (projectUsersError) throw projectUsersError;
       if (!projectUsersData) return [];
 
-      // Process each project user to get associated profile and role information
       const enrichedUsers = await Promise.all(
         projectUsersData.map(async (pu) => {
-          // Get user profile information
           const { data: profileData } = await supabase
             .from("profiles")
-            .select("email, full_name")
+            .select("email, name")
             .eq("id", pu.user_id)
             .single();
 
-          // Get user role information if a role filter is applied
           let roleName = undefined;
           if (roleFilter) {
             const { data: userRoleData } = await supabase
@@ -135,12 +123,10 @@ const ProjectUsers = () => {
               .eq("project_id", projectId)
               .single();
 
-            // If role filter is applied but user doesn't have the role, skip this user
             if (!userRoleData) return null;
             
             roleName = userRoleData.roles?.name;
           } else {
-            // Get any role the user might have for this project
             const { data: userRoleData } = await supabase
               .from("user_roles")
               .select("roles(name)")
@@ -152,25 +138,21 @@ const ProjectUsers = () => {
             }
           }
 
-          // Return the enriched user object
           return {
             ...pu,
             email: profileData?.email,
-            full_name: profileData?.full_name,
+            full_name: profileData?.name,
             role_name: roleName,
           } as ProjectUser;
         })
       );
 
-      // Filter out any null values (users that didn't match the role filter)
       return enrichedUsers.filter(Boolean) as ProjectUser[];
     },
   });
 
-  // Mutation to invite a user to the project
   const inviteUserMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      // Check if the user exists
       const { data: existingUser, error: userError } = await supabase
         .from("profiles")
         .select("id, email")
@@ -185,7 +167,6 @@ const ProjectUsers = () => {
         throw new Error("User does not exist in the system");
       }
 
-      // Check if the user is already in the project
       const { data: existingProjectUser, error: projectUserError } = await supabase
         .from("project_users")
         .select("*")
@@ -200,7 +181,6 @@ const ProjectUsers = () => {
         throw new Error("User is already in the project");
       }
 
-      // Check if the user is in any other project
       const { data: otherProjects, error: otherProjectsError } = await supabase
         .from("project_users")
         .select("*")
@@ -214,7 +194,6 @@ const ProjectUsers = () => {
         throw new Error("User is already assigned to another project");
       }
 
-      // Create project user record - including the invited_by field
       const { error: insertError } = await supabase
         .from("project_users")
         .insert({
@@ -228,7 +207,6 @@ const ProjectUsers = () => {
         throw insertError;
       }
 
-      // If a role was specified, assign the user to that role
       if (values.roleId) {
         const { error: roleError } = await supabase
           .from("user_roles")
@@ -264,7 +242,6 @@ const ProjectUsers = () => {
     },
   });
 
-  // Mutation to update a user's status
   const updateUserStatusMutation = useMutation({
     mutationFn: async ({ userId, status }: { userId: string; status: ProjectUserStatus }) => {
       const { error } = await supabase
@@ -296,7 +273,6 @@ const ProjectUsers = () => {
     inviteUserMutation.mutate(values);
   };
 
-  // Function to render the status badge
   const renderStatusBadge = (status: ProjectUserStatus) => {
     switch (status) {
       case "active":
