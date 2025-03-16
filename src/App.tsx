@@ -25,6 +25,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ProjectRoles from './pages/ProjectRoles';
 import ProjectUsers from './pages/ProjectUsers';
+import { FormResponseHandler } from './components/form-renderer/FormResponseHandler';
 
 const queryClient = new QueryClient();
 
@@ -104,6 +105,9 @@ function App() {
               } />
               <Route path="/public/forms/:formId" element={<PublicFormView />} />
               <Route path="/public/forms/:formId/success" element={<PublicFormSuccess />} />
+              <Route path="/public/forms/:formId/response/:responseId" element={
+                <PublicFormHandlerWrapper />
+              } />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />
@@ -113,5 +117,16 @@ function App() {
     </Router>
   );
 }
+
+// Wrapper component to handle public form responses
+const PublicFormHandlerWrapper = () => {
+  const { formId, responseId } = useParams();
+  
+  if (!formId || !responseId) {
+    return <NotFound />;
+  }
+  
+  return <FormResponseHandler formId={formId} responseId={responseId} isPublic={true} />;
+};
 
 export default App;

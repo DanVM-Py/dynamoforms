@@ -32,22 +32,23 @@ const PublicFormView = () => {
       
       console.log("[PublicFormView] Fetching public form with ID:", id);
       
-      // First check if the form exists and is public and active
+      // Check if the form exists and is public and active
       const { data: formCheck, error: checkError } = await customSupabase
         .from('forms')
         .select('id, title, description, schema, status, is_public')
         .eq('id', id)
         .eq('status', 'active')
         .eq('is_public', true)
-        .single();
+        .maybeSingle();
       
       console.log("[PublicFormView] Form check response:", { formCheck, checkError });
       
       if (checkError) {
+        // Handle different error types
         if (checkError.code === 'PGRST116') {
           console.error('[PublicFormView] No form found with ID:', id);
           setError("Este formulario no existe o no está disponible públicamente.");
-        } else if (checkError.message.includes('JWT')) {
+        } else if (checkError.message.includes('JWT') || checkError.message.includes('API key')) {
           console.error('[PublicFormView] Authentication error:', checkError);
           setError("Error de autenticación. Por favor contacte al administrador.");
         } else {
