@@ -19,24 +19,19 @@ export function Sidebar() {
   const params = useParams();
   const { user, userProfile, isGlobalAdmin, isProjectAdmin, isApprover, signOut } = useAuth();
   
-  // Get the current project ID from session storage or localStorage if available
   const getProjectIdFromStorage = () => {
     return sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
   };
   
-  // Get the current project ID from the URL if available - look for it in various parts of the path
   const getProjectIdFromUrl = () => {
     if (params.projectId) return params.projectId;
     
-    // Check if we're in a project-specific route
     const projectMatch = location.pathname.match(/\/projects\/([^/]+)/);
     return projectMatch ? projectMatch[1] : null;
   };
 
-  // Get project ID with priority: URL params > session storage > localStorage
   const projectId = getProjectIdFromUrl() || getProjectIdFromStorage();
   
-  // Store the project ID in session storage when it changes from URL
   useEffect(() => {
     const urlProjectId = getProjectIdFromUrl();
     if (urlProjectId) {
@@ -54,7 +49,6 @@ export function Sidebar() {
     }
   }, [location.pathname, isMobile]);
 
-  // Log project ID for debugging
   useEffect(() => {
     console.log("Current projectId in sidebar:", projectId);
     console.log("Can user access project roles:", (isGlobalAdmin || isProjectAdmin) && projectId);
@@ -73,10 +67,8 @@ export function Sidebar() {
     e.stopPropagation();
     try {
       await signOut();
-      // Navigation happens in the signOut function itself
     } catch (error) {
       console.error("Error signing out from sidebar:", error);
-      // Fallback navigation in case the signOut function fails
       navigate("/auth");
     }
   };
@@ -177,10 +169,8 @@ export function Sidebar() {
     />
   );
 
-  // Try to get profile name from userProfile, fall back to email username
   const displayName = userProfile?.name || (user?.email ? user.email.split('@')[0] : 'Usuario');
   
-  // Get the user's role for display
   const getUserRoleDisplay = () => {
     if (isGlobalAdmin) return 'Administrador Global';
     if (isProjectAdmin) return 'Administrador de Proyecto';
@@ -188,10 +178,8 @@ export function Sidebar() {
     return userProfile?.role || 'Usuario';
   };
   
-  // Display role from profile
   const displayRole = getUserRoleDisplay();
 
-  // Check if the user can access project roles (global admin or project admin with a project context)
   const canAccessProjectRoles = (isGlobalAdmin || isProjectAdmin) && projectId;
 
   return (
@@ -230,10 +218,8 @@ export function Sidebar() {
         </div>
 
         <div className="mt-6 flex flex-col flex-1 gap-y-1 px-3">
-          {/* Home - single item */}
           <MenuItem icon={Home} text="Inicio" to="/" />
           
-          {/* Operation group */}
           <MenuGroup 
             title="Operación" 
             icon={Activity} 
@@ -250,6 +236,13 @@ export function Sidebar() {
               text="Tareas" 
               to="/tasks" 
             />
+            {(isGlobalAdmin || isProjectAdmin) && (
+              <MenuItem 
+                icon={Settings} 
+                text="Plantillas de Tareas" 
+                to="/task-templates" 
+              />
+            )}
             <MenuItem 
               icon={Bell} 
               text="Notificaciones" 
@@ -257,7 +250,6 @@ export function Sidebar() {
             />
           </MenuGroup>
           
-          {/* Administration group - visible to both global admins and project admins */}
           {(isGlobalAdmin || (isProjectAdmin && projectId)) && (
             <MenuGroup 
               title="Administración" 
@@ -265,7 +257,6 @@ export function Sidebar() {
               id="administration"
               paths={['/projects', '/admin', '/projects/' + projectId + '/roles', '/projects/' + projectId + '/users']}
             >
-              {/* Projects link only shown to global admins */}
               {isGlobalAdmin && (
                 <MenuItem 
                   icon={Building2} 
@@ -274,7 +265,6 @@ export function Sidebar() {
                 />
               )}
               
-              {/* Mostrar enlace de Roles si hay un projectId en el contexto y el usuario tiene permisos */}
               {canAccessProjectRoles && (
                 <MenuItem 
                   icon={Settings} 
@@ -284,7 +274,6 @@ export function Sidebar() {
                 />
               )}
               
-              {/* Mostrar enlace de Usuarios del Proyecto si hay un projectId en el contexto y el usuario tiene permisos */}
               {canAccessProjectRoles && (
                 <MenuItem 
                   icon={Users} 
@@ -294,7 +283,6 @@ export function Sidebar() {
                 />
               )}
               
-              {/* Admin section only visible to global admins */}
               {isGlobalAdmin && (
                 <MenuItem 
                   icon={Users} 

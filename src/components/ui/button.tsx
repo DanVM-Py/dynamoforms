@@ -39,10 +39,11 @@ export interface ButtonProps
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
   openInNew?: boolean
+  href?: string
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, openInNew = false, onClick, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, openInNew = false, onClick, href, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
     
     // For buttons that need to open in new tab
@@ -51,8 +52,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         onClick(e);
       }
       
-      if (openInNew && props.href) {
-        window.open(props.href, '_blank', 'noopener,noreferrer');
+      if (openInNew && href) {
+        window.open(href, '_blank', 'noopener,noreferrer');
         e.preventDefault();
       }
     };
