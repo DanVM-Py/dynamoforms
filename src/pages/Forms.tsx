@@ -4,12 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Plus, MoreVertical, Clock, RefreshCw, Building2, Trash2, Edit, Eye } from "lucide-react";
+import { FileText, Plus, Clock, RefreshCw, Building2, Trash2, Edit, Eye, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Form {
@@ -47,8 +46,8 @@ const Forms = () => {
   const [formToDelete, setFormToDelete] = useState<Form | null>(null);
   const [deleting, setDeleting] = useState(false);
   
-  // Add state for the form being toggled
-  const [togglingStatus, setTogglingStatus] = useState<string | null>(null);
+  // Set default tab based on user role
+  const [activeTab, setActiveTab] = useState(canCreateForms ? "editor" : "operational");
 
   useEffect(() => {
     refreshUserProfile().then(() => {
@@ -123,6 +122,11 @@ const Forms = () => {
             }
           }
         }
+      }
+
+      // Only fetch active forms for operational view
+      if (activeTab === "operational") {
+        query = query.eq('status', 'active');
       }
       
       // Obtener los formularios con manejo de errores mejorado
@@ -328,9 +332,12 @@ const Forms = () => {
     }
   };
 
-  const renderFormCard = (form: Form) => {
-    const canEdit = canCreateForms;
-    
+  const handleOpenPublicFormLink = (formId: string) => {
+    // Open the public form URL in a new tab
+    window.open(`/public/forms/${formId}`, '_blank');
+  };
+
+  const renderEditorFormCard = (form: Form) => {
     return (
       <Card key={form.id} className="hover:shadow-md transition-shadow">
         <CardHeader className="pb-2">
@@ -341,16 +348,14 @@ const Forms = () => {
               </div>
               <CardTitle className="text-lg">{form.title}</CardTitle>
             </div>
-            {canEdit && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => openDeleteDialog(form)}
-              >
-                <Trash2 className="h-4 w-4 text-red-500 hover:text-red-700" />
-              </Button>
-            )}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8"
+              onClick={() => openDeleteDialog(form)}
+            >
+              <Trash2 className="h-4 w-4 text-red-500 hover:text-red-700" />
+            </Button>
           </div>
           <CardDescription className="flex items-center mt-2">
             <Clock className="h-3 w-3 mr-1" /> {getTimeAgo(form.created_at)}
@@ -360,20 +365,9 @@ const Forms = () => {
           <div className="text-sm">
             <div className="flex justify-between mb-1 items-center">
               <span className="text-muted-foreground">Estado:</span>
-              <div className="flex items-center space-x-2">
-                <span className={form.status === "active" ? "text-green-600" : "text-gray-500"}>
-                  {getStatusLabel(form.status)}
-                </span>
-                {canEdit && (
-                  <Switch
-                    checked={form.status === "active"}
-                    onCheckedChange={() => toggleFormStatus(form)}
-                    disabled={togglingStatus === form.id}
-                    aria-label="Toggle form status"
-                    className="data-[state=checked]:bg-green-500"
-                  />
-                )}
-              </div>
+              <span className={form.status === "active" ? "text-green-600" : "text-gray-500"}>
+                {getStatusLabel(form.status)}
+              </span>
             </div>
             <div className="flex justify-between mb-1">
               <span className="text-muted-foreground">Respuestas:</span>
@@ -389,41 +383,57 @@ const Forms = () => {
           </div>
         </CardContent>
         <CardFooter className="flex justify-between border-t pt-4">
-          {canEdit ? (
-            <>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => handleViewDetails(form.id)}
-              >
-                <Edit className="w-4 h-4 mr-1" /> Editar
-              </Button>
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                onClick={() => handleViewResponses(form.id)}
-              >
-                <Eye className="w-4 h-4 mr-1" /> Ver respuestas
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => handleViewDetails(form.id)}
-              >
-                <Eye className="w-4 h-4 mr-1" /> Ver formulario
-              </Button>
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                onClick={() => handleViewResponses(form.id)}
-              >
-                <Eye className="w-4 h-4 mr-1" /> Ver respuestas
-              </Button>
-            </>
-          )}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => handleViewDetails(form.id)}
+          >
+            <Edit className="w-4 h-4 mr-1" /> Editar
+          </Button>
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            onClick={() => handleViewResponses(form.id)}
+          >
+            <Eye className="w-4 h-4 mr-1" /> Ver respuestas
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  };
+
+  const renderOperationalFormCard = (form: Form) => {
+    return (
+      <Card key={form.id} className="hover:shadow-md transition-shadow">
+        <CardHeader className="pb-2">
+          <div className="flex items-center space-x-2">
+            <div className="p-2 bg-dynamo-50 rounded-md">
+              <FileText className="h-4 w-4 text-dynamo-600" />
+            </div>
+            <CardTitle className="text-lg">{form.title}</CardTitle>
+          </div>
+          <CardDescription className="mt-2">
+            {form.description || 'Sin descripción'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Proyecto:</span>
+              <div className="flex items-center">
+                <Building2 className="h-3 w-3 mr-1 text-dynamo-600" />
+                <span>{form.project_name}</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-center border-t pt-4">
+          <Button 
+            className="w-full"
+            onClick={() => handleOpenPublicFormLink(form.id)}
+          >
+            <ExternalLink className="w-4 h-4 mr-1" /> Ejecutar formulario
+          </Button>
         </CardFooter>
       </Card>
     );
@@ -435,45 +445,6 @@ const Forms = () => {
 
   const handleViewResponses = (formId: string) => {
     navigate(`/forms/${formId}/responses`);
-  };
-
-  const toggleFormStatus = async (form: Form) => {
-    try {
-      setTogglingStatus(form.id);
-      
-      // Toggle between 'draft' and 'active'
-      const newStatus = form.status === 'draft' ? 'active' : 'draft';
-      
-      const { error } = await supabase
-        .from('forms')
-        .update({ 
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', form.id);
-        
-      if (error) throw error;
-      
-      // Update form list
-      setForms(forms.map(f => 
-        f.id === form.id ? { ...f, status: newStatus } : f
-      ));
-      
-      toast({
-        title: "Estado actualizado",
-        description: `El formulario ahora está ${newStatus === 'active' ? 'activo' : 'en borrador'}.`,
-      });
-      
-    } catch (error: any) {
-      console.error('Error al cambiar el estado del formulario:', error);
-      toast({
-        title: "Error al actualizar estado",
-        description: error?.message || "No se pudo actualizar el estado del formulario.",
-        variant: "destructive",
-      });
-    } finally {
-      setTogglingStatus(null);
-    }
   };
 
   const getStatusLabel = (status: string) => {
@@ -546,6 +517,15 @@ const Forms = () => {
     }
   };
 
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    // Refresh forms with different criteria when changing tabs
+    setLoading(true);
+    setTimeout(() => {
+      fetchForms();
+    }, 100);
+  };
+
   return (
     <PageContainer>
       <div className="flex justify-between items-center mb-6">
@@ -563,7 +543,7 @@ const Forms = () => {
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span className="ml-1 md:inline hidden">Actualizar</span>
           </Button>
-          {canCreateForms && (
+          {canCreateForms && activeTab === "editor" && (
             <Button 
               className="bg-dynamo-600 hover:bg-dynamo-700"
               onClick={createForm}
@@ -574,6 +554,16 @@ const Forms = () => {
           )}
         </div>
       </div>
+
+      {/* Tabs only visible if user is admin */}
+      {canCreateForms && (
+        <Tabs defaultValue={activeTab} onValueChange={handleTabChange} className="mb-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="operational">Formularios</TabsTrigger>
+            <TabsTrigger value="editor">Edición de Formularios</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
 
       {loading ? (
         <div className="flex justify-center p-8">
@@ -597,23 +587,27 @@ const Forms = () => {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {forms.length > 0 ? (
-            forms.map((form) => renderFormCard(form))
+            forms.map((form) => 
+              activeTab === "editor" 
+                ? renderEditorFormCard(form) 
+                : renderOperationalFormCard(form)
+            )
           ) : (
             <div className="col-span-full text-center p-8">
               <div className="mb-4 text-gray-400">
                 <FileText className="h-12 w-12 mx-auto mb-2" />
                 <p className="text-lg font-medium">No hay formularios disponibles</p>
                 <p className="text-sm text-gray-500">
-                  {canCreateForms ? 
-                    "Crea tu primer formulario para comenzar" : 
-                    "No tienes acceso a ningún formulario en este momento"
+                  {activeTab === "editor" && canCreateForms 
+                    ? "Crea tu primer formulario para comenzar" 
+                    : "No tienes acceso a ningún formulario en este momento"
                   }
                 </p>
               </div>
             </div>
           )}
 
-          {canCreateForms && (
+          {activeTab === "editor" && canCreateForms && (
             <Card 
               className="flex flex-col items-center justify-center h-full min-h-[220px] border-dashed hover:bg-gray-50 cursor-pointer" 
               onClick={createForm}

@@ -88,8 +88,7 @@ const ProtectedRoute = ({
     return <Navigate to="/" replace />;
   }
 
-  // Form access doesn't need special handling here since we'll handle it in the Forms component
-  // Any user type can access the forms route, the filtering will happen inside
+  // Form access verification is now handled inside the Forms component
 
   // If all checks pass, render the children
   console.log("Access granted to protected route");

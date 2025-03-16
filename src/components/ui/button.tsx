@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -37,16 +38,29 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
+  openInNew?: boolean
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, openInNew = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
+    
+    // For buttons that need to open in new tab
+    if (openInNew && props.onClick) {
+      const originalOnClick = props.onClick;
+      props.onClick = (e) => {
+        originalOnClick(e);
+        e.preventDefault();
+      };
+    }
+    
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}
+        target={openInNew ? "_blank" : undefined}
+        rel={openInNew ? "noopener noreferrer" : undefined}
       />
     )
   }
