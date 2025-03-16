@@ -104,10 +104,20 @@ export const FormComponentPreview: React.FC<FormComponentPreviewProps> = ({ comp
           />
         );
       case "file_single":
+        return (
+          <FileUploader
+            maxFiles={1}
+            acceptedTypes={component.acceptedFileTypes || ['.pdf', '.docx', '.jpg', '.png']}
+            includeText={component.includeText || false}
+            previewMode={true}
+            label={component.label}
+            helpText={component.helpText}
+          />
+        );
       case "file_multiple":
         return (
           <FileUploader
-            maxFiles={component.maxFiles || 1}
+            maxFiles={component.maxFiles || 5}
             acceptedTypes={component.acceptedFileTypes || ['.pdf', '.docx', '.jpg', '.png']}
             includeText={component.includeText || false}
             previewMode={true}

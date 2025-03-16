@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +17,7 @@ import { Loader2, ChevronDown, ChevronRight, Info } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { v4 as uuidv4 } from "uuid";
+import { FileUploader } from "../FileUploader";
 
 export interface FormRendererProps {
   formId: string;
@@ -114,7 +114,6 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
         }
       }
       
-      // Handle public form submissions differently
       const userId = isPublic 
         ? uuidv4() // Generate anonymous user ID for public submissions
         : (await supabase.auth.getUser()).data.user?.id;
@@ -321,6 +320,42 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
           </div>
         );
         
+      case 'file_single':
+        return (
+          <div key={id}>
+            <FileUploader
+              maxFiles={1}
+              acceptedTypes={component.acceptedFileTypes || ['.pdf', '.docx', '.jpg', '.png']}
+              includeText={component.includeText || false}
+              previewMode={readOnly}
+              label={label}
+              helpText={helpText}
+              onChange={(files, texts) => {
+                handleInputChange(id, { files, texts });
+              }}
+            />
+            {error && <p className="text-red-500 text-xs">{error}</p>}
+          </div>
+        );
+        
+      case 'file_multiple':
+        return (
+          <div key={id}>
+            <FileUploader
+              maxFiles={component.maxFiles || 5}
+              acceptedTypes={component.acceptedFileTypes || ['.pdf', '.docx', '.jpg', '.png']}
+              includeText={component.includeText || false}
+              previewMode={readOnly}
+              label={label}
+              helpText={helpText}
+              onChange={(files, texts) => {
+                handleInputChange(id, { files, texts });
+              }}
+            />
+            {error && <p className="text-red-500 text-xs">{error}</p>}
+          </div>
+        );
+        
       case 'image':
         return (
           <div key={id}>
@@ -405,6 +440,15 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {schema.title && (
+        <div className="mb-4">
+          <h2 className="text-xl font-bold">{schema.title}</h2>
+          {schema.description && (
+            <p className="text-gray-600 mt-2">{schema.description}</p>
+          )}
+        </div>
+      )}
+      
       {schema.groups?.map(group => (
         <Collapsible 
           key={group.id} 
@@ -451,4 +495,3 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
     </form>
   );
 };
-
