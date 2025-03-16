@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -73,15 +74,32 @@ const TaskTemplates = () => {
       
       if (error) throw error;
       
-      return data.map(template => ({
-        ...template,
-        source_form: template.source_form && 'id' in template.source_form
-          ? template.source_form
-          : null,
-        target_form: template.target_form && 'id' in template.target_form
-          ? template.target_form
-          : null
-      })) as unknown as TaskTemplate[];
+      return data.map(template => {
+        // Handle potentially undefined or error values for nested objects
+        const processedTemplate: TaskTemplate = {
+          id: template.id,
+          title: template.title,
+          description: template.description,
+          source_form_id: template.source_form_id,
+          target_form_id: template.target_form_id,
+          assignment_type: template.assignment_type as "static" | "dynamic",
+          default_assignee: template.default_assignee,
+          assignee_form_field: template.assignee_form_field,
+          due_days: template.due_days,
+          is_active: template.is_active,
+          inheritance_mapping: template.inheritance_mapping || {},
+          project_id: template.project_id,
+          created_at: template.created_at,
+          source_form: template.source_form && !('error' in template.source_form) 
+            ? { id: template.source_form.id, title: template.source_form.title }
+            : undefined,
+          target_form: template.target_form && !('error' in template.target_form)
+            ? { id: template.target_form.id, title: template.target_form.title }
+            : undefined
+        };
+        
+        return processedTemplate;
+      });
     }
   });
   
@@ -120,11 +138,17 @@ const TaskTemplates = () => {
       }
       
       const completeTemplate = {
-        ...template,
         title: template.title,
+        description: template.description,
         source_form_id: template.source_form_id,
         target_form_id: template.target_form_id,
-        assignment_type: template.assignment_type
+        assignment_type: template.assignment_type,
+        default_assignee: template.default_assignee,
+        assignee_form_field: template.assignee_form_field,
+        due_days: template.due_days,
+        is_active: template.is_active,
+        inheritance_mapping: template.inheritance_mapping,
+        project_id: template.project_id
       };
       
       if (template.id) {
@@ -266,7 +290,8 @@ const TaskTemplates = () => {
   
   useEffect(() => {
     if (selectedTemplate) {
-      const templateFields = {
+      // Fix here: Don't use the spread operator, but explicitly copy properties
+      const templateFields: Partial<TaskTemplate> = {
         id: selectedTemplate.id,
         title: selectedTemplate.title,
         description: selectedTemplate.description,
@@ -277,7 +302,7 @@ const TaskTemplates = () => {
         assignee_form_field: selectedTemplate.assignee_form_field,
         due_days: selectedTemplate.due_days,
         is_active: selectedTemplate.is_active,
-        inheritance_mapping: selectedTemplate.inheritance_mapping,
+        inheritance_mapping: selectedTemplate.inheritance_mapping || {},
         project_id: selectedTemplate.project_id,
         created_at: selectedTemplate.created_at
       };
