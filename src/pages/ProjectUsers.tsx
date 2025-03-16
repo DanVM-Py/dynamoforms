@@ -39,7 +39,9 @@ type ProjectUser = {
   project_id: string;
   user_id: string;
   status: ProjectUserStatus;
-  created_at: string;
+  invited_at: string;
+  invited_by: string;
+  activated_at: string | null;
   email?: string;
   full_name?: string;
   role_name?: string;
@@ -93,30 +95,38 @@ const ProjectUsers = () => {
     },
   });
 
-  // Fetch project users with their info and roles - fixed the query to use specific column names
+  // Fetch project users with their info and roles - fixed to avoid relationship naming conflicts
   const { data: projectUsers, isLoading } = useQuery({
     queryKey: ["projectUsers", projectId, roleFilter, statusFilter],
     queryFn: async () => {
       let query = supabase
         .from("project_users")
         .select(`
-          *,
-          profiles:user_id (
+          id,
+          project_id,
+          user_id,
+          status,
+          invited_at,
+          invited_by,
+          activated_at,
+          user:user_id (
             email,
             full_name
           ),
-          user_roles!inner (
-            role_id,
-            roles (
-              id,
-              name
+          role:user_id (
+            user_roles (
+              role_id,
+              roles (
+                id,
+                name
+              )
             )
           )
         `)
         .eq("project_id", projectId);
 
       if (roleFilter) {
-        query = query.eq("user_roles.roles.id", roleFilter);
+        query = query.eq("role.user_roles.roles.id", roleFilter);
       }
 
       if (statusFilter) {
@@ -129,10 +139,16 @@ const ProjectUsers = () => {
 
       // Transform data to include role and user information
       return data.map((item) => ({
-        ...item,
-        email: item.profiles?.email,
-        full_name: item.profiles?.full_name,
-        role_name: item.user_roles?.[0]?.roles?.name,
+        id: item.id,
+        project_id: item.project_id,
+        user_id: item.user_id,
+        status: item.status,
+        invited_at: item.invited_at,
+        invited_by: item.invited_by,
+        activated_at: item.activated_at,
+        email: item.user?.email,
+        full_name: item.user?.full_name,
+        role_name: item.role?.user_roles?.[0]?.roles?.name,
       })) as ProjectUser[];
     },
   });

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Separator } from "@/components/ui/separator";
@@ -108,7 +109,7 @@ const Projects = () => {
     <PageContainer>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
-        <Dialog open={open} onOpenChange={handleOpenChange}>
+        <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button><Plus className="mr-2 h-4 w-4" /> Create Project</Button>
           </DialogTrigger>
@@ -145,7 +146,7 @@ const Projects = () => {
               </div>
             </div>
             <div className="flex justify-end space-x-2">
-              <Button type="button" variant="secondary" onClick={handleOpenChange}>Cancel</Button>
+              <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
               <Button type="submit" onClick={handleCreateProject}>Create</Button>
             </div>
           </DialogContent>
@@ -179,15 +180,21 @@ const Projects = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <EditProjectModal
-        open={isEditModalOpen}
-        onOpenChange={setIsEditModalOpen}
-        project={projectToEdit}
-        onProjectUpdated={() => {
-          setIsEditModalOpen(false);
-          refetch();
-        }}
-      />
+      {projectToEdit && (
+        <EditProjectModal
+          open={isEditModalOpen}
+          onOpenChange={setIsEditModalOpen}
+          project={{
+            id: projectToEdit.id,
+            name: projectToEdit.name,
+            description: projectToEdit.description
+          }}
+          onProjectUpdated={() => {
+            setIsEditModalOpen(false);
+            refetch();
+          }}
+        />
+      )}
     </PageContainer>
   );
 };

@@ -29,36 +29,36 @@ interface Profile {
   role: string;
 }
 
-interface EditProjectModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+export interface EditProjectModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   project: {
     id: string;
     name: string;
-    description: string;
-    adminId?: string; // ID del administrador actual
+    description: string | null;
+    adminId?: string; // ID of the current admin
   };
-  onSave: (data: { name: string; description: string; adminId?: string }) => void;
+  onProjectUpdated: () => void;
 }
 
-export const EditProjectModal = ({ isOpen, onClose, project, onSave }: EditProjectModalProps) => {
+export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated }: EditProjectModalProps) => {
   const { toast } = useToast();
-  const [name, setName] = useState(project.name);
-  const [description, setDescription] = useState(project.description);
-  const [adminId, setAdminId] = useState(project.adminId || "");
+  const [name, setName] = useState(project?.name || "");
+  const [description, setDescription] = useState(project?.description || "");
+  const [adminId, setAdminId] = useState(project?.adminId || "");
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<Profile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
+    if (open) {
       // Reset form when modal opens
-      setName(project.name);
-      setDescription(project.description);
-      setAdminId(project.adminId || "");
+      setName(project?.name || "");
+      setDescription(project?.description || "");
+      setAdminId(project?.adminId || "");
       fetchUsers();
     }
-  }, [isOpen, project]);
+  }, [open, project]);
 
   const fetchUsers = async () => {
     try {
@@ -76,8 +76,8 @@ export const EditProjectModal = ({ isOpen, onClose, project, onSave }: EditProje
     } catch (error: any) {
       console.error('Error fetching users:', error);
       toast({
-        title: "Error al cargar usuarios",
-        description: error?.message || "No se pudieron cargar los usuarios.",
+        title: "Error loading users",
+        description: error?.message || "Could not load users.",
         variant: "destructive",
       });
     } finally {
@@ -90,8 +90,8 @@ export const EditProjectModal = ({ isOpen, onClose, project, onSave }: EditProje
     
     if (!name.trim()) {
       toast({
-        title: "Campo requerido",
-        description: "El nombre del proyecto es obligatorio.",
+        title: "Required field",
+        description: "Project name is required.",
         variant: "destructive",
       });
       return;
@@ -99,16 +99,17 @@ export const EditProjectModal = ({ isOpen, onClose, project, onSave }: EditProje
     
     setLoading(true);
     try {
-      await onSave({ name, description, adminId });
+      await onProjectUpdated();
       toast({
-        title: "Proyecto actualizado",
-        description: "El proyecto se ha actualizado correctamente.",
+        title: "Project updated",
+        description: "The project has been updated successfully.",
       });
+      onOpenChange(false);
     } catch (error) {
       console.error("Error updating project:", error);
       toast({
-        title: "Error al actualizar",
-        description: "No se pudo actualizar el proyecto. Inténtelo de nuevo.",
+        title: "Error updating",
+        description: "Could not update the project. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -117,43 +118,43 @@ export const EditProjectModal = ({ isOpen, onClose, project, onSave }: EditProje
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Editar Proyecto</DialogTitle>
+          <DialogTitle>Edit Project</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="project-name">Nombre del proyecto</Label>
+            <Label htmlFor="project-name">Project Name</Label>
             <Input
               id="project-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ingresa el nombre del proyecto"
+              placeholder="Enter project name"
               required
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="project-description">Descripción</Label>
+            <Label htmlFor="project-description">Description</Label>
             <Textarea
               id="project-description"
-              value={description}
+              value={description || ""}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe brevemente el propósito del proyecto"
+              placeholder="Briefly describe the purpose of the project"
               rows={4}
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="project-admin">Administrador del proyecto</Label>
+            <Label htmlFor="project-admin">Project Administrator</Label>
             <Select 
               value={adminId} 
               onValueChange={(value) => setAdminId(value)}
             >
               <SelectTrigger id="project-admin" className={loadingUsers ? "opacity-70" : ""}>
-                <SelectValue placeholder="Selecciona un administrador" />
+                <SelectValue placeholder="Select an administrator" />
               </SelectTrigger>
               <SelectContent>
                 {users
@@ -169,7 +170,7 @@ export const EditProjectModal = ({ isOpen, onClose, project, onSave }: EditProje
             {loadingUsers && (
               <div className="text-sm text-muted-foreground flex items-center">
                 <Loader2 className="w-3 h-3 mr-2 animate-spin" /> 
-                Cargando usuarios...
+                Loading users...
               </div>
             )}
           </div>
@@ -178,20 +179,19 @@ export const EditProjectModal = ({ isOpen, onClose, project, onSave }: EditProje
             <Button 
               type="button" 
               variant="outline" 
-              onClick={onClose}
+              onClick={() => onOpenChange(false)}
               disabled={loading}
             >
-              Cancelar
+              Cancel
             </Button>
             <Button 
               type="submit" 
-              className="bg-dynamo-600 hover:bg-dynamo-700"
               disabled={loading || !name.trim()}
             >
               {loading ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...</>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
               ) : (
-                'Guardar cambios'
+                'Save changes'
               )}
             </Button>
           </DialogFooter>
