@@ -52,7 +52,7 @@ const TaskTemplates = () => {
     description: '',
     source_form_id: '',
     target_form_id: '',
-    assignment_type: 'static',
+    assignment_type: 'static' as 'static' | 'dynamic', // Explicitly type as union type
     default_assignee: '',
     assignee_form_field: null,
     due_days: 7,
@@ -108,19 +108,19 @@ const TaskTemplates = () => {
             inheritance_mapping: template.inheritance_mapping || {},
             project_id: template.project_id,
             created_at: template.created_at,
-            // Safely handle nested form objects
-            source_form: template.source_form && typeof template.source_form === 'object' && 'id' in template.source_form && 'title' in template.source_form
+            // Safely handle nested form objects with proper null checking
+            source_form: template.source_form && typeof template.source_form === 'object' 
               ? { 
-                  id: String(template.source_form.id),
-                  title: String(template.source_form.title)
+                  id: String(template.source_form.id || ''),
+                  title: String(template.source_form.title || '')
                 }
-              : undefined,
-            target_form: template.target_form && typeof template.target_form === 'object' && 'id' in template.target_form && 'title' in template.target_form
+              : null,
+            target_form: template.target_form && typeof template.target_form === 'object' 
               ? {
-                  id: String(template.target_form.id),
-                  title: String(template.target_form.title)
+                  id: String(template.target_form.id || ''),
+                  title: String(template.target_form.title || '')
                 }
-              : undefined
+              : null
           };
           
           return processedTemplate;
@@ -198,9 +198,13 @@ const TaskTemplates = () => {
   // Improved mutation with validation and error handling
   const saveTemplateMutation = useMutation({
     mutationFn: async (template: Partial<TaskTemplate>) => {
-      if (!template.title || !template.source_form_id || !template.target_form_id || !template.assignment_type) {
+      if (!template.title || !template.source_form_id || !template.target_form_id) {
         throw new Error("Faltan campos requeridos");
       }
+      
+      // Ensure assignment_type is the correct union type
+      const assignmentType: 'static' | 'dynamic' = 
+        template.assignment_type === 'dynamic' ? 'dynamic' : 'static';
       
       // Build complete template with validated fields
       const completeTemplate = {
@@ -208,7 +212,7 @@ const TaskTemplates = () => {
         description: template.description || null,
         source_form_id: template.source_form_id,
         target_form_id: template.target_form_id,
-        assignment_type: template.assignment_type === 'dynamic' ? 'dynamic' : 'static',
+        assignment_type: assignmentType,
         default_assignee: template.default_assignee || null,
         assignee_form_field: template.assignee_form_field || null,
         due_days: typeof template.due_days === 'number' ? template.due_days : 7,
@@ -375,23 +379,23 @@ const TaskTemplates = () => {
   // Improved template selection logic
   useEffect(() => {
     if (selectedTemplate) {
-      // Initialize with base template to ensure all fields are present
+      // Initialize with base template to ensure all fields are present, then copy properties explicitly
       const templateFields: Partial<TaskTemplate> = {
-        ...baseTemplate,
-        // Then explicitly copy all properties from selected template
         id: selectedTemplate.id,
         title: selectedTemplate.title,
         description: selectedTemplate.description,
         source_form_id: selectedTemplate.source_form_id,
         target_form_id: selectedTemplate.target_form_id,
-        assignment_type: selectedTemplate.assignment_type,
+        assignment_type: selectedTemplate.assignment_type as 'static' | 'dynamic',
         default_assignee: selectedTemplate.default_assignee,
         assignee_form_field: selectedTemplate.assignee_form_field,
         due_days: selectedTemplate.due_days,
         is_active: selectedTemplate.is_active,
         inheritance_mapping: selectedTemplate.inheritance_mapping || {},
         project_id: selectedTemplate.project_id,
-        created_at: selectedTemplate.created_at
+        created_at: selectedTemplate.created_at,
+        source_form: selectedTemplate.source_form || null,
+        target_form: selectedTemplate.target_form || null
       };
       
       setFormState(templateFields);
@@ -432,13 +436,16 @@ const TaskTemplates = () => {
   };
   
   const handleInheritanceMapping = (sourceField: string, targetField: string) => {
-    setFormState(prev => ({
-      ...prev,
-      inheritance_mapping: {
-        ...(prev.inheritance_mapping || {}),
-        [sourceField]: targetField
-      }
-    }));
+    setFormState(prev => {
+      // Create a new inheritance_mapping object explicitly
+      const updatedMapping = { ...(prev.inheritance_mapping || {}) };
+      updatedMapping[sourceField] = targetField;
+      
+      return {
+        ...prev,
+        inheritance_mapping: updatedMapping
+      };
+    });
   };
   
   // Reset form state when canceling
