@@ -357,6 +357,23 @@ const TaskTemplates = () => {
                 }));
               
               setFormFields(prev => ({ ...prev, target: fields }));
+              
+              // Initialize default mapping values to "_none" for all target fields
+              const initialMappings: Record<string, string> = {};
+              fields.forEach(field => {
+                initialMappings[field.id] = "_none";
+              });
+              
+              // Only set default mappings for new templates or when target form changes
+              if (!selectedTemplate || selectedTemplate.target_form_id !== formState.target_form_id) {
+                setFormState(prev => ({
+                  ...prev,
+                  inheritance_mapping: {
+                    ...initialMappings,
+                    ...(prev.inheritance_mapping || {}) // Keep any existing mappings
+                  }
+                }));
+              }
             } catch (parseError) {
               console.error("Error parsing target form schema:", parseError);
               setFormFields(prev => ({ ...prev, target: [] }));
@@ -374,7 +391,7 @@ const TaskTemplates = () => {
     };
     
     fetchFormSchemas();
-  }, [formState.source_form_id, formState.target_form_id, toast]);
+  }, [formState.source_form_id, formState.target_form_id, toast, selectedTemplate]);
   
   // Improved template selection logic
   useEffect(() => {
@@ -698,11 +715,11 @@ const TaskTemplates = () => {
                       {formFields.target.map(targetField => (
                         <div key={targetField.id} className="flex items-center space-x-2">
                           <Select
-                            value={(formState.inheritance_mapping && formState.inheritance_mapping[targetField.id]) || ''}
+                            value={(formState.inheritance_mapping && formState.inheritance_mapping[targetField.id]) || "_none"}
                             onValueChange={(value) => handleInheritanceMapping(targetField.id, value)}
                           >
                             <SelectTrigger className="w-full">
-                              <SelectValue placeholder={`Seleccionar campo origen para ${targetField.label}`} />
+                              <SelectValue placeholder="Sin mapeo" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="_none">Sin mapeo</SelectItem>
