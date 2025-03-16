@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, X, Upload, FileText, FileImage, File } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface FileUploaderProps {
   maxFiles?: number;
@@ -25,6 +26,7 @@ export const FileUploader = ({
   label,
   helpText
 }: FileUploaderProps) => {
+  const { toast } = useToast();
   const [files, setFiles] = useState<File[]>([]);
   const [texts, setTexts] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -45,17 +47,33 @@ export const FileUploader = ({
     
     if (files.length + selectedFiles.length > maxFiles) {
       setError(`No puedes subir más de ${maxFiles} archivos.`);
+      toast({
+        title: "Límite excedido",
+        description: `No puedes subir más de ${maxFiles} archivos.`,
+        variant: "destructive"
+      });
       return;
     }
     
-    // Check file types
+    // More lenient file type checking
     const invalidFiles = selectedFiles.filter(file => {
+      // Get file extension and convert to lowercase
       const fileExtension = `.${file.name.split('.').pop()?.toLowerCase()}`;
-      return !acceptedTypes.includes(fileExtension);
+      const mimeTypeMatches = acceptedTypes.some(type => 
+        // Check both by extension and mime type
+        file.type.includes(type.replace('.', '')) || type === fileExtension
+      );
+      return !mimeTypeMatches;
     });
     
     if (invalidFiles.length > 0) {
-      setError(`Tipo de archivo no soportado. Formatos permitidos: ${getAcceptedTypesDisplay()}`);
+      const errorMsg = `Tipo de archivo no soportado. Formatos permitidos: ${getAcceptedTypesDisplay()}`;
+      setError(errorMsg);
+      toast({
+        title: "Formato no válido",
+        description: errorMsg,
+        variant: "destructive"
+      });
       return;
     }
     
@@ -115,6 +133,17 @@ export const FileUploader = ({
 
   return (
     <div className="space-y-4">
+      {label && (
+        <Label className="text-sm font-medium">
+          {label}
+          {previewMode && <span className="text-xs text-gray-500 ml-2">(Vista previa)</span>}
+        </Label>
+      )}
+      
+      {helpText && (
+        <p className="text-xs text-gray-500 mb-1">{helpText}</p>
+      )}
+      
       {!previewMode && (
         <>
           <input

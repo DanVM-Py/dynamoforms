@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface EditProjectModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ interface EditProjectModalProps {
 }
 
 export const EditProjectModal = ({ isOpen, onClose, project, onSave }: EditProjectModalProps) => {
+  const { toast } = useToast();
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description);
   const [loading, setLoading] = useState(false);
@@ -41,14 +43,28 @@ export const EditProjectModal = ({ isOpen, onClose, project, onSave }: EditProje
     e.preventDefault();
     
     if (!name.trim()) {
+      toast({
+        title: "Campo requerido",
+        description: "El nombre del proyecto es obligatorio.",
+        variant: "destructive",
+      });
       return;
     }
     
     setLoading(true);
     try {
-      onSave({ name, description });
+      await onSave({ name, description });
+      toast({
+        title: "Proyecto actualizado",
+        description: "El proyecto se ha actualizado correctamente.",
+      });
     } catch (error) {
       console.error("Error updating project:", error);
+      toast({
+        title: "Error al actualizar",
+        description: "No se pudo actualizar el proyecto. Inténtelo de nuevo.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }

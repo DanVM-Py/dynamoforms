@@ -29,7 +29,7 @@ interface FormComponentEditorProps {
   onSave: (component: FormComponent) => void;
   onCancel: () => void;
   groups?: FormGroup[];
-  allComponents?: FormComponent[]; // Para mostrar opciones en componentes condicionales
+  allComponents?: FormComponent[];
 }
 
 export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
@@ -44,7 +44,7 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
     maxLength: component.maxLength || (
       component.type === 'text' ? 300 : 
       component.type === 'textarea' ? 1000 : 
-      component.type === 'number' ? 10 : // Default maxLength for number fields
+      component.type === 'number' ? 10 : 
       undefined
     ),
     maxImages: component.maxImages || 1,
@@ -56,7 +56,6 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
     acceptedFileTypes: component.acceptedFileTypes || ['.pdf', '.docx', '.jpg', '.png']
   });
   
-  // Para componentes condicionales
   const [showWhenCondition, setShowWhenCondition] = useState<'equals' | 'not-equals'>(
     component.conditionalDisplay?.showWhen || 'equals'
   );
@@ -70,16 +69,13 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
     !!component.conditionalDisplay
   );
 
-  // Opciones disponibles para el componente controlador
   const [availableOptions, setAvailableOptions] = useState<{ label: string; value: string }[]>([]);
 
-  // Efecto para actualizar las opciones disponibles cuando cambia el componente controlador
   useEffect(() => {
     if (selectedControllingComponent) {
       const controllingComp = allComponents.find(c => c.id === selectedControllingComponent);
       if (controllingComp && controllingComp.options) {
         setAvailableOptions(controllingComp.options);
-        // Si no hay un valor condicional seleccionado y hay opciones disponibles, seleccionar el primero
         if (!conditionalValue && controllingComp.options.length > 0) {
           setConditionalValue(controllingComp.options[0].value);
         }
@@ -91,7 +87,6 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
     }
   }, [selectedControllingComponent, allComponents]);
 
-  // Obtener componentes que pueden ser controladores (solo selects, radios y checkboxes)
   const eligibleControllingComponents = allComponents.filter(c => 
     (c.type === 'select' || c.type === 'radio' || c.type === 'checkbox') && 
     c.id !== component.id && 
@@ -170,10 +165,8 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
     let newTypes;
     
     if (checked) {
-      // Añadir el tipo si no está ya en la lista
       newTypes = currentTypes.includes(fileType) ? currentTypes : [...currentTypes, fileType];
     } else {
-      // Quitar el tipo de la lista
       newTypes = currentTypes.filter(type => type !== fileType);
     }
     
@@ -181,7 +174,6 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
   };
 
   const handleComponentTypeChange = (type: string) => {
-    // Reset component-specific settings when type changes
     const updatedComponent: FormComponent = {
       ...editedComponent,
       type: type,
@@ -216,7 +208,6 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
     setEditedComponent(updatedComponent);
   };
 
-  // Manejo de condiciones
   const handleSaveWithConditions = () => {
     let updatedComponent = { ...editedComponent };
     
@@ -227,7 +218,6 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
         value: conditionalValue
       };
     } else {
-      // Si no tiene condiciones, eliminar el objeto conditionalDisplay si existe
       if (updatedComponent.conditionalDisplay) {
         const { conditionalDisplay, ...rest } = updatedComponent;
         updatedComponent = rest;
@@ -236,17 +226,16 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
     
     onSave(updatedComponent);
   };
-  
+
   const needsOptions = ['select', 'radio', 'checkbox'].includes(editedComponent.type);
   const isTextField = ['text', 'textarea'].includes(editedComponent.type);
   const isNumberField = editedComponent.type === 'number';
   const isImageField = ['image_single', 'image_multiple'].includes(editedComponent.type);
   const isFileField = ['file_single', 'file_multiple'].includes(editedComponent.type);
   const isInfoTextField = editedComponent.type === 'info_text';
-  
-  // Verificar si el componente puede tener condiciones (no permitir para info_text)
+
   const canHaveConditions = editedComponent.type !== 'info_text';
-  
+
   return (
     <Card className="border-2 border-primary">
       <CardHeader>
