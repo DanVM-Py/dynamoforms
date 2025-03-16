@@ -9,6 +9,12 @@ export const customSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBL
   db: {
     schema: 'public'
   },
+  auth: {
+    // Don't persist the session to avoid authentication issues with public forms
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false
+  },
   global: {
     fetch: (url, options) => {
       return fetch(url, { 

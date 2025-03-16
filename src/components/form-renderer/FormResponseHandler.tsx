@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { customSupabase } from "@/integrations/supabase/customClient";
 import { useToast } from "@/components/ui/use-toast";
 
 interface FormResponseHandlerProps {
@@ -17,8 +18,11 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
   useEffect(() => {
     const triggerTaskCreation = async () => {
       try {
+        // Select the appropriate client based on whether this is a public form
+        const client = isPublic ? customSupabase : supabase;
+        
         // Trigger the edge function to create chained tasks
-        const { data, error } = await supabase.functions.invoke('create-chained-task', {
+        const { data, error } = await client.functions.invoke('create-chained-task', {
           body: {
             formResponseId: responseId,
             sourceFormId: formId

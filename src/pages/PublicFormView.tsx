@@ -5,6 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { FormRenderer } from "@/components/form-renderer/FormRenderer";
 import { supabase } from "@/integrations/supabase/client";
+import { customSupabase } from "@/integrations/supabase/customClient";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
@@ -30,7 +31,7 @@ const PublicFormView = () => {
       setLoading(true);
       setError(null);
       
-      const { data, error } = await supabase
+      const { data, error } = await customSupabase
         .from('forms')
         .select('*')
         .eq('id', id)
@@ -61,7 +62,7 @@ const PublicFormView = () => {
       // Create an anonymous user ID for tracking purposes
       const anonymousUserId = uuidv4();
       
-      const { error } = await supabase
+      const { error } = await customSupabase
         .from('form_responses')
         .insert({
           form_id: formId,
