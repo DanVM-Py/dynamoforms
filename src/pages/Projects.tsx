@@ -2,8 +2,7 @@
 import { useState, useEffect } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Plus, RefreshCw, Users, Pencil, Trash2, PenLine, Settings } from "lucide-react";
+import { RefreshCw, Plus, Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,8 +26,8 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { ProjectCard } from "@/components/projects/ProjectCard";
+import { EditProjectModal } from "@/components/projects/EditProjectModal";
 
 interface Project {
   id: string;
@@ -47,12 +46,6 @@ interface Profile {
   role: string;
 }
 
-interface ProjectCardProps {
-  project: Project;
-  onDelete: (project: Project) => void;
-  onEdit: (project: Project) => void;
-}
-
 const Projects = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +58,8 @@ const Projects = () => {
     adminId: ""
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [projectAdminIds, setProjectAdminIds] = useState<{[key: string]: string}>({});
   const { toast } = useToast();
   const { isGlobalAdmin, user } = useAuth();
 
@@ -152,6 +147,14 @@ const Projects = () => {
           ...prev,
           [projectId]: admins
         }));
+        
+        // Guardar el primer administrador como el principal (para edición)
+        if (data.length > 0) {
+          setProjectAdminIds(prev => ({
+            ...prev,
+            [projectId]: data[0].user_id
+          }));
+        }
       }
     } catch (error) {
       console.error(`Error fetching admins for project ${projectId}:`, error);
@@ -253,80 +256,103 @@ const Projects = () => {
     }
   };
 
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      // 1. Eliminar administradores de proyecto
+      const { error: adminError } = await supabase
+        .from('project_admins')
+        .delete()
+        .eq('project_id', projectId);
+
+      if (adminError) throw adminError;
+
+      // 2. Eliminar el proyecto
+      const { error: projectError } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId);
+
+      if (projectError) throw projectError;
+
+      toast({
+        title: "Proyecto eliminado",
+        description: "El proyecto ha sido eliminado correctamente.",
+      });
+
+      // Actualizar la lista de proyectos
+      setProjects(projects.filter(p => p.id !== projectId));
+    } catch (error: any) {
+      console.error('Error deleting project:', error);
+      toast({
+        title: "Error al eliminar proyecto",
+        description: error?.message || "No se pudo eliminar el proyecto.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditProject = async (projectId: string, data: { name: string; description: string; adminId?: string }) => {
+    try {
+      // 1. Actualizar la información del proyecto
+      const { error: projectError } = await supabase
+        .from('projects')
+        .update({
+          name: data.name,
+          description: data.description || null
+        })
+        .eq('id', projectId);
+
+      if (projectError) throw projectError;
+
+      // 2. Actualizar el administrador si ha cambiado
+      if (data.adminId && data.adminId !== projectAdminIds[projectId]) {
+        // Primero eliminar los administradores anteriores
+        const { error: deleteError } = await supabase
+          .from('project_admins')
+          .delete()
+          .eq('project_id', projectId);
+
+        if (deleteError) throw deleteError;
+
+        // Luego agregar el nuevo administrador
+        const { error: adminError } = await supabase
+          .from('project_admins')
+          .insert([{
+            project_id: projectId,
+            user_id: data.adminId,
+            assigned_by: user?.id
+          }]);
+
+        if (adminError) throw adminError;
+      }
+
+      toast({
+        title: "Proyecto actualizado",
+        description: "El proyecto ha sido actualizado correctamente.",
+      });
+
+      // Actualizar la lista de proyectos
+      fetchProjects();
+    } catch (error: any) {
+      console.error('Error updating project:', error);
+      toast({
+        title: "Error al actualizar proyecto",
+        description: error?.message || "No se pudo actualizar el proyecto.",
+        variant: "destructive",
+      });
+      throw error; // Re-lanzar para que el componente pueda manejarlo
+    }
+  };
+
+  const handleEditClick = (project: Project) => {
+    setEditingProject({
+      ...project,
+    });
+  };
+
   const getUserNameById = (userId: string) => {
     const user = users.find(u => u.id === userId);
     return user ? user.name : 'Usuario desconocido';
-  };
-
-  const ProjectCard = ({ project, onDelete, onEdit }: ProjectCardProps) => {
-    return (
-      <Card className="w-full">
-        <CardHeader className="pb-2">
-          <div className="flex justify-between items-start">
-            <CardTitle className="text-xl">{project.name}</CardTitle>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit(project)}>
-                  <PenLine className="h-4 w-4 mr-2" />
-                  Editar
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => window.location.href = `/projects/${project.id}/roles`}>
-                  <Settings className="h-4 w-4 mr-2" />
-                  Administrar Roles
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onDelete(project)}>
-                  <Trash2 className="h-4 w-4" />
-                  Eliminar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          <CardDescription className="mt-2">
-            {project.description || "Sin descripción"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm space-y-2">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Creado:</span>
-              <span>{project.created_at}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Formularios:</span>
-              <span>{formCounts[project.id] || 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Administradores:</span>
-              <span>{projectAdmins[project.id]?.length || 0}</span>
-            </div>
-          </div>
-        </CardContent>
-        <CardFooter className="border-t pt-4">
-          <div className="w-full">
-            <div className="flex items-center mb-2">
-              <Users className="h-4 w-4 mr-2 text-gray-500" />
-              <span className="text-sm font-medium">Administradores</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {projectAdmins[project.id]?.map(adminId => (
-                <Badge key={adminId} variant="secondary">
-                  {getUserNameById(adminId)}
-                </Badge>
-              ))}
-              {(!projectAdmins[project.id] || projectAdmins[project.id].length === 0) && (
-                <span className="text-sm text-gray-500">No hay administradores asignados</span>
-              )}
-            </div>
-          </div>
-        </CardFooter>
-      </Card>
-    );
   };
 
   // Si no es administrador global, no mostrar esta página
@@ -440,7 +466,12 @@ const Projects = () => {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {projects.length > 0 ? (
             projects.map((project) => (
-              <ProjectCard key={project.id} project={project} onDelete={() => {}} onEdit={() => {}} />
+              <ProjectCard 
+                key={project.id} 
+                project={project} 
+                onDelete={() => handleDeleteProject(project.id)} 
+                onEdit={() => handleEditClick(project)} 
+              />
             ))
           ) : (
             <div className="col-span-full text-center p-8">
@@ -454,6 +485,21 @@ const Projects = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* Modal de edición de proyecto */}
+      {editingProject && (
+        <EditProjectModal
+          isOpen={!!editingProject}
+          onClose={() => setEditingProject(null)}
+          project={{
+            id: editingProject.id,
+            name: editingProject.name,
+            description: editingProject.description || "",
+            adminId: projectAdminIds[editingProject.id]
+          }}
+          onSave={(data) => handleEditProject(editingProject.id, data)}
+        />
       )}
     </PageContainer>
   );

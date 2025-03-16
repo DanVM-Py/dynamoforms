@@ -13,6 +13,21 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Profile {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
 
 interface EditProjectModalProps {
   isOpen: boolean;
@@ -21,23 +36,54 @@ interface EditProjectModalProps {
     id: string;
     name: string;
     description: string;
+    adminId?: string; // ID del administrador actual
   };
-  onSave: (data: { name: string; description: string }) => void;
+  onSave: (data: { name: string; description: string; adminId?: string }) => void;
 }
 
 export const EditProjectModal = ({ isOpen, onClose, project, onSave }: EditProjectModalProps) => {
   const { toast } = useToast();
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description);
+  const [adminId, setAdminId] = useState(project.adminId || "");
   const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState<Profile[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       // Reset form when modal opens
       setName(project.name);
       setDescription(project.description);
+      setAdminId(project.adminId || "");
+      fetchUsers();
     }
   }, [isOpen, project]);
+
+  const fetchUsers = async () => {
+    try {
+      setLoadingUsers(true);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .not('role', 'eq', 'global_admin');
+        
+      if (error) throw error;
+      
+      if (data) {
+        setUsers(data);
+      }
+    } catch (error: any) {
+      console.error('Error fetching users:', error);
+      toast({
+        title: "Error al cargar usuarios",
+        description: error?.message || "No se pudieron cargar los usuarios.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +99,7 @@ export const EditProjectModal = ({ isOpen, onClose, project, onSave }: EditProje
     
     setLoading(true);
     try {
-      await onSave({ name, description });
+      await onSave({ name, description, adminId });
       toast({
         title: "Proyecto actualizado",
         description: "El proyecto se ha actualizado correctamente.",
@@ -98,6 +144,34 @@ export const EditProjectModal = ({ isOpen, onClose, project, onSave }: EditProje
               placeholder="Describe brevemente el propósito del proyecto"
               rows={4}
             />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="project-admin">Administrador del proyecto</Label>
+            <Select 
+              value={adminId} 
+              onValueChange={(value) => setAdminId(value)}
+            >
+              <SelectTrigger id="project-admin" className={loadingUsers ? "opacity-70" : ""}>
+                <SelectValue placeholder="Selecciona un administrador" />
+              </SelectTrigger>
+              <SelectContent>
+                {users
+                  .filter(u => u.role !== 'global_admin')
+                  .map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name} ({user.email})
+                    </SelectItem>
+                  ))
+                }
+              </SelectContent>
+            </Select>
+            {loadingUsers && (
+              <div className="text-sm text-muted-foreground flex items-center">
+                <Loader2 className="w-3 h-3 mr-2 animate-spin" /> 
+                Cargando usuarios...
+              </div>
+            )}
           </div>
           
           <DialogFooter>
