@@ -1,13 +1,19 @@
+
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
-import { Building2, FileText, Home, Menu, PanelLeftClose, Bell, CheckSquare, User, Users, LogOut, Settings } from 'lucide-react';
+import { Building2, FileText, Home, Menu, PanelLeftClose, Bell, CheckSquare, User, Users, LogOut, Settings, ChevronDown, ChevronRight, Activity } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 export function Sidebar() {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    operation: true, 
+    administration: true
+  });
   const isMobile = useWindowWidth() < 768;
   const location = useLocation();
   const navigate = useNavigate();
@@ -76,6 +82,17 @@ export function Sidebar() {
     }
   };
 
+  const toggleGroup = (group: string) => {
+    setOpenGroups(prev => ({
+      ...prev,
+      [group]: !prev[group]
+    }));
+  };
+
+  const isGroupActive = (paths: string[]) => {
+    return paths.some(path => location.pathname === path || location.pathname.startsWith(path));
+  };
+
   const MenuItem = ({ icon: Icon, text, to, isActive: customActive }: { icon: any; text: string; to: string; isActive?: boolean }) => {
     const isActive = customActive !== undefined ? customActive : location.pathname === to;
     return (
@@ -94,6 +111,57 @@ export function Sidebar() {
           </span>
         )}
       </Link>
+    );
+  };
+
+  const MenuGroup = ({ 
+    title, 
+    icon: Icon, 
+    children, 
+    id,
+    paths = []
+  }: { 
+    title: string; 
+    icon: any; 
+    children: React.ReactNode;
+    id: string;
+    paths?: string[];
+  }) => {
+    const isActive = isGroupActive(paths);
+    const isOpen = openGroups[id];
+
+    return (
+      <Collapsible
+        open={isOpen}
+        onOpenChange={() => toggleGroup(id)}
+        className="w-full"
+      >
+        <CollapsibleTrigger className="w-full">
+          <div 
+            className={`flex items-center p-3 rounded-md hover:bg-gray-100 transition-colors cursor-pointer ${
+              isActive ? 'bg-gray-100' : ''
+            }`}
+          >
+            <Icon className={`h-5 w-5 ${isActive ? 'text-dynamo-600' : 'text-gray-500'}`} />
+            {(isExpanded || isMobileMenuOpen) && (
+              <>
+                <span
+                  className={`ml-3 text-sm ${isActive ? 'font-medium text-dynamo-700' : 'text-gray-600'} flex-1`}
+                >
+                  {title}
+                </span>
+                {isOpen ? 
+                  <ChevronDown className="h-4 w-4 text-gray-500" /> : 
+                  <ChevronRight className="h-4 w-4 text-gray-500" />
+                }
+              </>
+            )}
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent className={`${(isExpanded || isMobileMenuOpen) ? 'pl-9' : 'pl-0'}`}>
+          {children}
+        </CollapsibleContent>
+      </Collapsible>
     );
   };
 
@@ -155,43 +223,73 @@ export function Sidebar() {
         </div>
 
         <div className="mt-6 flex flex-col flex-1 gap-y-1 px-3">
+          {/* Home - single item */}
           <MenuItem icon={Home} text="Inicio" to="/" />
           
-          {/* Solo administradores globales ven proyectos */}
-          {isGlobalAdmin && (
-            <MenuItem icon={Building2} text="Proyectos" to="/projects" />
-          )}
-          
-          {/* Todos los usuarios pueden ver el enlace a Formularios */}
-          <MenuItem icon={FileText} text="Formularios" to="/forms" />
-          
-          {/* Mostrar enlace de Roles si hay un projectId en el contexto y el usuario tiene permisos */}
-          {canAccessProjectRoles && (
+          {/* Operation group */}
+          <MenuGroup 
+            title="Operación" 
+            icon={Activity} 
+            id="operation"
+            paths={['/forms', '/tasks', '/notifications']}
+          >
             <MenuItem 
+              icon={FileText} 
+              text="Formularios" 
+              to="/forms" 
+            />
+            <MenuItem 
+              icon={CheckSquare} 
+              text="Tareas" 
+              to="/tasks" 
+            />
+            <MenuItem 
+              icon={Bell} 
+              text="Notificaciones" 
+              to="/notifications" 
+            />
+          </MenuGroup>
+          
+          {/* Administration group - only shown to admin users */}
+          {isGlobalAdmin && (
+            <MenuGroup 
+              title="Administración" 
               icon={Settings} 
-              text="Roles del Proyecto" 
-              to={`/projects/${projectId}/roles`}
-              isActive={location.pathname.includes(`/projects/${projectId}/roles`)}
-            />
-          )}
-          
-          {/* Mostrar enlace de Usuarios del Proyecto si hay un projectId en el contexto y el usuario tiene permisos */}
-          {canAccessProjectRoles && (
-            <MenuItem 
-              icon={Users} 
-              text="Usuarios del Proyecto" 
-              to={`/projects/${projectId}/users`}
-              isActive={location.pathname.includes(`/projects/${projectId}/users`)}
-            />
-          )}
-          
-          {/* Todos los usuarios ven tareas y notificaciones */}
-          <MenuItem icon={CheckSquare} text="Tareas" to="/tasks" />
-          <MenuItem icon={Bell} text="Notificaciones" to="/notifications" />
-          
-          {/* Solo administradores globales ven la administración */}
-          {isGlobalAdmin && (
-            <MenuItem icon={Users} text="Administración" to="/admin" />
+              id="administration"
+              paths={['/projects', '/admin']}
+            >
+              <MenuItem 
+                icon={Building2} 
+                text="Proyectos" 
+                to="/projects" 
+              />
+              
+              {/* Mostrar enlace de Roles si hay un projectId en el contexto y el usuario tiene permisos */}
+              {canAccessProjectRoles && (
+                <MenuItem 
+                  icon={Settings} 
+                  text="Roles del Proyecto" 
+                  to={`/projects/${projectId}/roles`}
+                  isActive={location.pathname.includes(`/projects/${projectId}/roles`)}
+                />
+              )}
+              
+              {/* Mostrar enlace de Usuarios del Proyecto si hay un projectId en el contexto y el usuario tiene permisos */}
+              {canAccessProjectRoles && (
+                <MenuItem 
+                  icon={Users} 
+                  text="Usuarios del Proyecto" 
+                  to={`/projects/${projectId}/users`}
+                  isActive={location.pathname.includes(`/projects/${projectId}/users`)}
+                />
+              )}
+              
+              <MenuItem 
+                icon={Users} 
+                text="Administración" 
+                to="/admin" 
+              />
+            </MenuGroup>
           )}
         </div>
 
