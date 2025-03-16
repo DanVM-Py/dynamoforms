@@ -38,25 +38,35 @@ const PublicFormView = () => {
         .select('id, title, description, schema, status, is_public')
         .eq('id', id)
         .eq('status', 'active')
-        .eq('is_public', true);
+        .eq('is_public', true)
+        .single();
       
       console.log("[PublicFormView] Form check response:", { formCheck, checkError });
       
       if (checkError) {
-        console.error('[PublicFormView] Error checking form:', checkError);
-        throw new Error(checkError.message || 'Error al verificar el formulario');
+        if (checkError.code === 'PGRST116') {
+          console.error('[PublicFormView] No form found with ID:', id);
+          setError("Este formulario no existe o no está disponible públicamente.");
+        } else if (checkError.message.includes('JWT')) {
+          console.error('[PublicFormView] Authentication error:', checkError);
+          setError("Error de autenticación. Por favor contacte al administrador.");
+        } else {
+          console.error('[PublicFormView] Error checking form:', checkError);
+          setError(`Error al verificar el formulario: ${checkError.message || 'Error desconocido'}`);
+        }
+        setLoading(false);
+        return;
       }
       
-      if (!formCheck || formCheck.length === 0) {
+      if (!formCheck) {
         console.error('[PublicFormView] No active public form found with ID:', id);
         setError("Este formulario no está disponible públicamente o no está activo.");
         setLoading(false);
         return;
       }
       
-      const formData = formCheck[0];
-      console.log("[PublicFormView] Form data found:", formData);
-      setForm(formData);
+      console.log("[PublicFormView] Form data found:", formCheck);
+      setForm(formCheck);
       
     } catch (error: any) {
       console.error('[PublicFormView] Error loading form:', error);

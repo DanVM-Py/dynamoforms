@@ -23,26 +23,21 @@ export const customSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBL
       'apikey': SUPABASE_PUBLISHABLE_KEY
     },
     fetch: (url, options = {}) => {
-      // Ensure headers object exists
-      if (!options.headers) {
-        options.headers = {};
-      }
-      
-      // Add required headers including the API key
-      const headers = {
-        ...options.headers,
-        'apikey': SUPABASE_PUBLISHABLE_KEY,
-        'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
-        'Pragma': 'no-cache',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Expires': '0'
+      // Create a new options object with headers
+      const newOptions = {
+        ...options,
+        headers: {
+          ...(options.headers as Record<string, string> || {}),
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+          'Pragma': 'no-cache',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Expires': '0'
+        },
+        cache: 'no-store'
       };
       
-      return fetch(url, { 
-        ...options, 
-        cache: 'no-store',
-        headers
-      });
+      return fetch(url, newOptions);
     }
   }
 });

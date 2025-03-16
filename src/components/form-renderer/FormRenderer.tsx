@@ -18,11 +18,12 @@ import { SignatureField } from "./SignatureField";
 import { LocationField } from "./LocationField";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, AlertCircle } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { v4 as uuidv4 } from "uuid";
 import { FileUploader } from "../FileUploader";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export interface FormRendererProps {
   formId: string;
@@ -49,11 +50,22 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
   const [formData, setFormData] = useState<any>({});
   const [errors, setErrors] = useState<any>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   const validateField = (component: any, value: any) => {
     if (component.required && (!value || (typeof value === 'string' && value.trim() === ''))) {
-      return `${component.label} es requerido.`;
+      return `El campo "${component.label}" es requerido.`;
     }
+    
+    // Add more specific validations based on field type
+    if (component.type === 'email' && value && !/\S+@\S+\.\S+/.test(value)) {
+      return `El campo "${component.label}" debe contener un correo electrónico válido.`;
+    }
+    
+    if (component.type === 'number' && value && isNaN(Number(value))) {
+      return `El campo "${component.label}" debe contener un número válido.`;
+    }
+    
     return null;
   };
 
@@ -64,6 +76,11 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
     if (component) {
       const error = validateField(component, value);
       setErrors(prevErrors => ({ ...prevErrors, [id]: error }));
+      
+      // Clear submission error when user starts typing again
+      if (submissionError) {
+        setSubmissionError(null);
+      }
     }
   };
 
@@ -71,26 +88,36 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
     e.preventDefault();
 
     let newErrors: any = {};
+    let errorFields: string[] = [];
+    
     schema.components.forEach(component => {
       const value = formData[component.id];
       const error = validateField(component, value);
       if (error) {
         newErrors[component.id] = error;
+        errorFields.push(component.label);
       }
     });
 
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
+      const errorMessage = errorFields.length === 1
+        ? `El campo "${errorFields[0]}" tiene un error. Por favor revísalo.`
+        : `Los siguientes campos tienen errores: ${errorFields.join(', ')}. Por favor revísalos.`;
+      
+      setSubmissionError(errorMessage);
+      
       toast({
-        title: "Error",
-        description: "Por favor, corrige los errores en el formulario.",
+        title: "Error de validación",
+        description: errorMessage,
         variant: "destructive",
       });
       return;
     }
 
     setIsSubmitting(true);
+    setSubmissionError(null);
 
     try {
       const submissionData = {
@@ -111,6 +138,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
 
       if (error) {
         console.error("Error al enviar el formulario:", error);
+        setSubmissionError("Hubo un error al enviar el formulario. Inténtalo de nuevo o contacta con el administrador.");
         toast({
           title: "Error",
           description: "Hubo un error al enviar el formulario. Inténtalo de nuevo.",
@@ -130,8 +158,9 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
       if (onSuccess) {
         onSuccess();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al enviar el formulario:", error);
+      setSubmissionError(`Hubo un error al enviar el formulario: ${error.message || "Error desconocido"}. Por favor, inténtalo de nuevo o contacta con el administrador.`);
       toast({
         title: "Error",
         description: "Hubo un error al enviar el formulario. Inténtalo de nuevo.",
@@ -462,6 +491,14 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
             <p className="text-gray-600 mt-2">{schema.description}</p>
           )}
         </div>
+      )}
+      
+      {submissionError && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error en el formulario</AlertTitle>
+          <AlertDescription>{submissionError}</AlertDescription>
+        </Alert>
       )}
       
       {schema.groups && schema.groups.length > 0 ? (
