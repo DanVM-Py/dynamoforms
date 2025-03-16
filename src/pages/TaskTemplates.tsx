@@ -379,7 +379,7 @@ const TaskTemplates = () => {
   // Improved template selection logic
   useEffect(() => {
     if (selectedTemplate) {
-      // Initialize with base template to ensure all fields are present, then copy properties explicitly
+      // Create a new object with explicit property assignments instead of using spread
       const templateFields: Partial<TaskTemplate> = {
         id: selectedTemplate.id,
         title: selectedTemplate.title,
@@ -394,8 +394,9 @@ const TaskTemplates = () => {
         inheritance_mapping: selectedTemplate.inheritance_mapping || {},
         project_id: selectedTemplate.project_id,
         created_at: selectedTemplate.created_at,
-        source_form: selectedTemplate.source_form || null,
-        target_form: selectedTemplate.target_form || null
+        // Safely handle the nested objects with explicit null checking
+        source_form: selectedTemplate.source_form,
+        target_form: selectedTemplate.target_form
       };
       
       setFormState(templateFields);
@@ -704,7 +705,7 @@ const TaskTemplates = () => {
                               <SelectValue placeholder={`Seleccionar campo origen para ${targetField.label}`} />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Sin mapeo</SelectItem>
+                              <SelectItem value="_none">Sin mapeo</SelectItem>
                               {formFields.source
                                 .filter(sourceField => sourceField.type === targetField.type)
                                 .map(sourceField => (
@@ -788,11 +789,11 @@ const TaskTemplates = () => {
                         <div className="text-sm font-medium">Disparador de Formulario</div>
                         <div className="flex items-center gap-2 text-sm">
                           <span className="text-gray-700 flex-grow truncate">
-                            {template.source_form?.title || "Formulario Desconocido"}
+                            {template.source_form ? template.source_form.title : "Formulario Desconocido"}
                           </span>
                           <ArrowRight className="h-4 w-4 flex-shrink-0 text-gray-400" />
                           <span className="text-gray-700 flex-grow truncate">
-                            {template.target_form?.title || "Formulario Desconocido"}
+                            {template.target_form ? template.target_form.title : "Formulario Desconocido"}
                           </span>
                         </div>
                       </div>
