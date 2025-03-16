@@ -91,63 +91,72 @@ const ProjectUsers = () => {
   const { data: projectUsers, isLoading } = useQuery({
     queryKey: ["projectUsers", projectId, roleFilter, statusFilter],
     queryFn: async () => {
-      let query = supabase
-        .from("project_users")
-        .select("*")
-        .eq("project_id", projectId);
+      try {
+        let query = supabase
+          .from("project_users")
+          .select("*")
+          .eq("project_id", projectId);
 
-      if (statusFilter) {
-        query = query.eq("status", statusFilter);
-      }
+        if (statusFilter) {
+          query = query.eq("status", statusFilter);
+        }
 
-      const { data: projectUsersData, error: projectUsersError } = await query;
-      
-      if (projectUsersError) throw projectUsersError;
-      if (!projectUsersData) return [];
+        const { data: projectUsersData, error: projectUsersError } = await query;
+        
+        if (projectUsersError) {
+          console.error("Error fetching project users:", projectUsersError);
+          return [];
+        }
+        
+        if (!projectUsersData) return [];
 
-      const enrichedUsers = await Promise.all(
-        projectUsersData.map(async (pu) => {
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("email, name")
-            .eq("id", pu.user_id)
-            .single();
-
-          let roleName = undefined;
-          if (roleFilter) {
-            const { data: userRoleData } = await supabase
-              .from("user_roles")
-              .select("roles(name)")
-              .eq("user_id", pu.user_id)
-              .eq("role_id", roleFilter)
-              .eq("project_id", projectId)
+        const enrichedUsers = await Promise.all(
+          projectUsersData.map(async (pu) => {
+            const { data: profileData } = await supabase
+              .from("profiles")
+              .select("email, name")
+              .eq("id", pu.user_id)
               .single();
 
-            if (!userRoleData) return null;
-            
-            roleName = userRoleData.roles?.name;
-          } else {
-            const { data: userRoleData } = await supabase
-              .from("user_roles")
-              .select("roles(name)")
-              .eq("user_id", pu.user_id)
-              .eq("project_id", projectId);
+            let roleName = undefined;
+            if (roleFilter) {
+              const { data: userRoleData } = await supabase
+                .from("user_roles")
+                .select("roles(name)")
+                .eq("user_id", pu.user_id)
+                .eq("role_id", roleFilter)
+                .eq("project_id", projectId)
+                .single();
 
-            if (userRoleData && userRoleData.length > 0 && userRoleData[0].roles) {
-              roleName = userRoleData[0].roles.name;
+              if (!userRoleData) return null;
+              
+              roleName = userRoleData.roles?.name;
+            } else {
+              const { data: userRoleData } = await supabase
+                .from("user_roles")
+                .select("roles(name)")
+                .eq("user_id", pu.user_id)
+                .eq("project_id", projectId);
+
+              if (userRoleData && userRoleData.length > 0 && userRoleData[0].roles) {
+                roleName = userRoleData[0].roles.name;
+              }
             }
-          }
 
-          return {
-            ...pu,
-            email: profileData?.email,
-            full_name: profileData?.name,
-            role_name: roleName,
-          } as ProjectUser;
-        })
-      );
+            return {
+              ...pu,
+              email: profileData?.email,
+              full_name: profileData?.name,
+              role_name: roleName,
+            } as ProjectUser;
+          })
+        );
 
-      return enrichedUsers.filter(Boolean) as ProjectUser[];
+        return enrichedUsers.filter(Boolean) as ProjectUser[];
+      } catch (error) {
+        console.error("Error in projectUsers query:", error);
+        return [];
+      }
     },
   });
 
@@ -401,13 +410,13 @@ const ProjectUsers = () => {
               <div className="flex flex-wrap gap-4 mt-4">
                 <div>
                   <Select
-                    onValueChange={(value) => setRoleFilter(value || null)}
+                    onValueChange={(value) => setRoleFilter(value === "" ? null : value)}
                   >
                     <SelectTrigger className="w-[200px]">
                       <SelectValue placeholder="Filter by role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Roles</SelectItem>
+                      <SelectItem value="all">All Roles</SelectItem>
                       {roles?.map((role) => (
                         <SelectItem key={role.id} value={role.id}>
                           {role.name}
@@ -418,15 +427,15 @@ const ProjectUsers = () => {
                 </div>
                 <div>
                   <Select
-                    onValueChange={(value: ProjectUserStatus | "") => 
-                      setStatusFilter(value === "" ? null : value)
+                    onValueChange={(value: string) => 
+                      setStatusFilter(value === "all" ? null : value as ProjectUserStatus)
                     }
                   >
                     <SelectTrigger className="w-[200px]">
                       <SelectValue placeholder="Filter by status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Statuses</SelectItem>
+                      <SelectItem value="all">All Statuses</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="pending">Pending</SelectItem>
                       <SelectItem value="inactive">Inactive</SelectItem>
