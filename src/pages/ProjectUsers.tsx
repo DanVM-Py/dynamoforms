@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -162,76 +163,78 @@ const ProjectUsers = () => {
 
   const inviteUserMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      const { data: existingUser, error: userError } = await supabase
-        .from("profiles")
-        .select("id, email")
-        .eq("email", values.email)
-        .single();
+      try {
+        // First, find the user by email (case insensitive)
+        const { data: existingUser, error: userError } = await supabase
+          .from("profiles")
+          .select("id, email")
+          .ilike("email", values.email)
+          .single();
 
-      if (userError && userError.code !== "PGRST116") {
-        throw new Error("Error checking user existence");
-      }
+        if (userError) {
+          if (userError.code === "PGRST116") {
+            throw new Error(`User with email ${values.email} does not exist in the system`);
+          }
+          throw new Error(`Error checking user existence: ${userError.message}`);
+        }
 
-      if (!existingUser) {
-        throw new Error("User does not exist in the system");
-      }
+        console.log("Found existing user:", existingUser);
 
-      const { data: existingProjectUser, error: projectUserError } = await supabase
-        .from("project_users")
-        .select("*")
-        .eq("user_id", existingUser.id)
-        .eq("project_id", projectId);
+        // Check if the user is already in this project
+        const { data: existingProjectUser, error: projectUserError } = await supabase
+          .from("project_users")
+          .select("*")
+          .eq("user_id", existingUser.id)
+          .eq("project_id", projectId);
 
-      if (projectUserError) {
-        throw new Error("Error checking project user existence");
-      }
+        if (projectUserError) {
+          throw new Error(`Error checking project user existence: ${projectUserError.message}`);
+        }
 
-      if (existingProjectUser && existingProjectUser.length > 0) {
-        throw new Error("User is already in the project");
-      }
+        if (existingProjectUser && existingProjectUser.length > 0) {
+          throw new Error("User is already in this project");
+        }
 
-      const { data: otherProjects, error: otherProjectsError } = await supabase
-        .from("project_users")
-        .select("*")
-        .eq("user_id", existingUser.id);
-
-      if (otherProjectsError) {
-        throw new Error("Error checking user's other projects");
-      }
-
-      if (otherProjects && otherProjects.length > 0) {
-        throw new Error("User is already assigned to another project");
-      }
-
-      const { error: insertError } = await supabase
-        .from("project_users")
-        .insert({
-          project_id: projectId as string,
-          user_id: existingUser.id,
-          status: "pending",
-          invited_by: user?.id as string
-        });
-
-      if (insertError) {
-        throw insertError;
-      }
-
-      if (values.roleId) {
-        const { error: roleError } = await supabase
-          .from("user_roles")
+        // Now insert the user into the project
+        const { error: insertError } = await supabase
+          .from("project_users")
           .insert({
-            user_id: existingUser.id,
-            role_id: values.roleId,
             project_id: projectId as string,
-            assigned_by: user?.id as string
+            user_id: existingUser.id,
+            status: "pending",
+            invited_by: user?.id as string
           });
 
-        if (roleError) {
-          throw roleError;
+        if (insertError) {
+          // Check if it's a unique constraint violation
+          if (insertError.code === "23505") {
+            throw new Error("User is already assigned to this project");
+          }
+          throw insertError;
         }
-      }
 
-      return existingUser;
+        // If a role was selected, assign it to the user
+        if (values.roleId) {
+          const { error: roleError } = await supabase
+            .from("user_roles")
+            .insert({
+              user_id: existingUser.id,
+              role_id: values.roleId,
+              project_id: projectId as string,
+              assigned_by: user?.id as string
+            });
+
+          if (roleError) {
+            // Log the error but don't fail the invitation
+            console.error("Error assigning role:", roleError);
+          }
+        }
+
+        return existingUser;
+      } catch (error: any) {
+        console.error("Error in inviteUserMutation:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({
@@ -242,7 +245,7 @@ const ProjectUsers = () => {
       setInviteModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["projectUsers", projectId] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Error inviting user",
         description: error.message,
@@ -255,7 +258,10 @@ const ProjectUsers = () => {
     mutationFn: async ({ userId, status }: { userId: string; status: ProjectUserStatus }) => {
       const { error } = await supabase
         .from("project_users")
-        .update({ status })
+        .update({ 
+          status,
+          ...(status === "active" ? { activated_at: new Date().toISOString() } : {})
+        })
         .eq("user_id", userId)
         .eq("project_id", projectId);
 
@@ -410,7 +416,7 @@ const ProjectUsers = () => {
               <div className="flex flex-wrap gap-4 mt-4">
                 <div>
                   <Select
-                    onValueChange={(value) => setRoleFilter(value === "" ? null : value)}
+                    onValueChange={(value) => setRoleFilter(value === "all" ? null : value)}
                   >
                     <SelectTrigger className="w-[200px]">
                       <SelectValue placeholder="Filter by role" />
