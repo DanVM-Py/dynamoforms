@@ -10,6 +10,7 @@ interface ProtectedRouteProps {
   requireProjectAdmin?: boolean;
   requireRegularUser?: boolean;
   requireApprover?: boolean;
+  requireFormAccess?: boolean;
 }
 
 const ProtectedRoute = ({ 
@@ -17,7 +18,8 @@ const ProtectedRoute = ({
   requireGlobalAdmin = false,
   requireProjectAdmin = false,
   requireRegularUser = false,
-  requireApprover = false
+  requireApprover = false,
+  requireFormAccess = false
 }: ProtectedRouteProps) => {
   const { user, userProfile, loading, isGlobalAdmin, isProjectAdmin, isApprover } = useAuth();
 
@@ -39,7 +41,7 @@ const ProtectedRoute = ({
   }
 
   // Second loading state - waiting for profile data
-  if ((requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover) && loading) {
+  if ((requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover || requireFormAccess) && loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="flex flex-col items-center bg-white p-8 rounded-lg shadow-sm">
@@ -58,7 +60,8 @@ const ProtectedRoute = ({
     requireGlobalAdmin,
     requireProjectAdmin,
     requireRegularUser,
-    requireApprover
+    requireApprover,
+    requireFormAccess
   });
 
   // If global admin is required and user is not a global admin, redirect
@@ -84,6 +87,9 @@ const ProtectedRoute = ({
     console.log("Access denied: Approver required");
     return <Navigate to="/" replace />;
   }
+
+  // Form access doesn't need special handling here since we'll handle it in the Forms component
+  // Any user type can access the forms route, the filtering will happen inside
 
   // If all checks pass, render the children
   console.log("Access granted to protected route");

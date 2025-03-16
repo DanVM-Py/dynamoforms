@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Plus, MoreVertical, Clock, RefreshCw, Building2, Trash2 } from "lucide-react";
+import { FileText, Plus, MoreVertical, Clock, RefreshCw, Building2, Trash2, Edit, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Form {
   id: string;
@@ -20,6 +21,7 @@ interface Form {
   project_id: string | null;
   project_name?: string;
   responseCount?: number;
+  hasAccess?: boolean;
 }
 
 interface Project {
@@ -31,8 +33,10 @@ const Forms = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forms, setForms] = useState<Form[]>([]);
+  const [userAccessibleForms, setUserAccessibleForms] = useState<Form[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("operation");
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isGlobalAdmin, isProjectAdmin, user, refreshUserProfile } = useAuth();
@@ -48,13 +52,134 @@ const Forms = () => {
   const [togglingStatus, setTogglingStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchForms();
-    if (isGlobalAdmin) {
-      fetchProjects();
-    } else if (isProjectAdmin) {
-      fetchUserProjects();
-    }
+    refreshUserProfile().then(() => {
+      fetchForms();
+      fetchUserAccessibleForms();
+      
+      if (isGlobalAdmin) {
+        fetchProjects();
+      } else if (isProjectAdmin) {
+        fetchUserProjects();
+      }
+    });
   }, [isGlobalAdmin, isProjectAdmin]);
+  
+  // Fetch forms that the user has access to via project roles
+  const fetchUserAccessibleForms = async () => {
+    try {
+      setLoading(true);
+      
+      // Verificar la sesión actual
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        setLoading(false);
+        return;
+      }
+      
+      // Get user roles
+      const { data: userRolesData, error: userRolesError } = await supabase
+        .from('user_roles')
+        .select(`
+          role_id,
+          roles:role_id (
+            id,
+            name,
+            project_id
+          ),
+          project_id
+        `)
+        .eq('user_id', session.user.id);
+        
+      if (userRolesError) {
+        console.error('Error fetching user roles:', userRolesError);
+        setLoading(false);
+        return;
+      }
+      
+      if (!userRolesData || userRolesData.length === 0) {
+        console.log('User has no roles');
+        setLoading(false);
+        return;
+      }
+      
+      // Extract role IDs
+      const roleIds = userRolesData.map(ur => ur.role_id);
+      const projectIds = userRolesData.map(ur => ur.project_id).filter(Boolean);
+      
+      console.log('User roles:', roleIds);
+      console.log('User project IDs:', projectIds);
+      
+      // Get forms that have form_roles for the user's roles OR forms in the user's projects
+      let query = supabase
+        .from('forms')
+        .select(`
+          *,
+          projects:project_id (name)
+        `);
+      
+      // For regular users, fetch forms only from their accessible projects
+      if (!isGlobalAdmin && !isProjectAdmin) {
+        if (projectIds.length > 0) {
+          query = query.in('project_id', projectIds);
+        } else {
+          // If user has no projects, return empty array
+          setUserAccessibleForms([]);
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // For admins, we'll fetch all forms (handled by fetchForms)
+      // For regular users, we get forms from their authorized projects
+      const { data: formsData, error: formsError } = await query;
+      
+      if (formsError) {
+        console.error('Error fetching accessible forms:', formsError);
+        setLoading(false);
+        return;
+      }
+      
+      // Format forms and add response counts
+      if (formsData && formsData.length > 0) {
+        const formattedForms = await Promise.all(
+          formsData.map(async (form) => {
+            try {
+              const { count, error: countError } = await supabase
+                .from('form_responses')
+                .select('*', { count: 'exact', head: true })
+                .eq('form_id', form.id);
+              
+              return {
+                ...form,
+                project_name: form.projects?.name || 'Sin proyecto',
+                responseCount: countError ? 0 : (count || 0),
+                created_at: new Date(form.created_at).toLocaleDateString('es-ES'),
+                hasAccess: true
+              };
+            } catch (err) {
+              return {
+                ...form,
+                project_name: form.projects?.name || 'Sin proyecto',
+                responseCount: 0,
+                created_at: new Date(form.created_at).toLocaleDateString('es-ES'),
+                hasAccess: true
+              };
+            }
+          })
+        );
+        
+        console.log('User accessible forms:', formattedForms);
+        setUserAccessibleForms(formattedForms);
+      } else {
+        setUserAccessibleForms([]);
+      }
+    } catch (error) {
+      console.error('Error in fetchUserAccessibleForms:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchForms = async () => {
     try {
@@ -70,6 +195,13 @@ const Forms = () => {
           description: "Debes iniciar sesión para ver tus formularios.",
           variant: "destructive",
         });
+        setLoading(false);
+        return;
+      }
+
+      // Skip fetching all forms for regular users
+      if (!isGlobalAdmin && !isProjectAdmin) {
+        setForms([]);
         setLoading(false);
         return;
       }
@@ -300,62 +432,103 @@ const Forms = () => {
     }
   };
 
-  // Add form deletion functionality
-  const handleDeleteForm = async () => {
-    if (!formToDelete) return;
-    
-    try {
-      setDeleting(true);
-      
-      // Check if there are any responses to this form
-      const { count, error: countError } = await supabase
-        .from('form_responses')
-        .select('*', { count: 'exact', head: true })
-        .eq('form_id', formToDelete.id);
-      
-      if (countError) throw countError;
-      
-      // If there are responses, delete them first
-      if (count && count > 0) {
-        const { error: responsesDeleteError } = await supabase
-          .from('form_responses')
-          .delete()
-          .eq('form_id', formToDelete.id);
-        
-        if (responsesDeleteError) throw responsesDeleteError;
-      }
-      
-      // Now delete the form
-      const { error: formDeleteError } = await supabase
-        .from('forms')
-        .delete()
-        .eq('id', formToDelete.id);
-      
-      if (formDeleteError) throw formDeleteError;
-      
-      // Update the UI
-      setForms(forms.filter(form => form.id !== formToDelete.id));
-      
-      toast({
-        title: "Formulario eliminado",
-        description: `El formulario "${formToDelete.title}" ha sido eliminado correctamente.`,
-      });
-      
-    } catch (error: any) {
-      console.error('Error deleting form:', error);
-      toast({
-        title: "Error al eliminar el formulario",
-        description: error?.message || "No se pudo eliminar el formulario. Por favor, intenta nuevamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setDeleting(false);
-      setFormToDelete(null);
-    }
-  };
-
-  const openDeleteDialog = (form: Form) => {
-    setFormToDelete(form);
+  const renderFormCard = (form: Form, canEdit: boolean = false) => {
+    return (
+      <Card key={form.id} className="hover:shadow-md transition-shadow">
+        <CardHeader className="pb-2">
+          <div className="flex justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="p-2 bg-dynamo-50 rounded-md">
+                <FileText className="h-4 w-4 text-dynamo-600" />
+              </div>
+              <CardTitle className="text-lg">{form.title}</CardTitle>
+            </div>
+            {canEdit && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8"
+                onClick={() => openDeleteDialog(form)}
+              >
+                <Trash2 className="h-4 w-4 text-red-500 hover:text-red-700" />
+              </Button>
+            )}
+          </div>
+          <CardDescription className="flex items-center mt-2">
+            <Clock className="h-3 w-3 mr-1" /> {getTimeAgo(form.created_at)}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-sm">
+            <div className="flex justify-between mb-1 items-center">
+              <span className="text-muted-foreground">Estado:</span>
+              <div className="flex items-center space-x-2">
+                <span className={form.status === "active" ? "text-green-600" : "text-gray-500"}>
+                  {getStatusLabel(form.status)}
+                </span>
+                {canEdit && (
+                  <Switch
+                    checked={form.status === "active"}
+                    onCheckedChange={() => toggleFormStatus(form)}
+                    disabled={togglingStatus === form.id}
+                    aria-label="Toggle form status"
+                    className="data-[state=checked]:bg-green-500"
+                  />
+                )}
+              </div>
+            </div>
+            <div className="flex justify-between mb-1">
+              <span className="text-muted-foreground">Respuestas:</span>
+              <span>{form.responseCount || 0}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Proyecto:</span>
+              <div className="flex items-center">
+                <Building2 className="h-3 w-3 mr-1 text-dynamo-600" />
+                <span>{form.project_name}</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-between border-t pt-4">
+          {canEdit ? (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleViewDetails(form.id)}
+              >
+                <Edit className="w-4 h-4 mr-1" /> Editar
+              </Button>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => handleViewResponses(form.id)}
+              >
+                <Eye className="w-4 h-4 mr-1" /> Ver respuestas
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleViewDetails(form.id)}
+              >
+                <Eye className="w-4 h-4 mr-1" /> Ver formulario
+              </Button>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => handleViewResponses(form.id)}
+              >
+                <Eye className="w-4 h-4 mr-1" /> Ver respuestas
+              </Button>
+            </>
+          )}
+        </CardFooter>
+      </Card>
+    );
   };
 
   const handleViewDetails = (formId: string) => {
@@ -366,7 +539,6 @@ const Forms = () => {
     navigate(`/forms/${formId}/responses`);
   };
 
-  // Add a function to toggle form status
   const toggleFormStatus = async (form: Form) => {
     try {
       setTogglingStatus(form.id);
@@ -384,8 +556,12 @@ const Forms = () => {
         
       if (error) throw error;
       
-      // Update the local state
+      // Update both form lists
       setForms(forms.map(f => 
+        f.id === form.id ? { ...f, status: newStatus } : f
+      ));
+      
+      setUserAccessibleForms(userAccessibleForms.map(f => 
         f.id === form.id ? { ...f, status: newStatus } : f
       ));
       
@@ -418,6 +594,64 @@ const Forms = () => {
   const getTimeAgo = (dateStr: string) => {
     return `Creado: ${dateStr}`;
   };
+  
+  const openDeleteDialog = (form: Form) => {
+    setFormToDelete(form);
+  };
+  
+  const handleDeleteForm = async () => {
+    if (!formToDelete) return;
+    
+    try {
+      setDeleting(true);
+      
+      // Check if there are any responses to this form
+      const { count, error: countError } = await supabase
+        .from('form_responses')
+        .select('*', { count: 'exact', head: true })
+        .eq('form_id', formToDelete.id);
+      
+      if (countError) throw countError;
+      
+      // If there are responses, delete them first
+      if (count && count > 0) {
+        const { error: responsesDeleteError } = await supabase
+          .from('form_responses')
+          .delete()
+          .eq('form_id', formToDelete.id);
+        
+        if (responsesDeleteError) throw responsesDeleteError;
+      }
+      
+      // Now delete the form
+      const { error: formDeleteError } = await supabase
+        .from('forms')
+        .delete()
+        .eq('id', formToDelete.id);
+      
+      if (formDeleteError) throw formDeleteError;
+      
+      // Update both form lists
+      setForms(forms.filter(form => form.id !== formToDelete.id));
+      setUserAccessibleForms(userAccessibleForms.filter(form => form.id !== formToDelete.id));
+      
+      toast({
+        title: "Formulario eliminado",
+        description: `El formulario "${formToDelete.title}" ha sido eliminado correctamente.`,
+      });
+      
+    } catch (error: any) {
+      console.error('Error deleting form:', error);
+      toast({
+        title: "Error al eliminar el formulario",
+        description: error?.message || "No se pudo eliminar el formulario. Por favor, intenta nuevamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+      setFormToDelete(null);
+    }
+  };
 
   return (
     <PageContainer>
@@ -429,7 +663,10 @@ const Forms = () => {
         <div className="flex space-x-2">
           <Button 
             variant="outline" 
-            onClick={fetchForms}
+            onClick={() => {
+              fetchForms();
+              fetchUserAccessibleForms();
+            }}
             disabled={loading}
             className="mr-2"
           >
@@ -461,117 +698,75 @@ const Forms = () => {
             <Button 
               variant="outline" 
               className="mt-4" 
-              onClick={() => fetchForms()}
+              onClick={() => {
+                fetchForms();
+                fetchUserAccessibleForms();
+              }}
             >
               Reintentar
             </Button>
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {forms.length > 0 ? (
-            forms.map((form) => (
-              <Card key={form.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="p-2 bg-dynamo-50 rounded-md">
-                        <FileText className="h-4 w-4 text-dynamo-600" />
-                      </div>
-                      <CardTitle className="text-lg">{form.title}</CardTitle>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8"
-                      onClick={() => openDeleteDialog(form)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500 hover:text-red-700" />
-                    </Button>
+        <Tabs defaultValue="operation" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-6">
+            <TabsTrigger value="operation">Formularios operativos</TabsTrigger>
+            {canCreateForms && (
+              <TabsTrigger value="admin">Administración de formularios</TabsTrigger>
+            )}
+          </TabsList>
+          
+          <TabsContent value="operation">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {userAccessibleForms.length > 0 ? (
+                userAccessibleForms.map((form) => renderFormCard(form, false))
+              ) : (
+                <div className="col-span-full text-center p-8">
+                  <div className="mb-4 text-gray-400">
+                    <FileText className="h-12 w-12 mx-auto mb-2" />
+                    <p className="text-lg font-medium">No tienes formularios disponibles</p>
+                    <p className="text-sm text-gray-500">
+                      No tienes acceso a ningún formulario en este momento
+                    </p>
                   </div>
-                  <CardDescription className="flex items-center mt-2">
-                    <Clock className="h-3 w-3 mr-1" /> {getTimeAgo(form.created_at)}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm">
-                    <div className="flex justify-between mb-1 items-center">
-                      <span className="text-muted-foreground">Estado:</span>
-                      <div className="flex items-center space-x-2">
-                        <span className={form.status === "active" ? "text-green-600" : "text-gray-500"}>
-                          {getStatusLabel(form.status)}
-                        </span>
-                        {canCreateForms && (
-                          <Switch
-                            checked={form.status === "active"}
-                            onCheckedChange={() => toggleFormStatus(form)}
-                            disabled={togglingStatus === form.id}
-                            aria-label="Toggle form status"
-                            className="data-[state=checked]:bg-green-500"
-                          />
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex justify-between mb-1">
-                      <span className="text-muted-foreground">Respuestas:</span>
-                      <span>{form.responseCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Proyecto:</span>
-                      <div className="flex items-center">
-                        <Building2 className="h-3 w-3 mr-1 text-dynamo-600" />
-                        <span>{form.project_name}</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-between border-t pt-4">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleViewDetails(form.id)}
-                  >
-                    Ver detalles
-                  </Button>
-                  <Button 
-                    variant="secondary" 
-                    size="sm" 
-                    onClick={() => handleViewResponses(form.id)}
-                  >
-                    Ver respuestas
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))
-          ) : (
-            <div className="col-span-full text-center p-8">
-              <div className="mb-4 text-gray-400">
-                <FileText className="h-12 w-12 mx-auto mb-2" />
-                <p className="text-lg font-medium">No hay formularios disponibles</p>
-                <p className="text-sm text-gray-500">
-                  {canCreateForms 
-                    ? "Crea tu primer formulario para comenzar" 
-                    : "No hay formularios disponibles para mostrar"}
-                </p>
-              </div>
+                </div>
+              )}
             </div>
-          )}
+          </TabsContent>
+          
+          {canCreateForms && (
+            <TabsContent value="admin">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {forms.length > 0 ? (
+                  forms.map((form) => renderFormCard(form, true))
+                ) : (
+                  <div className="col-span-full text-center p-8">
+                    <div className="mb-4 text-gray-400">
+                      <FileText className="h-12 w-12 mx-auto mb-2" />
+                      <p className="text-lg font-medium">No hay formularios disponibles</p>
+                      <p className="text-sm text-gray-500">
+                        Crea tu primer formulario para comenzar
+                      </p>
+                    </div>
+                  </div>
+                )}
 
-          {canCreateForms && forms.length > 0 && (
-            <Card 
-              className="flex flex-col items-center justify-center h-full min-h-[220px] border-dashed hover:bg-gray-50 cursor-pointer" 
-              onClick={createForm}
-            >
-              <div className="p-3 bg-dynamo-50 rounded-full mb-3">
-                <Plus className="h-6 w-6 text-dynamo-600" />
+                <Card 
+                  className="flex flex-col items-center justify-center h-full min-h-[220px] border-dashed hover:bg-gray-50 cursor-pointer" 
+                  onClick={createForm}
+                >
+                  <div className="p-3 bg-dynamo-50 rounded-full mb-3">
+                    <Plus className="h-6 w-6 text-dynamo-600" />
+                  </div>
+                  <p className="text-lg font-medium text-dynamo-600">Crear nuevo formulario</p>
+                  <p className="text-sm text-gray-500 text-center mt-2">
+                    Diseña formularios personalizados<br />con lógica avanzada
+                  </p>
+                </Card>
               </div>
-              <p className="text-lg font-medium text-dynamo-600">Crear nuevo formulario</p>
-              <p className="text-sm text-gray-500 text-center mt-2">
-                Diseña formularios personalizados<br />con lógica avanzada
-              </p>
-            </Card>
+            </TabsContent>
           )}
-        </div>
+        </Tabs>
       )}
 
       {/* Delete Confirmation Dialog */}
