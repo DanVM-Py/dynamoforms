@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -14,19 +15,18 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { supabase } from "@/integrations/supabase/client";
-import { customSupabase } from "@/integrations/supabase/customClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, CheckCircle, MailPlus, FileSpreadsheet, UsersRound, UserPlus } from "lucide-react";
+import { AlertCircle, CheckCircle, FileSpreadsheet, UsersRound, UserPlus } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const formSchema = z.object({
   email: z
     .string()
-    .email("Please enter a valid email address")
-    .min(1, "Email is required"),
+    .email("Por favor ingresa una dirección de correo válida")
+    .min(1, "El correo es requerido"),
   roleId: z.string().optional(),
 });
 
@@ -43,17 +43,6 @@ type ProjectUser = {
   email?: string;
   full_name?: string;
   role_name?: string;
-};
-
-// Define project invitation type to match our database
-type ProjectInvitation = {
-  id: string;
-  project_id: string;
-  email: string;
-  status: string;
-  invited_at: string;
-  invited_by: string;
-  role_id: string | null;
 };
 
 const ProjectUsers = () => {
@@ -185,19 +174,21 @@ const ProjectUsers = () => {
     },
   });
 
+  // Simplified invitation mutation that only invites registered users
   const inviteUserMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       try {
         console.log("Inviting user with email:", values.email);
         
         if (!user?.id) {
-          throw new Error("You must be logged in to invite users");
+          throw new Error("Debes iniciar sesión para invitar usuarios");
         }
         
         if (!projectId) {
-          throw new Error("Project ID is required");
+          throw new Error("ID del proyecto es requerido");
         }
         
+        // Check if user exists in the system
         const { data: existingUserProfile, error: userProfileError } = await supabase
           .from("profiles")
           .select("id, email")
@@ -205,131 +196,95 @@ const ProjectUsers = () => {
           
         if (userProfileError) {
           console.error("Error checking if user profile exists:", userProfileError);
-          throw new Error(`Error checking if user profile exists: ${userProfileError.message}`);
+          throw new Error(`Error al verificar si el perfil de usuario existe: ${userProfileError.message}`);
         }
         
+        // If user doesn't exist, return a clear error
         if (!existingUserProfile || existingUserProfile.length === 0) {
-          console.log("No existing user found, creating invitation record");
-          
-          const { error: invitationError } = await customSupabase
-            .from('project_invitations')
-            .insert({
-              project_id: projectId,
-              email: values.email,
-              status: "pending",
-              invited_by: user.id,
-              role_id: values.roleId || null
-            });
-            
-          if (invitationError) {
-            console.error("Error creating invitation:", invitationError);
-            throw new Error(`Error creating invitation: ${invitationError.message}`);
-          }
-          
-          return { 
-            message: "Invitation created for new user", 
-            email: values.email 
-          };
+          throw new Error(`El usuario con correo ${values.email} no está registrado en el sistema. Solo se pueden invitar usuarios registrados.`);
         }
         
-        for (const existingUserRecord of existingUserProfile) {
-          const { data: existingProjectUser, error: projectUserError } = await supabase
-            .from("project_users")
-            .select("*")
-            .eq("user_id", existingUserRecord.id)
-            .eq("project_id", projectId);
+        const userId = existingUserProfile[0].id;
+        
+        // Check if user is already in the project
+        const { data: existingProjectUser, error: projectUserError } = await supabase
+          .from("project_users")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("project_id", projectId);
 
-          if (projectUserError) {
-            console.error("Error checking project user existence:", projectUserError);
-            throw new Error(`Error checking if user is already in project: ${projectUserError.message}`);
+        if (projectUserError) {
+          console.error("Error checking project user existence:", projectUserError);
+          throw new Error(`Error al comprobar si el usuario ya está en el proyecto: ${projectUserError.message}`);
+        }
+
+        if (existingProjectUser && existingProjectUser.length > 0) {
+          throw new Error(`El usuario ${existingUserProfile[0].email} ya está asignado a este proyecto`);
+        }
+
+        // Add user to project
+        const { error: insertError } = await supabase
+          .from("project_users")
+          .insert({
+            project_id: projectId,
+            user_id: userId,
+            status: "pending",
+            invited_by: user.id
+          });
+
+        if (insertError) {
+          console.error("Insert error:", insertError);
+          if (insertError.code === "23505") {
+            throw new Error(`El usuario ${values.email} ya está asignado a este proyecto`);
           }
+          throw new Error(`Error al añadir usuario al proyecto: ${insertError.message}`);
+        }
 
-          if (existingProjectUser && existingProjectUser.length > 0) {
-            throw new Error(`User ${existingUserRecord.email} is already in this project`);
-          }
-
-          const { error: insertError } = await supabase
-            .from("project_users")
+        // Assign role if provided
+        if (values.roleId) {
+          const { error: roleError } = await supabase
+            .from("user_roles")
             .insert({
+              user_id: userId,
+              role_id: values.roleId,
               project_id: projectId,
-              user_id: existingUserRecord.id,
-              status: "pending",
-              invited_by: user.id
+              assigned_by: user.id
             });
 
-          if (insertError) {
-            console.error("Insert error:", insertError);
-            if (insertError.code === "23505") {
-              throw new Error(`User ${values.email} is already assigned to this project`);
-            }
-            throw new Error(`Error adding user to project: ${insertError.message}`);
+          if (roleError) {
+            console.error("Error assigning role:", roleError);
+            // Don't fail the whole operation if role assignment fails
+            toast({
+              title: "Advertencia",
+              description: `Usuario añadido pero hubo un error al asignar el rol: ${roleError.message}`,
+              variant: "destructive",
+            });
           }
-
-          if (values.roleId) {
-            const { error: roleError } = await supabase
-              .from("user_roles")
-              .insert({
-                user_id: existingUserRecord.id,
-                role_id: values.roleId,
-                project_id: projectId,
-                assigned_by: user.id
-              });
-
-            if (roleError) {
-              console.error("Error assigning role:", roleError);
-            }
-          }
-
-          return existingUserRecord;
         }
-        
-        throw new Error("Unexpected error in user invitation flow");
+
+        return { success: true, email: values.email };
       } catch (error: any) {
         console.error("Error in inviteUserMutation:", error);
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
-        title: "User invited successfully",
-        description: "The user has been invited to the project.",
+        title: "Usuario invitado con éxito",
+        description: `${data.email} ha sido invitado al proyecto.`,
       });
       form.reset();
       setInviteModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["projectUsers", projectId] });
-      queryClient.invalidateQueries({ queryKey: ["projectInvitations", projectId] });
     },
     onError: (error: any) => {
       console.error("Full invitation error:", error);
       toast({
-        title: "Error inviting user",
-        description: error.message || "An unexpected error occurred",
+        title: "Error al invitar usuario",
+        description: error.message || "Ocurrió un error inesperado",
         variant: "destructive",
       });
     },
-  });
-
-  const { data: pendingInvitations } = useQuery({
-    queryKey: ["projectInvitations", projectId],
-    queryFn: async () => {
-      try {
-        const { data, error } = await customSupabase
-          .from('project_invitations')
-          .select('*')
-          .eq('project_id', projectId)
-          .eq('status', 'pending');
-        
-        if (error) {
-          console.error("Error fetching invitations:", error);
-          throw error;
-        }
-        
-        return data as ProjectInvitation[];
-      } catch (error) {
-        console.error("Error in projectInvitations query:", error);
-        return [];
-      }
-    }
   });
 
   const updateUserStatusMutation = useMutation({
@@ -348,45 +303,15 @@ const ProjectUsers = () => {
     },
     onSuccess: () => {
       toast({
-        title: "User status updated",
-        description: "The user's status has been updated successfully.",
+        title: "Estado del usuario actualizado",
+        description: "El estado del usuario ha sido actualizado con éxito.",
       });
       queryClient.invalidateQueries({ queryKey: ["projectUsers", projectId] });
     },
     onError: (error) => {
       toast({
-        title: "Error updating user status",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const deleteInvitationMutation = useMutation({
-    mutationFn: async (invitationId: string) => {
-      const { error } = await customSupabase
-        .from('project_invitations')
-        .delete()
-        .eq('id', invitationId);
-
-      if (error) {
-        console.error("Error deleting invitation:", error);
-        throw error;
-      }
-      
-      return invitationId;
-    },
-    onSuccess: () => {
-      toast({
-        title: "Invitation cancelled",
-        description: "The invitation has been removed.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["projectInvitations", projectId] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error cancelling invitation",
-        description: error instanceof Error ? error.message : "Failed to cancel invitation",
+        title: "Error al actualizar el estado del usuario",
+        description: error instanceof Error ? error.message : "Error desconocido",
         variant: "destructive",
       });
     },
@@ -399,13 +324,13 @@ const ProjectUsers = () => {
   const renderStatusBadge = (status: ProjectUserStatus) => {
     switch (status) {
       case "active":
-        return <Badge variant="success">Active</Badge>;
+        return <Badge variant="success">Activo</Badge>;
       case "pending":
-        return <Badge variant="secondary">Pending</Badge>;
+        return <Badge variant="secondary">Pendiente</Badge>;
       case "inactive":
-        return <Badge>Inactive</Badge>;
+        return <Badge>Inactivo</Badge>;
       case "rejected":
-        return <Badge variant="destructive">Rejected</Badge>;
+        return <Badge variant="destructive">Rechazado</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }
@@ -415,32 +340,31 @@ const ProjectUsers = () => {
     <PageContainer>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Project Users</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Usuarios del Proyecto</h1>
           <p className="text-muted-foreground">
-            Manage users for project: {project?.name}
+            Administrar usuarios para el proyecto: {project?.name}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate(`/projects/${projectId}/roles`)}>
-            Manage Roles
+            Administrar Roles
           </Button>
           <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
             <DialogTrigger asChild>
-              <Button><UserPlus className="mr-2 h-4 w-4" /> Invite User</Button>
+              <Button><UserPlus className="mr-2 h-4 w-4" /> Invitar Usuario</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Invite a User</DialogTitle>
+                <DialogTitle>Invitar a un Usuario</DialogTitle>
                 <DialogDescription>
-                  Enter the email of the user you want to invite to this project.
+                  Ingresa el correo electrónico del usuario que deseas invitar a este proyecto.
                 </DialogDescription>
               </DialogHeader>
               <Alert className="mb-4">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Important</AlertTitle>
+                <AlertTitle>Importante</AlertTitle>
                 <AlertDescription>
-                  You can invite both existing and new users. If the user doesn't have an account yet, 
-                  they'll be able to join when they sign up.
+                  Solo puedes invitar usuarios que ya estén registrados en el sistema.
                 </AlertDescription>
               </Alert>
               <Form {...form}>
@@ -450,9 +374,9 @@ const ProjectUsers = () => {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel>Correo electrónico</FormLabel>
                         <FormControl>
-                          <Input placeholder="Email address" {...field} />
+                          <Input placeholder="Dirección de correo" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -464,14 +388,14 @@ const ProjectUsers = () => {
                       name="roleId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Role (Optional)</FormLabel>
+                          <FormLabel>Rol (Opcional)</FormLabel>
                           <Select
                             onValueChange={field.onChange}
                             defaultValue={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select a role" />
+                                <SelectValue placeholder="Seleccionar un rol" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
@@ -493,13 +417,13 @@ const ProjectUsers = () => {
                       variant="outline" 
                       onClick={() => setInviteModalOpen(false)}
                     >
-                      Cancel
+                      Cancelar
                     </Button>
                     <Button 
                       type="submit" 
                       disabled={inviteUserMutation.isPending}
                     >
-                      {inviteUserMutation.isPending ? "Inviting..." : "Invite User"}
+                      {inviteUserMutation.isPending ? "Invitando..." : "Invitar Usuario"}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -514,24 +438,20 @@ const ProjectUsers = () => {
         <TabsList className="mb-4">
           <TabsTrigger value="users">
             <UsersRound className="mr-2 h-4 w-4" /> 
-            Users List
-          </TabsTrigger>
-          <TabsTrigger value="invitations">
-            <MailPlus className="mr-2 h-4 w-4" /> 
-            Pending Invitations
+            Lista de Usuarios
           </TabsTrigger>
           <TabsTrigger value="bulk" disabled>
             <FileSpreadsheet className="mr-2 h-4 w-4" /> 
-            Bulk Import (Coming Soon)
+            Importación Masiva (Próximamente)
           </TabsTrigger>
         </TabsList>
         
         <TabsContent value="users">
           <Card>
             <CardHeader>
-              <CardTitle>Project Users</CardTitle>
+              <CardTitle>Usuarios del Proyecto</CardTitle>
               <CardDescription>
-                Manage all users assigned to this project.
+                Administra todos los usuarios asignados a este proyecto.
               </CardDescription>
               <div className="flex flex-wrap gap-4 mt-4">
                 <div>
@@ -539,10 +459,10 @@ const ProjectUsers = () => {
                     onValueChange={(value) => setRoleFilter(value === "all" ? null : value)}
                   >
                     <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Filter by role" />
+                      <SelectValue placeholder="Filtrar por rol" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="all">Todos los Roles</SelectItem>
                       {roles?.map((role) => (
                         <SelectItem key={role.id} value={role.id}>
                           {role.name}
@@ -558,14 +478,14 @@ const ProjectUsers = () => {
                     }
                   >
                     <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Filter by status" />
+                      <SelectValue placeholder="Filtrar por estado" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="all">Todos los Estados</SelectItem>
+                      <SelectItem value="active">Activo</SelectItem>
+                      <SelectItem value="pending">Pendiente</SelectItem>
+                      <SelectItem value="inactive">Inactivo</SelectItem>
+                      <SelectItem value="rejected">Rechazado</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -573,16 +493,16 @@ const ProjectUsers = () => {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="text-center py-4">Loading users...</div>
+                <div className="text-center py-4">Cargando usuarios...</div>
               ) : projectUsers && projectUsers.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Correo</TableHead>
+                      <TableHead>Rol</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -610,7 +530,7 @@ const ProjectUsers = () => {
                                   }
                                 >
                                   <CheckCircle className="mr-1 h-4 w-4" />
-                                  Activate
+                                  Activar
                                 </Button>
                                 <Button 
                                   size="sm" 
@@ -624,7 +544,7 @@ const ProjectUsers = () => {
                                   }
                                 >
                                   <AlertCircle className="mr-1 h-4 w-4" />
-                                  Reject
+                                  Rechazar
                                 </Button>
                               </>
                             )}
@@ -640,7 +560,7 @@ const ProjectUsers = () => {
                                   })
                                 }
                               >
-                                Deactivate
+                                Desactivar
                               </Button>
                             )}
                             {(projectUser.status === "inactive" || projectUser.status === "rejected") && (
@@ -655,7 +575,7 @@ const ProjectUsers = () => {
                                   })
                                 }
                               >
-                                Activate
+                                Activar
                               </Button>
                             )}
                           </div>
@@ -667,71 +587,12 @@ const ProjectUsers = () => {
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <UsersRound className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium">No users found</h3>
+                  <h3 className="text-lg font-medium">No se encontraron usuarios</h3>
                   <p className="text-muted-foreground mb-4">
-                    There are no users in this project yet.
+                    Aún no hay usuarios en este proyecto.
                   </p>
                   <Button onClick={() => setInviteModalOpen(true)}>
-                    <UserPlus className="mr-2 h-4 w-4" /> Invite a User
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="invitations">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pending Invitations</CardTitle>
-              <CardDescription>
-                Users who have been invited but have not yet joined the project.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {pendingInvitations && pendingInvitations.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Invited On</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pendingInvitations.map((invitation) => (
-                      <TableRow key={invitation.id}>
-                        <TableCell>{invitation.email}</TableCell>
-                        <TableCell>{new Date(invitation.invited_at).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          {invitation.role_id ? 
-                            roles?.find(r => r.id === invitation.role_id)?.name || "—" 
-                            : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="h-8"
-                            onClick={() => deleteInvitationMutation.mutate(invitation.id)}
-                          >
-                            Cancel Invitation
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <MailPlus className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium">No pending invitations</h3>
-                  <p className="text-muted-foreground mb-4">
-                    There are no pending invitations to this project.
-                  </p>
-                  <Button onClick={() => setInviteModalOpen(true)}>
-                    <UserPlus className="mr-2 h-4 w-4" /> Invite a User
+                    <UserPlus className="mr-2 h-4 w-4" /> Invitar a un Usuario
                   </Button>
                 </div>
               )}
@@ -742,17 +603,17 @@ const ProjectUsers = () => {
         <TabsContent value="bulk">
           <Card>
             <CardHeader>
-              <CardTitle>Bulk Import</CardTitle>
+              <CardTitle>Importación Masiva</CardTitle>
               <CardDescription>
-                Import multiple users at once using a CSV file.
+                Importa múltiples usuarios a la vez usando un archivo CSV.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <FileSpreadsheet className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium">Bulk import coming soon</h3>
+                <h3 className="text-lg font-medium">Importación masiva próximamente</h3>
                 <p className="text-muted-foreground mb-4">
-                  This feature will allow you to import multiple users at once from a CSV file.
+                  Esta funcionalidad te permitirá importar múltiples usuarios desde un archivo CSV o sincronizar con Active Directory.
                 </p>
               </div>
             </CardContent>
