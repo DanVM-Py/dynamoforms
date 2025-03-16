@@ -272,6 +272,58 @@ export type Database = {
           },
         ]
       }
+      project_invitations: {
+        Row: {
+          email: string
+          id: string
+          invited_at: string | null
+          invited_by: string
+          project_id: string
+          role_id: string | null
+          status: string
+        }
+        Insert: {
+          email: string
+          id?: string
+          invited_at?: string | null
+          invited_by: string
+          project_id: string
+          role_id?: string | null
+          status?: string
+        }
+        Update: {
+          email?: string
+          id?: string
+          invited_at?: string | null
+          invited_by?: string
+          project_id?: string
+          role_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_invitations_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_invitations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_invitations_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_users: {
         Row: {
           activated_at: string | null

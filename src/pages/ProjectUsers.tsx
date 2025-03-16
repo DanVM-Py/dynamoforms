@@ -46,6 +46,17 @@ type ProjectUser = {
   role_name?: string;
 };
 
+// Define project invitation type to match our database
+type ProjectInvitation = {
+  id: string;
+  project_id: string;
+  email: string;
+  status: string;
+  invited_at: string;
+  invited_by: string;
+  role_id: string | null;
+};
+
 const ProjectUsers = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const { toast } = useToast();
@@ -199,18 +210,15 @@ const ProjectUsers = () => {
           throw new Error(`Error checking if user profile exists: ${userProfileError.message}`);
         }
         
-        // If no existing user found, store just the invitation in the project_users table
-        // without creating a temporary profile
+        // If no existing user found, create an invitation record
         if (!existingUserProfile || existingUserProfile.length === 0) {
-          // Generate a UUID for pending invitations
-          const pendingInvitationId = crypto.randomUUID();
+          console.log("No existing user found, creating invitation record");
           
-          // Store the invitation in a separate invitations table or directly in project_users
-          // using a different identifier or structure that doesn't require a valid user_id yet
-          const { error: invitationError } = await supabase
-            .from("project_invitations")
+          // Use a raw query with customSupabase to skip type checking
+          // since project_invitations isn't in the generated types
+          const { error: invitationError } = await customSupabase
+            .from('project_invitations')
             .insert({
-              id: pendingInvitationId,
               project_id: projectId,
               email: values.email,
               status: "pending",
@@ -311,18 +319,24 @@ const ProjectUsers = () => {
   const { data: pendingInvitations } = useQuery({
     queryKey: ["projectInvitations", projectId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("project_invitations")
-        .select("*")
-        .eq("project_id", projectId)
-        .eq("status", "pending");
-      
-      if (error) {
-        console.error("Error fetching invitations:", error);
+      try {
+        // Use customSupabase to fetch invitations since the table is not in the type definition
+        const { data, error } = await customSupabase
+          .from('project_invitations')
+          .select('*')
+          .eq('project_id', projectId)
+          .eq('status', 'pending');
+        
+        if (error) {
+          console.error("Error fetching invitations:", error);
+          return [];
+        }
+        
+        return data as ProjectInvitation[];
+      } catch (error) {
+        console.error("Error in projectInvitations query:", error);
         return [];
       }
-      
-      return data || [];
     }
   });
 
@@ -358,10 +372,11 @@ const ProjectUsers = () => {
 
   const deleteInvitationMutation = useMutation({
     mutationFn: async (invitationId: string) => {
-      const { error } = await supabase
-        .from("project_invitations")
+      // Use customSupabase to delete invitation
+      const { error } = await customSupabase
+        .from('project_invitations')
         .delete()
-        .eq("id", invitationId);
+        .eq('id', invitationId);
 
       if (error) throw error;
       return invitationId;
