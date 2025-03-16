@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import PageContainer from "@/components/layout/PageContainer";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,7 +93,7 @@ const ProjectUsers = () => {
     },
   });
 
-  // Fetch project users with their info and roles
+  // Fetch project users with their info and roles - fixed the query to use specific column names
   const { data: projectUsers, isLoading } = useQuery({
     queryKey: ["projectUsers", projectId, roleFilter, statusFilter],
     queryFn: async () => {
@@ -101,8 +101,12 @@ const ProjectUsers = () => {
         .from("project_users")
         .select(`
           *,
-          profiles:user_id (email, full_name),
+          profiles:user_id (
+            email,
+            full_name
+          ),
           user_roles!inner (
+            role_id,
             roles (
               id,
               name
@@ -129,7 +133,7 @@ const ProjectUsers = () => {
         email: item.profiles?.email,
         full_name: item.profiles?.full_name,
         role_name: item.user_roles?.[0]?.roles?.name,
-      }));
+      })) as ProjectUser[];
     },
   });
 
@@ -180,27 +184,29 @@ const ProjectUsers = () => {
         throw new Error("User is already assigned to another project");
       }
 
-      // Create project user record
+      // Create project user record - fixed by adding the required invited_by field
       const { error: insertError } = await supabase
         .from("project_users")
         .insert({
           project_id: projectId as string,
           user_id: existingUser.id,
           status: "pending",
+          invited_by: user?.id as string
         });
 
       if (insertError) {
         throw insertError;
       }
 
-      // If a role was specified, assign the user to that role
+      // If a role was specified, assign the user to that role - fixed by changing created_by to assigned_by
       if (values.roleId) {
         const { error: roleError } = await supabase
           .from("user_roles")
           .insert({
             user_id: existingUser.id,
             role_id: values.roleId,
-            created_by: user?.id as string,
+            project_id: projectId as string,
+            assigned_by: user?.id as string
           });
 
         if (roleError) {
