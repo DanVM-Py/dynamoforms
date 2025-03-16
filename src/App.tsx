@@ -4,6 +4,7 @@ import {
   BrowserRouter as Router,
   Route,
   Routes,
+  useParams,
 } from "react-router-dom";
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from './contexts/AuthContext';

@@ -20,7 +20,8 @@ export const customSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBL
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       'Pragma': 'no-cache',
       'Expires': '0',
-      'apikey': SUPABASE_PUBLISHABLE_KEY
+      'apikey': SUPABASE_PUBLISHABLE_KEY,
+      'Content-Type': 'application/json'
     },
     fetch: (url, options = {}) => {
       // Create a new options object with headers
@@ -32,7 +33,8 @@ export const customSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBL
           'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
           'Pragma': 'no-cache',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Expires': '0'
+          'Expires': '0',
+          'Content-Type': 'application/json'
         },
         cache: 'no-store' as RequestCache
       };

@@ -92,14 +92,18 @@ const PublicFormView = () => {
         response_data: formData
       });
       
+      const responsePayload = {
+        form_id: formId,
+        user_id: anonymousUserId, // Using a UUID as anonymous user ID
+        response_data: formData,
+        submitted_at: new Date().toISOString()
+      };
+      
+      console.log("[PublicFormView] Sending payload:", responsePayload);
+      
       const { data: responseData, error: responseError } = await customSupabase
         .from('form_responses')
-        .insert({
-          form_id: formId,
-          user_id: anonymousUserId, // Using a UUID as anonymous user ID
-          response_data: formData,
-          submitted_at: new Date().toISOString()
-        })
+        .insert(responsePayload)
         .select('id')
         .single();
       

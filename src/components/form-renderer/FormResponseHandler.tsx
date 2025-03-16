@@ -30,9 +30,12 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
         
         // Trigger the edge function to create chained tasks
         const { data, error } = await client.functions.invoke('create-chained-task', {
-          body: {
+          body: JSON.stringify({
             formResponseId: responseId,
             sourceFormId: formId
+          }),
+          headers: {
+            'Content-Type': 'application/json'
           }
         });
 
