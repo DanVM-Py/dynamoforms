@@ -1,12 +1,11 @@
 
 import { useEffect, useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, ChevronLeft, AlertCircle, ArrowRight, ArrowRightLeft, CalendarClock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +24,12 @@ interface FormField {
   type: string;
 }
 
+// Improved type for nested form objects
+interface FormReference {
+  id: string;
+  title: string;
+}
+
 const TaskTemplates = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
@@ -41,7 +46,8 @@ const TaskTemplates = () => {
     target: []
   });
   
-  const [formState, setFormState] = useState<Partial<TaskTemplate>>({
+  // Define base template for type safety
+  const baseTemplate: Partial<TaskTemplate> = {
     title: '',
     description: '',
     source_form_id: '',
@@ -53,103 +59,161 @@ const TaskTemplates = () => {
     is_active: true,
     inheritance_mapping: {},
     project_id: projectId || null
-  });
+  };
   
+  const [formState, setFormState] = useState<Partial<TaskTemplate>>(baseTemplate);
+  
+  // Improved query with error handling and logging
   const { data: templates, isLoading: isLoadingTemplates } = useQuery({
     queryKey: ['taskTemplates', projectId],
     queryFn: async () => {
-      let query = supabase
-        .from('task_templates')
-        .select(`
-          *,
-          source_form:source_form_id(id, title),
-          target_form:target_form_id(id, title)
-        `);
-      
-      if (projectId) {
-        query = query.eq('project_id', projectId);
-      }
-      
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      
-      return data.map(template => {
-        // Handle potentially undefined or error values for nested objects
-        const processedTemplate: TaskTemplate = {
-          id: template.id,
-          title: template.title,
-          description: template.description,
-          source_form_id: template.source_form_id,
-          target_form_id: template.target_form_id,
-          assignment_type: template.assignment_type as "static" | "dynamic",
-          default_assignee: template.default_assignee,
-          assignee_form_field: template.assignee_form_field,
-          due_days: template.due_days,
-          is_active: template.is_active,
-          inheritance_mapping: template.inheritance_mapping || {},
-          project_id: template.project_id,
-          created_at: template.created_at,
-          // Use explicit type checking to ensure source_form has the expected structure
-          source_form: template.source_form && typeof template.source_form === 'object' && 'id' in template.source_form
-            ? { id: template.source_form.id as string, title: template.source_form.title as string }
-            : undefined,
-          // Use explicit type checking to ensure target_form has the expected structure
-          target_form: template.target_form && typeof template.target_form === 'object' && 'id' in template.target_form
-            ? { id: template.target_form.id as string, title: template.target_form.title as string }
-            : undefined
-        };
+      try {
+        let query = supabase
+          .from('task_templates')
+          .select(`
+            *,
+            source_form:source_form_id(id, title),
+            target_form:target_form_id(id, title)
+          `);
         
-        return processedTemplate;
-      });
+        if (projectId) {
+          query = query.eq('project_id', projectId);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error("Error fetching task templates:", error);
+          throw error;
+        }
+        
+        if (!data || !Array.isArray(data)) {
+          console.warn("No task templates data returned or invalid format");
+          return [];
+        }
+        
+        return data.map(template => {
+          // Process each template with safe type checking and fallbacks
+          const processedTemplate: TaskTemplate = {
+            id: template.id,
+            title: template.title,
+            description: template.description || '',
+            source_form_id: template.source_form_id,
+            target_form_id: template.target_form_id,
+            assignment_type: template.assignment_type === 'dynamic' ? 'dynamic' : 'static',
+            default_assignee: template.default_assignee,
+            assignee_form_field: template.assignee_form_field,
+            due_days: typeof template.due_days === 'number' ? template.due_days : 7,
+            is_active: Boolean(template.is_active),
+            inheritance_mapping: template.inheritance_mapping || {},
+            project_id: template.project_id,
+            created_at: template.created_at,
+            // Safely handle nested form objects
+            source_form: template.source_form && typeof template.source_form === 'object' && 'id' in template.source_form && 'title' in template.source_form
+              ? { 
+                  id: String(template.source_form.id),
+                  title: String(template.source_form.title)
+                }
+              : undefined,
+            target_form: template.target_form && typeof template.target_form === 'object' && 'id' in template.target_form && 'title' in template.target_form
+              ? {
+                  id: String(template.target_form.id),
+                  title: String(template.target_form.title)
+                }
+              : undefined
+          };
+          
+          return processedTemplate;
+        });
+      } catch (error) {
+        console.error("Failed to fetch task templates:", error);
+        toast({
+          title: "Error al cargar plantillas",
+          description: "No se pudieron cargar las plantillas de tareas. Por favor, intente de nuevo.",
+          variant: "destructive",
+        });
+        return [];
+      }
     }
   });
   
+  // Improved forms query with error handling
   const { data: forms } = useQuery({
     queryKey: ['forms', projectId],
     queryFn: async () => {
-      let query = supabase.from('forms').select('*');
-      
-      if (projectId) {
-        query = query.eq('project_id', projectId);
+      try {
+        let query = supabase.from('forms').select('*');
+        
+        if (projectId) {
+          query = query.eq('project_id', projectId);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error("Error fetching forms:", error);
+          throw error;
+        }
+        
+        return data as Form[] || [];
+      } catch (error) {
+        console.error("Failed to fetch forms:", error);
+        toast({
+          title: "Error al cargar formularios",
+          description: "No se pudieron cargar los formularios. Por favor, intente de nuevo.",
+          variant: "destructive",
+        });
+        return [];
       }
-      
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      return data as Form[];
     }
   });
   
+  // Improved users query with error handling
   const { data: users } = useQuery({
     queryKey: ['profiles'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*');
-      
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*');
+        
+        if (error) {
+          console.error("Error fetching users:", error);
+          throw error;
+        }
+        
+        return data || [];
+      } catch (error) {
+        console.error("Failed to fetch users:", error);
+        toast({
+          title: "Error al cargar usuarios",
+          description: "No se pudieron cargar los usuarios. Por favor, intente de nuevo.",
+          variant: "destructive",
+        });
+        return [];
+      }
     }
   });
   
+  // Improved mutation with validation and error handling
   const saveTemplateMutation = useMutation({
     mutationFn: async (template: Partial<TaskTemplate>) => {
       if (!template.title || !template.source_form_id || !template.target_form_id || !template.assignment_type) {
         throw new Error("Faltan campos requeridos");
       }
       
+      // Build complete template with validated fields
       const completeTemplate = {
         title: template.title,
-        description: template.description,
+        description: template.description || null,
         source_form_id: template.source_form_id,
         target_form_id: template.target_form_id,
-        assignment_type: template.assignment_type,
-        default_assignee: template.default_assignee,
-        assignee_form_field: template.assignee_form_field,
-        due_days: template.due_days,
-        is_active: template.is_active,
-        inheritance_mapping: template.inheritance_mapping,
+        assignment_type: template.assignment_type === 'dynamic' ? 'dynamic' : 'static',
+        default_assignee: template.default_assignee || null,
+        assignee_form_field: template.assignee_form_field || null,
+        due_days: typeof template.due_days === 'number' ? template.due_days : 7,
+        is_active: Boolean(template.is_active),
+        inheritance_mapping: template.inheritance_mapping || {},
         project_id: template.project_id
       };
       
@@ -161,7 +225,10 @@ const TaskTemplates = () => {
           .select()
           .single();
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error updating template:", error);
+          throw error;
+        }
         return data;
       } else {
         const { data, error } = await supabase
@@ -170,7 +237,10 @@ const TaskTemplates = () => {
           .select()
           .single();
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error creating template:", error);
+          throw error;
+        }
         return data;
       }
     },
@@ -178,19 +248,7 @@ const TaskTemplates = () => {
       queryClient.invalidateQueries({queryKey: ['taskTemplates']});
       setIsCreating(false);
       setSelectedTemplate(null);
-      setFormState({
-        title: '',
-        description: '',
-        source_form_id: '',
-        target_form_id: '',
-        assignment_type: 'static',
-        default_assignee: '',
-        assignee_form_field: null,
-        due_days: 7,
-        is_active: true,
-        inheritance_mapping: {},
-        project_id: projectId || null
-      });
+      setFormState({...baseTemplate, project_id: projectId || null});
       toast({
         title: "Plantilla guardada",
         description: "La plantilla de tarea ha sido guardada correctamente.",
@@ -206,6 +264,7 @@ const TaskTemplates = () => {
     }
   });
   
+  // Improved delete mutation with error handling
   const deleteTemplateMutation = useMutation({
     mutationFn: async (templateId: string) => {
       const { error } = await supabase
@@ -213,7 +272,10 @@ const TaskTemplates = () => {
         .delete()
         .eq('id', templateId);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error deleting template:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({queryKey: ['taskTemplates']});
@@ -232,68 +294,91 @@ const TaskTemplates = () => {
     }
   });
   
+  // Safe fetching of form schemas
   useEffect(() => {
     const fetchFormSchemas = async () => {
-      if (formState.source_form_id) {
-        const { data: sourceForm, error: sourceError } = await supabase
-          .from('forms')
-          .select('schema')
-          .eq('id', formState.source_form_id)
-          .single();
-        
-        if (!sourceError && sourceForm?.schema) {
-          try {
-            const schema = sourceForm.schema as { components: any[] };
-            const fields = (schema.components || [])
-              .filter(comp => comp.type !== 'info_text' && !comp.type.startsWith('group'))
-              .map(comp => ({
-                id: comp.id,
-                label: comp.label,
-                type: comp.type
-              }));
-            
-            setFormFields(prev => ({ ...prev, source: fields }));
-          } catch (error) {
-            console.error("Error parsing source form schema:", error);
-            setFormFields(prev => ({ ...prev, source: [] }));
+      try {
+        if (formState.source_form_id) {
+          const { data: sourceForm, error: sourceError } = await supabase
+            .from('forms')
+            .select('schema')
+            .eq('id', formState.source_form_id)
+            .maybeSingle();
+          
+          if (sourceError) {
+            console.error("Error fetching source form schema:", sourceError);
+            return;
+          }
+          
+          if (sourceForm?.schema) {
+            try {
+              const schema = sourceForm.schema as { components: any[] };
+              const fields = (schema.components || [])
+                .filter(comp => comp && comp.type && comp.type !== 'info_text' && !comp.type.startsWith('group'))
+                .map(comp => ({
+                  id: comp.id,
+                  label: comp.label || comp.id,
+                  type: comp.type
+                }));
+              
+              setFormFields(prev => ({ ...prev, source: fields }));
+            } catch (parseError) {
+              console.error("Error parsing source form schema:", parseError);
+              setFormFields(prev => ({ ...prev, source: [] }));
+            }
           }
         }
-      }
-      
-      if (formState.target_form_id) {
-        const { data: targetForm, error: targetError } = await supabase
-          .from('forms')
-          .select('schema')
-          .eq('id', formState.target_form_id)
-          .single();
         
-        if (!targetError && targetForm?.schema) {
-          try {
-            const schema = targetForm.schema as { components: any[] };
-            const fields = (schema.components || [])
-              .filter(comp => comp.type !== 'info_text' && !comp.type.startsWith('group'))
-              .map(comp => ({
-                id: comp.id,
-                label: comp.label,
-                type: comp.type
-              }));
-            
-            setFormFields(prev => ({ ...prev, target: fields }));
-          } catch (error) {
-            console.error("Error parsing target form schema:", error);
-            setFormFields(prev => ({ ...prev, target: [] }));
+        if (formState.target_form_id) {
+          const { data: targetForm, error: targetError } = await supabase
+            .from('forms')
+            .select('schema')
+            .eq('id', formState.target_form_id)
+            .maybeSingle();
+          
+          if (targetError) {
+            console.error("Error fetching target form schema:", targetError);
+            return;
+          }
+          
+          if (targetForm?.schema) {
+            try {
+              const schema = targetForm.schema as { components: any[] };
+              const fields = (schema.components || [])
+                .filter(comp => comp && comp.type && comp.type !== 'info_text' && !comp.type.startsWith('group'))
+                .map(comp => ({
+                  id: comp.id,
+                  label: comp.label || comp.id,
+                  type: comp.type
+                }));
+              
+              setFormFields(prev => ({ ...prev, target: fields }));
+            } catch (parseError) {
+              console.error("Error parsing target form schema:", parseError);
+              setFormFields(prev => ({ ...prev, target: [] }));
+            }
           }
         }
+      } catch (error) {
+        console.error("Error in fetchFormSchemas:", error);
+        toast({
+          title: "Error",
+          description: "Hubo un problema al cargar los esquemas de formularios.",
+          variant: "destructive",
+        });
       }
     };
     
     fetchFormSchemas();
-  }, [formState.source_form_id, formState.target_form_id]);
+  }, [formState.source_form_id, formState.target_form_id, toast]);
   
+  // Improved template selection logic
   useEffect(() => {
     if (selectedTemplate) {
-      // Fix here: Don't use the spread operator, but explicitly copy properties
+      // Initialize with base template to ensure all fields are present
       const templateFields: Partial<TaskTemplate> = {
+        ...baseTemplate,
+        // Then explicitly copy all properties from selected template
         id: selectedTemplate.id,
         title: selectedTemplate.title,
         description: selectedTemplate.description,
@@ -313,6 +398,7 @@ const TaskTemplates = () => {
     }
   }, [selectedTemplate]);
   
+  // Improved save handler with validation
   const handleSaveTemplate = () => {
     if (!formState.title || !formState.source_form_id || !formState.target_form_id) {
       toast({
@@ -326,13 +412,19 @@ const TaskTemplates = () => {
     saveTemplateMutation.mutate(formState);
   };
   
+  // Safe input handlers with type checking
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormState(prev => ({ ...prev, [name]: value }));
   };
   
   const handleSelectChange = (name: string, value: string) => {
-    setFormState(prev => ({ ...prev, [name]: value }));
+    try {
+      console.log(`Changing ${name} to ${value}`);
+      setFormState(prev => ({ ...prev, [name]: value }));
+    } catch (error) {
+      console.error(`Error in handleSelectChange for ${name}:`, error);
+    }
   };
   
   const handleSwitchChange = (name: string, checked: boolean) => {
@@ -347,6 +439,13 @@ const TaskTemplates = () => {
         [sourceField]: targetField
       }
     }));
+  };
+  
+  // Reset form state when canceling
+  const handleCancel = () => {
+    setIsCreating(false);
+    setSelectedTemplate(null);
+    setFormState({...baseTemplate, project_id: projectId || null});
   };
   
   return (
@@ -630,10 +729,7 @@ const TaskTemplates = () => {
           <CardFooter className="flex justify-between">
             <Button 
               variant="outline" 
-              onClick={() => {
-                setIsCreating(false);
-                setSelectedTemplate(null);
-              }}
+              onClick={handleCancel}
             >
               Cancelar
             </Button>

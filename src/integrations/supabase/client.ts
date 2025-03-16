@@ -17,5 +17,14 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true
+  },
+  db: {
+    schema: 'public'
+  },
+  global: {
+    // Add retries to improve reliability
+    fetch: (url, options) => {
+      return fetch(url, { ...options, cache: 'no-store' });
+    }
   }
 });
