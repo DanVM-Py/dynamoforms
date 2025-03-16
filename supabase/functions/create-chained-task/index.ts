@@ -142,6 +142,7 @@ serve(async (req) => {
             title: 'Nueva tarea asignada',
             message: `Se te ha asignado una nueva tarea: ${template.title}`,
             type: 'task_assigned',
+            read: false,
             project_id: projectId || template.project_id,
             metadata: {
               task_id: task.id,

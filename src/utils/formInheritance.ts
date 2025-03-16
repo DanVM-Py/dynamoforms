@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { Database, TaskTemplate } from "@/types/supabase";
+import { TaskTemplate } from "@/types/supabase";
 
 /**
  * Process form inheritance to create tasks based on templates

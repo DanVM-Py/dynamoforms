@@ -17,33 +17,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Database } from "@/types/supabase";
+import { Form, TaskTemplate } from "@/types/supabase";
 
-// Define task template interface
-interface TaskTemplate {
-  id: string;
-  title: string;
-  description: string | null;
-  source_form_id: string;
-  target_form_id: string;
-  assignment_type: 'static' | 'dynamic';
-  default_assignee: string | null;
-  assignee_form_field: string | null;
-  due_days: number | null;
-  is_active: boolean;
-  created_at: string;
-  inheritance_mapping: Record<string, string> | null;
-  project_id: string | null;
-  source_form?: {
-    id: string;
-    title: string;
-  };
-  target_form?: {
-    id: string;
-    title: string;
-  };
-}
-
+// Define form field interface
 interface FormField {
   id: string;
   label: string;
@@ -117,7 +93,7 @@ const TaskTemplates = () => {
       const { data, error } = await query;
       
       if (error) throw error;
-      return data;
+      return data as Form[];
     }
   });
   
@@ -243,17 +219,22 @@ const TaskTemplates = () => {
           .single();
         
         if (!sourceError && sourceForm?.schema) {
-          // Extract field information for mapping
-          const schema = sourceForm.schema as { components: any[] };
-          const fields = (schema.components || [])
-            .filter(comp => comp.type !== 'info_text' && !comp.type.startsWith('group'))
-            .map(comp => ({
-              id: comp.id,
-              label: comp.label,
-              type: comp.type
-            }));
-          
-          setFormFields(prev => ({ ...prev, source: fields }));
+          try {
+            // Extract field information for mapping
+            const schema = sourceForm.schema as { components: any[] };
+            const fields = (schema.components || [])
+              .filter(comp => comp.type !== 'info_text' && !comp.type.startsWith('group'))
+              .map(comp => ({
+                id: comp.id,
+                label: comp.label,
+                type: comp.type
+              }));
+            
+            setFormFields(prev => ({ ...prev, source: fields }));
+          } catch (error) {
+            console.error("Error parsing source form schema:", error);
+            setFormFields(prev => ({ ...prev, source: [] }));
+          }
         }
       }
       
@@ -266,17 +247,22 @@ const TaskTemplates = () => {
           .single();
         
         if (!targetError && targetForm?.schema) {
-          // Extract field information for mapping
-          const schema = targetForm.schema as { components: any[] };
-          const fields = (schema.components || [])
-            .filter(comp => comp.type !== 'info_text' && !comp.type.startsWith('group'))
-            .map(comp => ({
-              id: comp.id,
-              label: comp.label,
-              type: comp.type
-            }));
-          
-          setFormFields(prev => ({ ...prev, target: fields }));
+          try {
+            // Extract field information for mapping
+            const schema = targetForm.schema as { components: any[] };
+            const fields = (schema.components || [])
+              .filter(comp => comp.type !== 'info_text' && !comp.type.startsWith('group'))
+              .map(comp => ({
+                id: comp.id,
+                label: comp.label,
+                type: comp.type
+              }));
+            
+            setFormFields(prev => ({ ...prev, target: fields }));
+          } catch (error) {
+            console.error("Error parsing target form schema:", error);
+            setFormFields(prev => ({ ...prev, target: [] }));
+          }
         }
       }
     };
