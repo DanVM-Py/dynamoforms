@@ -24,7 +24,8 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
         console.log("[FormResponseHandler] Triggering task creation for form response:", {
           formResponseId: responseId,
           sourceFormId: formId,
-          isPublic
+          isPublic,
+          usingCustomClient: isPublic
         });
         
         // Trigger the edge function to create chained tasks
@@ -37,11 +38,17 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
 
         if (error) {
           console.error("[FormResponseHandler] Error triggering task creation:", error);
+          toast({
+            title: "Error en el procesamiento",
+            description: "Hubo un problema al procesar su formulario, pero su respuesta fue guardada.",
+            variant: "destructive"
+          });
         } else {
           console.log("[FormResponseHandler] Task creation triggered successfully:", data);
         }
       } catch (err) {
         console.error("[FormResponseHandler] Failed to trigger task creation:", err);
+        // We don't show this error to the user as it's a background process
       }
     };
 

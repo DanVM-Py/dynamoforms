@@ -4,7 +4,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormRenderer } from "@/components/form-renderer/FormRenderer";
-import { supabase } from "@/integrations/supabase/client";
 import { customSupabase } from "@/integrations/supabase/customClient";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft, AlertCircle } from "lucide-react";
@@ -33,47 +32,30 @@ const PublicFormView = () => {
       
       console.log("[PublicFormView] Fetching public form with ID:", id);
       
-      // First try getting form without the single() to avoid errors
-      const { data, error: queryError } = await customSupabase
+      // First check if the form exists and is public and active
+      const { data: formCheck, error: checkError } = await customSupabase
         .from('forms')
-        .select('*')
-        .eq('id', id);
-        
-      console.log("[PublicFormView] Fetched form data:", data);
+        .select('id, title, description, schema, status, is_public')
+        .eq('id', id)
+        .eq('status', 'active')
+        .eq('is_public', true);
       
-      if (queryError) {
-        console.error('[PublicFormView] Error querying form:', queryError);
-        throw queryError;
+      console.log("[PublicFormView] Form check response:", { formCheck, checkError });
+      
+      if (checkError) {
+        console.error('[PublicFormView] Error checking form:', checkError);
+        throw new Error(checkError.message || 'Error al verificar el formulario');
       }
       
-      if (!data || data.length === 0) {
-        console.error('[PublicFormView] No form found with ID:', id);
-        setError("Formulario no encontrado.");
+      if (!formCheck || formCheck.length === 0) {
+        console.error('[PublicFormView] No active public form found with ID:', id);
+        setError("Este formulario no está disponible públicamente o no está activo.");
         setLoading(false);
         return;
       }
       
-      const formData = data[0];
-      
-      console.log("[PublicFormView] Form status:", formData.status);
-      console.log("[PublicFormView] Form is_public:", formData.is_public);
-      
-      // Check if form is active and public
-      if (formData.status !== 'active') {
-        console.error('[PublicFormView] Form is not active:', formData.status);
-        setError("Este formulario no está activo.");
-        setLoading(false);
-        return;
-      }
-      
-      if (!formData.is_public) {
-        console.error('[PublicFormView] Form is not public');
-        setError("Este formulario no está disponible públicamente.");
-        setLoading(false);
-        return;
-      }
-      
-      console.log("[PublicFormView] Form data is valid, setting form");
+      const formData = formCheck[0];
+      console.log("[PublicFormView] Form data found:", formData);
       setForm(formData);
       
     } catch (error: any) {
@@ -99,29 +81,38 @@ const PublicFormView = () => {
         response_data: formData
       });
       
-      const { data, error } = await customSupabase
+      const { data: responseData, error: responseError } = await customSupabase
         .from('form_responses')
         .insert({
           form_id: formId,
           user_id: anonymousUserId, // Using a UUID as anonymous user ID
           response_data: formData,
           submitted_at: new Date().toISOString()
-        });
+        })
+        .select('id')
+        .single();
       
-      if (error) {
-        console.error('[PublicFormView] Error submitting form:', error);
-        throw error;
+      if (responseError) {
+        console.error('[PublicFormView] Error submitting form:', responseError);
+        throw new Error(responseError.message || 'Error al enviar el formulario');
       }
       
-      console.log('[PublicFormView] Form submission successful:', data);
+      console.log('[PublicFormView] Form submission successful:', responseData);
       
       toast({
         title: "Respuesta enviada",
         description: "Tu respuesta ha sido registrada correctamente. ¡Gracias!",
       });
       
-      // Reset the form or show a success page
-      navigate(`/public/forms/${formId}/success`);
+      // If we have a response ID, use the FormResponseHandler to process it
+      if (responseData && responseData.id) {
+        navigate(`/public/forms/${formId}/response/${responseData.id}`, { 
+          state: { isPublic: true }
+        });
+      } else {
+        // Fallback to success page if we don't have a response ID
+        navigate(`/public/forms/${formId}/success`);
+      }
       
     } catch (error: any) {
       console.error('[PublicFormView] Error submitting form:', error);
