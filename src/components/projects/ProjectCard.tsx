@@ -1,95 +1,97 @@
-
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Edit, Trash, Users, FormInput, ClipboardList } from "lucide-react";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/components/ui/use-toast";
+import { Project } from "@/types/supabase";
+import { useNavigate } from "react-router-dom";
+import { MoreHorizontal, Pencil, Trash, Files, Shield, Users } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface ProjectCardProps {
-  project: {
-    id: string;
-    name: string;
-    description: string;
-    created_at: string;
-    admin_count?: number;
-    forms_count?: number;
-    users_count?: number;
-  };
-  onDelete: (id: string) => void;
-  onEdit: (project: {
-    id: string;
-    name: string;
-    description: string;
-  }) => void;
+  project: Project;
+  onEdit: (project: Project) => void;
+  onDelete: (project: Project) => void;
 }
 
-export const ProjectCard = ({ project, onDelete, onEdit }: ProjectCardProps) => {
+const ProjectCard = ({ project, onEdit, onDelete }: ProjectCardProps) => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const { isGlobalAdmin } = useAuth();
-
-  const handleEditClick = () => {
-    onEdit(project);
-  };
-
-  const handleDeleteClick = () => {
-    if (confirm(`¿Estás seguro de eliminar el proyecto "${project.name}"?`)) {
-      onDelete(project.id);
-    }
-  };
+  const { isGlobalAdmin, isProjectAdmin } = useAuth();
+  const canManageProject = isGlobalAdmin || isProjectAdmin;
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardContent className="pt-6 flex-1">
-        <div className="flex justify-between items-start">
-          <h3 className="text-lg font-semibold mb-2 text-dynamo-700">{project.name}</h3>
-          {isGlobalAdmin && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleEditClick}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Editar
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleDeleteClick} className="text-red-600">
-                  <Trash className="mr-2 h-4 w-4" />
-                  Eliminar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+    <Card className="w-full">
+      <CardHeader className="pb-2">
+        <CardTitle>{project.name}</CardTitle>
+        {project.description && (
+          <CardDescription>{project.description}</CardDescription>
+        )}
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {/* Forms count (example, replace with actual logic) */}
+          {/* <p className="text-sm text-muted-foreground">
+            <Files className="mr-2 inline-block h-4 w-4" />
+            3 Formularios
+          </p> */}
         </div>
-        <p className="text-sm text-gray-500 mb-4 line-clamp-3">{project.description}</p>
       </CardContent>
-      <CardFooter className="pt-2 pb-4">
+      <CardFooter>
         <div className="w-full flex flex-wrap gap-2">
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Users className="h-3 w-3" />
-            <span>{project.admin_count || 0} Administradores</span>
-          </Badge>
-          <Badge variant="outline" className="flex items-center gap-1">
-            <FormInput className="h-3 w-3" />
-            <span>{project.forms_count || 0} Formularios</span>
-          </Badge>
-          <Badge variant="outline" className="flex items-center gap-1">
-            <ClipboardList className="h-3 w-3" />
-            <span>{project.users_count || 0} Usuarios</span>
-          </Badge>
+          <Button 
+            className="flex-1 bg-dynamo-600 hover:bg-dynamo-700"
+            onClick={() => navigate(`/forms?projectId=${project.id}`)}
+          >
+            <Files className="mr-2 h-4 w-4" />
+            Ver Formularios
+          </Button>
+          
+          {canManageProject && (
+            <div className="w-full flex gap-2 mt-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex-1"
+                onClick={() => navigate(`/projects/${project.id}/roles`)}
+              >
+                <Shield className="mr-2 h-4 w-4" />
+                Roles
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex-1"
+                onClick={() => navigate(`/projects/${project.id}/users`)}
+              >
+                <Users className="mr-2 h-4 w-4" />
+                Usuarios
+              </Button>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onEdit(project)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => onDelete(project)}
+                  >
+                    <Trash className="mr-2 h-4 w-4" />
+                    Eliminar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
         </div>
       </CardFooter>
     </Card>
   );
 };
+
+export default ProjectCard;

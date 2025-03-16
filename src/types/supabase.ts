@@ -152,6 +152,59 @@ export interface ExtendedDatabase extends Omit<OriginalDatabase, 'public'> {
           }
         ];
       };
+      // Add new project_users table
+      project_users: {
+        Row: {
+          id: string;
+          project_id: string;
+          user_id: string;
+          status: "pending" | "active" | "inactive" | "rejected";
+          invited_at: string;
+          invited_by: string;
+          activated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          user_id: string;
+          status?: "pending" | "active" | "inactive" | "rejected";
+          invited_at?: string;
+          invited_by: string;
+          activated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          user_id?: string;
+          status?: "pending" | "active" | "inactive" | "rejected";
+          invited_at?: string;
+          invited_by?: string;
+          activated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_users_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_users_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_users_invited_by_fkey";
+            columns: ["invited_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       // Add new roles tables
       roles: {
         Row: {
@@ -335,6 +388,20 @@ export interface ProjectAdmin {
   user_id: string;
   assigned_at: string;
   assigned_by: string;
+  user_email?: string;
+  user_name?: string;
+  project_name?: string;
+}
+
+// New interfaces for project users
+export interface ProjectUser {
+  id: string;
+  project_id: string;
+  user_id: string;
+  status: "pending" | "active" | "inactive" | "rejected";
+  invited_at: string;
+  invited_by: string;
+  activated_at: string | null;
   user_email?: string;
   user_name?: string;
   project_name?: string;
