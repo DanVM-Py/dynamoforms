@@ -18,8 +18,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, CheckCircle, MailPlus, FileSpreadsheet, UsersRound } from "lucide-react";
+import { AlertCircle, CheckCircle, MailPlus, FileSpreadsheet, UsersRound, UserPlus } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const formSchema = z.object({
   email: z
@@ -166,74 +167,127 @@ const ProjectUsers = () => {
       try {
         console.log("Inviting user with email:", values.email);
         
-        // First, find the user by email (case insensitive)
+        // First, find if the user exists by email (case insensitive)
         const { data: existingUser, error: userError } = await supabase
           .from("profiles")
           .select("id, email")
-          .ilike("email", values.email)
-          .single();
-
-        if (userError) {
-          if (userError.code === "PGRST116") {
-            throw new Error(`User with email ${values.email} does not exist in the system`);
-          }
-          throw new Error(`Error checking user existence: ${userError.message}`);
-        }
-
-        console.log("Found existing user:", existingUser);
-
-        // Check if the user is already in this project
-        const { data: existingProjectUser, error: projectUserError } = await supabase
-          .from("project_users")
-          .select("*")
-          .eq("user_id", existingUser.id)
-          .eq("project_id", projectId);
-
-        if (projectUserError) {
-          throw new Error(`Error checking project user existence: ${projectUserError.message}`);
-        }
-
-        if (existingProjectUser && existingProjectUser.length > 0) {
-          throw new Error(`User ${values.email} is already in this project`);
-        }
-
-        // Now insert the user into the project
-        const { error: insertError } = await supabase
-          .from("project_users")
-          .insert({
-            project_id: projectId as string,
-            user_id: existingUser.id,
-            status: "pending",
-            invited_by: user?.id as string
-          });
-
-        if (insertError) {
-          console.error("Insert error:", insertError);
-          // Check if it's a unique constraint violation
-          if (insertError.code === "23505") {
-            throw new Error(`User ${values.email} is already assigned to this project`);
-          }
-          throw new Error(`Error adding user to project: ${insertError.message}`);
-        }
-
-        // If a role was selected, assign it to the user
-        if (values.roleId) {
-          const { error: roleError } = await supabase
-            .from("user_roles")
+          .ilike("email", values.email);
+        
+        // User doesn't exist in the system, so we'll create a temporary invitation
+        if (!existingUser || existingUser.length === 0) {
+          console.log("User not found in the system, creating invitation for future signup:", values.email);
+          
+          // Generate a temporary UUID for this invitation
+          const tempUserId = crypto.randomUUID();
+          
+          // Create a temporary profile for the invited user
+          const { error: profileError } = await supabase
+            .from("profiles")
             .insert({
-              user_id: existingUser.id,
-              role_id: values.roleId,
+              id: tempUserId,
+              email: values.email,
+              name: values.email.split('@')[0], // Use part of email as name
+              role: 'user' // Default role
+            });
+            
+          if (profileError) {
+            console.error("Error creating temporary profile:", profileError);
+            throw new Error(`Error creating user profile: ${profileError.message}`);
+          }
+          
+          // Add the user to the project
+          const { error: projectUserError } = await supabase
+            .from("project_users")
+            .insert({
               project_id: projectId as string,
-              assigned_by: user?.id as string
+              user_id: tempUserId,
+              status: "pending",
+              invited_by: user?.id as string
+            });
+            
+          if (projectUserError) {
+            console.error("Error adding temporary user to project:", projectUserError);
+            throw new Error(`Error adding user to project: ${projectUserError.message}`);
+          }
+          
+          // If a role was selected, assign it
+          if (values.roleId) {
+            const { error: roleError } = await supabase
+              .from("user_roles")
+              .insert({
+                user_id: tempUserId,
+                role_id: values.roleId,
+                project_id: projectId as string,
+                assigned_by: user?.id as string
+              });
+              
+            if (roleError) {
+              console.error("Error assigning role to temporary user:", roleError);
+            }
+          }
+          
+          // Return the newly created temporary user
+          return { id: tempUserId, email: values.email };
+        }
+        
+        // User exists, check if they're already in this project
+        for (const existingUserRecord of existingUser) {
+          const { data: existingProjectUser, error: projectUserError } = await supabase
+            .from("project_users")
+            .select("*")
+            .eq("user_id", existingUserRecord.id)
+            .eq("project_id", projectId);
+
+          if (projectUserError) {
+            console.error("Error checking project user existence:", projectUserError);
+            throw new Error(`Error checking if user is already in project: ${projectUserError.message}`);
+          }
+
+          if (existingProjectUser && existingProjectUser.length > 0) {
+            throw new Error(`User ${existingUserRecord.email} is already in this project`);
+          }
+
+          // Now insert the user into the project
+          const { error: insertError } = await supabase
+            .from("project_users")
+            .insert({
+              project_id: projectId as string,
+              user_id: existingUserRecord.id,
+              status: "pending",
+              invited_by: user?.id as string
             });
 
-          if (roleError) {
-            // Log the error but don't fail the invitation
-            console.error("Error assigning role:", roleError);
+          if (insertError) {
+            console.error("Insert error:", insertError);
+            // Check if it's a unique constraint violation
+            if (insertError.code === "23505") {
+              throw new Error(`User ${values.email} is already assigned to this project`);
+            }
+            throw new Error(`Error adding user to project: ${insertError.message}`);
           }
-        }
 
-        return existingUser;
+          // If a role was selected, assign it to the user
+          if (values.roleId) {
+            const { error: roleError } = await supabase
+              .from("user_roles")
+              .insert({
+                user_id: existingUserRecord.id,
+                role_id: values.roleId,
+                project_id: projectId as string,
+                assigned_by: user?.id as string
+              });
+
+            if (roleError) {
+              // Log the error but don't fail the invitation
+              console.error("Error assigning role:", roleError);
+            }
+          }
+
+          return existingUserRecord;
+        }
+        
+        // Should never get here, but TypeScript expects a return
+        throw new Error("Unexpected error in user invitation flow");
       } catch (error: any) {
         console.error("Error in inviteUserMutation:", error);
         throw error;
@@ -321,7 +375,7 @@ const ProjectUsers = () => {
           </Button>
           <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
             <DialogTrigger asChild>
-              <Button><MailPlus className="mr-2 h-4 w-4" /> Invite User</Button>
+              <Button><UserPlus className="mr-2 h-4 w-4" /> Invite User</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -330,6 +384,14 @@ const ProjectUsers = () => {
                   Enter the email of the user you want to invite to this project.
                 </DialogDescription>
               </DialogHeader>
+              <Alert className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Important</AlertTitle>
+                <AlertDescription>
+                  You can invite both existing and new users. If the user doesn't have an account yet, 
+                  they'll be able to join when they sign up.
+                </AlertDescription>
+              </Alert>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <FormField
@@ -555,7 +617,7 @@ const ProjectUsers = () => {
                     There are no users in this project yet.
                   </p>
                   <Button onClick={() => setInviteModalOpen(true)}>
-                    <MailPlus className="mr-2 h-4 w-4" /> Invite a User
+                    <UserPlus className="mr-2 h-4 w-4" /> Invite a User
                   </Button>
                 </div>
               )}
