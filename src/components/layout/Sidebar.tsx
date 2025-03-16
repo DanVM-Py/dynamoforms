@@ -175,6 +175,16 @@ export function Sidebar() {
             />
           )}
           
+          {/* Mostrar enlace de Usuarios del Proyecto si hay un projectId en el contexto y el usuario tiene permisos */}
+          {canAccessProjectRoles && (
+            <MenuItem 
+              icon={Users} 
+              text="Usuarios del Proyecto" 
+              to={`/projects/${projectId}/users`}
+              isActive={location.pathname.includes(`/projects/${projectId}/users`)}
+            />
+          )}
+          
           {/* Todos los usuarios ven tareas y notificaciones */}
           <MenuItem icon={CheckSquare} text="Tareas" to="/tasks" />
           <MenuItem icon={Bell} text="Notificaciones" to="/notifications" />

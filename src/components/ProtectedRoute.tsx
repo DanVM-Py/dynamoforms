@@ -1,4 +1,3 @@
-
 import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,10 +23,10 @@ const ProtectedRoute = ({
   // First loading state - waiting for authentication
   if (loading && !user) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="flex flex-col items-center">
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="flex flex-col items-center bg-white p-8 rounded-lg shadow-sm">
           <Loader2 className="h-8 w-8 animate-spin text-dynamo-600 mb-2" />
-          <p className="text-gray-600">Verificando sesión...</p>
+          <p className="text-gray-600 font-medium">Verificando sesión...</p>
         </div>
       </div>
     );
@@ -41,10 +40,10 @@ const ProtectedRoute = ({
   // Second loading state - waiting for profile data
   if ((requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover) && loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="flex flex-col items-center">
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="flex flex-col items-center bg-white p-8 rounded-lg shadow-sm">
           <Loader2 className="h-8 w-8 animate-spin text-dynamo-600 mb-2" />
-          <p className="text-gray-600">Verificando permisos...</p>
+          <p className="text-gray-600 font-medium">Verificando permisos...</p>
         </div>
       </div>
     );
