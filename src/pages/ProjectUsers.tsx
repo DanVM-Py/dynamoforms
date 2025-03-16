@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -187,6 +188,7 @@ const ProjectUsers = () => {
           throw new Error("Project ID is required");
         }
         
+        // Check if a user with this email already exists
         const { data: existingUserProfile, error: userProfileError } = await supabase
           .from("profiles")
           .select("id, email")
@@ -197,57 +199,37 @@ const ProjectUsers = () => {
           throw new Error(`Error checking if user profile exists: ${userProfileError.message}`);
         }
         
+        // If no existing user found, store just the invitation in the project_users table
+        // without creating a temporary profile
         if (!existingUserProfile || existingUserProfile.length === 0) {
-          console.log("User profile not found, creating temporary profile:", values.email);
+          // Generate a UUID for pending invitations
+          const pendingInvitationId = crypto.randomUUID();
           
-          const tempUserId = crypto.randomUUID();
-              
-          const { error: profileError } = await supabase
-            .from("profiles")
+          // Store the invitation in a separate invitations table or directly in project_users
+          // using a different identifier or structure that doesn't require a valid user_id yet
+          const { error: invitationError } = await supabase
+            .from("project_invitations")
             .insert({
-              id: tempUserId,
-              email: values.email,
-              name: values.email.split('@')[0],
-              role: 'user'
-            });
-            
-          if (profileError) {
-            console.error("Error creating temporary profile:", profileError);
-            throw new Error(`Error creating user profile: ${profileError.message}`);
-          }
-          
-          const { error: projectUserError } = await supabase
-            .from("project_users")
-            .insert({
+              id: pendingInvitationId,
               project_id: projectId,
-              user_id: tempUserId,
+              email: values.email,
               status: "pending",
-              invited_by: user.id
+              invited_by: user.id,
+              role_id: values.roleId || null
             });
             
-          if (projectUserError) {
-            console.error("Error adding temporary user to project:", projectUserError);
-            throw new Error(`Error adding user to project: ${projectUserError.message}`);
+          if (invitationError) {
+            console.error("Error creating invitation:", invitationError);
+            throw new Error(`Error creating invitation: ${invitationError.message}`);
           }
           
-          if (values.roleId) {
-            const { error: roleError } = await supabase
-              .from("user_roles")
-              .insert({
-                user_id: tempUserId,
-                role_id: values.roleId,
-                project_id: projectId,
-                assigned_by: user.id
-              });
-              
-            if (roleError) {
-              console.error("Error assigning role to temporary user:", roleError);
-            }
-          }
-          
-          return { id: tempUserId, email: values.email };
+          return { 
+            message: "Invitation created for new user", 
+            email: values.email 
+          };
         }
         
+        // For existing users, add them directly to the project
         for (const existingUserRecord of existingUserProfile) {
           const { data: existingProjectUser, error: projectUserError } = await supabase
             .from("project_users")
@@ -313,6 +295,7 @@ const ProjectUsers = () => {
       form.reset();
       setInviteModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["projectUsers", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["projectInvitations", projectId] });
     },
     onError: (error: any) => {
       console.error("Full invitation error:", error);
@@ -322,6 +305,25 @@ const ProjectUsers = () => {
         variant: "destructive",
       });
     },
+  });
+
+  // Query to get pending invitations
+  const { data: pendingInvitations } = useQuery({
+    queryKey: ["projectInvitations", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_invitations")
+        .select("*")
+        .eq("project_id", projectId)
+        .eq("status", "pending");
+      
+      if (error) {
+        console.error("Error fetching invitations:", error);
+        return [];
+      }
+      
+      return data || [];
+    }
   });
 
   const updateUserStatusMutation = useMutation({
@@ -348,6 +350,32 @@ const ProjectUsers = () => {
     onError: (error) => {
       toast({
         title: "Error updating user status",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteInvitationMutation = useMutation({
+    mutationFn: async (invitationId: string) => {
+      const { error } = await supabase
+        .from("project_invitations")
+        .delete()
+        .eq("id", invitationId);
+
+      if (error) throw error;
+      return invitationId;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Invitation cancelled",
+        description: "The invitation has been removed.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["projectInvitations", projectId] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error cancelling invitation",
         description: error.message,
         variant: "destructive",
       });
@@ -477,6 +505,10 @@ const ProjectUsers = () => {
           <TabsTrigger value="users">
             <UsersRound className="mr-2 h-4 w-4" /> 
             Users List
+          </TabsTrigger>
+          <TabsTrigger value="invitations">
+            <MailPlus className="mr-2 h-4 w-4" /> 
+            Pending Invitations
           </TabsTrigger>
           <TabsTrigger value="bulk" disabled>
             <FileSpreadsheet className="mr-2 h-4 w-4" /> 
@@ -628,6 +660,65 @@ const ProjectUsers = () => {
                   <h3 className="text-lg font-medium">No users found</h3>
                   <p className="text-muted-foreground mb-4">
                     There are no users in this project yet.
+                  </p>
+                  <Button onClick={() => setInviteModalOpen(true)}>
+                    <UserPlus className="mr-2 h-4 w-4" /> Invite a User
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="invitations">
+          <Card>
+            <CardHeader>
+              <CardTitle>Pending Invitations</CardTitle>
+              <CardDescription>
+                Users who have been invited but have not yet joined the project.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {pendingInvitations && pendingInvitations.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Invited On</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pendingInvitations.map((invitation) => (
+                      <TableRow key={invitation.id}>
+                        <TableCell>{invitation.email}</TableCell>
+                        <TableCell>{new Date(invitation.invited_at).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          {invitation.role_id ? 
+                            roles?.find(r => r.id === invitation.role_id)?.name || "—" 
+                            : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="h-8"
+                            onClick={() => deleteInvitationMutation.mutate(invitation.id)}
+                          >
+                            Cancel Invitation
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <MailPlus className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium">No pending invitations</h3>
+                  <p className="text-muted-foreground mb-4">
+                    There are no pending invitations to this project.
                   </p>
                   <Button onClick={() => setInviteModalOpen(true)}>
                     <UserPlus className="mr-2 h-4 w-4" /> Invite a User
