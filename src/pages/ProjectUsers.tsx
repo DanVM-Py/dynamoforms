@@ -164,6 +164,8 @@ const ProjectUsers = () => {
   const inviteUserMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       try {
+        console.log("Inviting user with email:", values.email);
+        
         // First, find the user by email (case insensitive)
         const { data: existingUser, error: userError } = await supabase
           .from("profiles")
@@ -192,7 +194,7 @@ const ProjectUsers = () => {
         }
 
         if (existingProjectUser && existingProjectUser.length > 0) {
-          throw new Error("User is already in this project");
+          throw new Error(`User ${values.email} is already in this project`);
         }
 
         // Now insert the user into the project
@@ -206,11 +208,12 @@ const ProjectUsers = () => {
           });
 
         if (insertError) {
+          console.error("Insert error:", insertError);
           // Check if it's a unique constraint violation
           if (insertError.code === "23505") {
-            throw new Error("User is already assigned to this project");
+            throw new Error(`User ${values.email} is already assigned to this project`);
           }
-          throw insertError;
+          throw new Error(`Error adding user to project: ${insertError.message}`);
         }
 
         // If a role was selected, assign it to the user

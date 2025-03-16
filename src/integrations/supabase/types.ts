@@ -272,6 +272,58 @@ export type Database = {
           },
         ]
       }
+      project_users: {
+        Row: {
+          activated_at: string | null
+          id: string
+          invited_at: string
+          invited_by: string
+          project_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          activated_at?: string | null
+          id?: string
+          invited_at?: string
+          invited_by: string
+          project_id: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          activated_at?: string | null
+          id?: string
+          invited_at?: string
+          invited_by?: string
+          project_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_users_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_users_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           created_at: string
