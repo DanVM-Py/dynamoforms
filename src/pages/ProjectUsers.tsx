@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -199,7 +198,6 @@ const ProjectUsers = () => {
           throw new Error("Project ID is required");
         }
         
-        // Check if a user with this email already exists
         const { data: existingUserProfile, error: userProfileError } = await supabase
           .from("profiles")
           .select("id, email")
@@ -210,12 +208,9 @@ const ProjectUsers = () => {
           throw new Error(`Error checking if user profile exists: ${userProfileError.message}`);
         }
         
-        // If no existing user found, create an invitation record
         if (!existingUserProfile || existingUserProfile.length === 0) {
           console.log("No existing user found, creating invitation record");
           
-          // Use a raw query with customSupabase to skip type checking
-          // since project_invitations isn't in the generated types
           const { error: invitationError } = await customSupabase
             .from('project_invitations')
             .insert({
@@ -237,7 +232,6 @@ const ProjectUsers = () => {
           };
         }
         
-        // For existing users, add them directly to the project
         for (const existingUserRecord of existingUserProfile) {
           const { data: existingProjectUser, error: projectUserError } = await supabase
             .from("project_users")
@@ -315,12 +309,10 @@ const ProjectUsers = () => {
     },
   });
 
-  // Query to get pending invitations
   const { data: pendingInvitations } = useQuery({
     queryKey: ["projectInvitations", projectId],
     queryFn: async () => {
       try {
-        // Use customSupabase to fetch invitations since the table is not in the type definition
         const { data, error } = await customSupabase
           .from('project_invitations')
           .select('*')
@@ -329,7 +321,7 @@ const ProjectUsers = () => {
         
         if (error) {
           console.error("Error fetching invitations:", error);
-          return [];
+          throw error;
         }
         
         return data as ProjectInvitation[];
@@ -372,13 +364,16 @@ const ProjectUsers = () => {
 
   const deleteInvitationMutation = useMutation({
     mutationFn: async (invitationId: string) => {
-      // Use customSupabase to delete invitation
       const { error } = await customSupabase
         .from('project_invitations')
         .delete()
         .eq('id', invitationId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error deleting invitation:", error);
+        throw error;
+      }
+      
       return invitationId;
     },
     onSuccess: () => {
@@ -391,7 +386,7 @@ const ProjectUsers = () => {
     onError: (error) => {
       toast({
         title: "Error cancelling invitation",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Failed to cancel invitation",
         variant: "destructive",
       });
     },
