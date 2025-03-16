@@ -11,7 +11,15 @@ export const customSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBL
   },
   global: {
     fetch: (url, options) => {
-      return fetch(url, { ...options, cache: 'no-store' });
+      return fetch(url, { 
+        ...options, 
+        cache: 'no-store',
+        headers: {
+          ...options?.headers,
+          'Pragma': 'no-cache',
+          'Cache-Control': 'no-cache'
+        }
+      });
     }
   }
 });

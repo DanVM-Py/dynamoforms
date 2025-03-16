@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Plus, Clock, RefreshCw, Building2, Trash2, Edit, Eye, ExternalLink } from "lucide-react";
+import { FileText, Plus, Clock, RefreshCw, Building2, Trash2, Edit, Eye, ExternalLink, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CloneFormModal } from "@/components/forms/CloneFormModal";
 
 interface Form {
   id: string;
@@ -44,6 +45,8 @@ const Forms = () => {
   const [deleting, setDeleting] = useState(false);
   
   const [activeTab, setActiveTab] = useState(canCreateForms ? "editor" : "operational");
+  
+  const [showCloneModal, setShowCloneModal] = useState(false);
 
   useEffect(() => {
     refreshUserProfile().then(() => {
@@ -492,6 +495,23 @@ const Forms = () => {
     }, 100);
   };
 
+  const handleCloneSuccess = (newFormId: string) => {
+    fetchForms();
+    toast({
+      title: "Formulario clonado exitosamente",
+      description: "¿Deseas editar el formulario clonado ahora?",
+      action: (
+        <Button 
+          onClick={() => navigate(`/forms/${newFormId}/edit`)} 
+          variant="outline"
+          size="sm"
+        >
+          Editar
+        </Button>
+      ),
+    });
+  };
+
   return (
     <PageContainer>
       <div className="flex justify-between items-center mb-6">
@@ -509,6 +529,19 @@ const Forms = () => {
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span className="ml-1 md:inline hidden">Actualizar</span>
           </Button>
+          
+          {isGlobalAdmin && (
+            <Button 
+              variant="outline"
+              onClick={() => setShowCloneModal(true)}
+              disabled={loading}
+              className="mr-2"
+            >
+              <Copy className="h-4 w-4 mr-1" />
+              <span className="md:inline hidden">Clonar Formulario</span>
+            </Button>
+          )}
+          
           {canCreateForms && activeTab === "editor" && (
             <Button 
               className="bg-dynamo-600 hover:bg-dynamo-700"
@@ -612,6 +645,12 @@ const Forms = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CloneFormModal 
+        open={showCloneModal} 
+        onOpenChange={setShowCloneModal}
+        onSuccess={handleCloneSuccess}
+      />
     </PageContainer>
   );
 };
