@@ -90,11 +90,13 @@ const TaskTemplates = () => {
           inheritance_mapping: template.inheritance_mapping || {},
           project_id: template.project_id,
           created_at: template.created_at,
-          source_form: template.source_form && !('error' in template.source_form) 
-            ? { id: template.source_form.id, title: template.source_form.title }
+          // Use explicit type checking to ensure source_form has the expected structure
+          source_form: template.source_form && typeof template.source_form === 'object' && 'id' in template.source_form
+            ? { id: template.source_form.id as string, title: template.source_form.title as string }
             : undefined,
-          target_form: template.target_form && !('error' in template.target_form)
-            ? { id: template.target_form.id, title: template.target_form.title }
+          // Use explicit type checking to ensure target_form has the expected structure
+          target_form: template.target_form && typeof template.target_form === 'object' && 'id' in template.target_form
+            ? { id: template.target_form.id as string, title: template.target_form.title as string }
             : undefined
         };
         
