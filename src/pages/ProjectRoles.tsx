@@ -283,7 +283,7 @@ const ProjectRoles = () => {
           user_id: selectedUser,
           role_id: selectedRole,
           project_id: projectId,
-          assigned_by: user?.id || ''
+          created_by: user?.id || ''
         })
         .select()
         .single();
@@ -624,4 +624,3 @@ const ProjectRoles = () => {
 };
 
 export default ProjectRoles;
-

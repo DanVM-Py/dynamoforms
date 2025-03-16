@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -152,16 +151,16 @@ const ProjectUsers = () => {
                 ...pu,
                 email: profileData?.email || "Unknown email",
                 full_name: profileData?.name || "Unknown name",
-                role_name: roleName,
-              } as ProjectUser;
+                role_name: roleName
+              } as unknown as ProjectUser;
             } catch (profileError) {
               console.error("Error enriching user data:", profileError);
               return {
                 ...pu,
                 email: "Error loading email",
                 full_name: "Error loading name",
-                role_name: undefined,
-              } as ProjectUser;
+                role_name: undefined
+              } as unknown as ProjectUser;
             }
           })
         );
@@ -174,7 +173,6 @@ const ProjectUsers = () => {
     },
   });
 
-  // Simplified invitation mutation that only invites registered users
   const inviteUserMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       try {
@@ -188,7 +186,6 @@ const ProjectUsers = () => {
           throw new Error("ID del proyecto es requerido");
         }
         
-        // Check if user exists in the system
         const { data: existingUserProfile, error: userProfileError } = await supabase
           .from("profiles")
           .select("id, email")
@@ -199,14 +196,12 @@ const ProjectUsers = () => {
           throw new Error(`Error al verificar si el perfil de usuario existe: ${userProfileError.message}`);
         }
         
-        // If user doesn't exist, return a clear error
         if (!existingUserProfile || existingUserProfile.length === 0) {
           throw new Error(`El usuario con correo ${values.email} no está registrado en el sistema. Solo se pueden invitar usuarios registrados.`);
         }
         
         const userId = existingUserProfile[0].id;
         
-        // Check if user is already in the project
         const { data: existingProjectUser, error: projectUserError } = await supabase
           .from("project_users")
           .select("*")
@@ -222,14 +217,14 @@ const ProjectUsers = () => {
           throw new Error(`El usuario ${existingUserProfile[0].email} ya está asignado a este proyecto`);
         }
 
-        // Add user to project
         const { error: insertError } = await supabase
           .from("project_users")
           .insert({
             project_id: projectId,
             user_id: userId,
             status: "pending",
-            invited_by: user.id
+            invited_by: user.id,
+            created_by: user.id
           });
 
         if (insertError) {
@@ -240,7 +235,6 @@ const ProjectUsers = () => {
           throw new Error(`Error al añadir usuario al proyecto: ${insertError.message}`);
         }
 
-        // Assign role if provided
         if (values.roleId) {
           const { error: roleError } = await supabase
             .from("user_roles")
@@ -248,12 +242,11 @@ const ProjectUsers = () => {
               user_id: userId,
               role_id: values.roleId,
               project_id: projectId,
-              assigned_by: user.id
+              created_by: user.id
             });
 
           if (roleError) {
             console.error("Error assigning role:", roleError);
-            // Don't fail the whole operation if role assignment fails
             toast({
               title: "Advertencia",
               description: `Usuario añadido pero hubo un error al asignar el rol: ${roleError.message}`,

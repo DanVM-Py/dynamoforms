@@ -72,7 +72,16 @@ const TaskTemplates = () => {
       const { data, error } = await query;
       
       if (error) throw error;
-      return data as TaskTemplate[];
+      
+      return data.map(template => ({
+        ...template,
+        source_form: template.source_form && 'id' in template.source_form
+          ? template.source_form
+          : null,
+        target_form: template.target_form && 'id' in template.target_form
+          ? template.target_form
+          : null
+      })) as unknown as TaskTemplate[];
     }
   });
   
@@ -257,7 +266,7 @@ const TaskTemplates = () => {
   
   useEffect(() => {
     if (selectedTemplate) {
-      setFormState({
+      const templateFields = {
         id: selectedTemplate.id,
         title: selectedTemplate.title,
         description: selectedTemplate.description,
@@ -271,7 +280,9 @@ const TaskTemplates = () => {
         inheritance_mapping: selectedTemplate.inheritance_mapping,
         project_id: selectedTemplate.project_id,
         created_at: selectedTemplate.created_at
-      });
+      };
+      
+      setFormState(templateFields);
     }
   }, [selectedTemplate]);
   

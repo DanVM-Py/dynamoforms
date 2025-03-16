@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +17,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Definir la interfaz de tarea
 interface Task {
   id: string;
   title: string;
@@ -40,6 +38,44 @@ interface Task {
   };
 }
 
+const getTasks = async (statusFilter?: string) => {
+  let query = supabase
+    .from("tasks")
+    .select(`
+      *,
+      source_form:source_form_id(id, title)
+    `);
+  
+  if (statusFilter && statusFilter !== "all") {
+    query = query.eq("status", statusFilter as "pending" | "in_progress" | "completed");
+  }
+  
+  const { data, error } = await query.order("created_at", { ascending: false });
+  
+  if (error) throw error;
+  
+  const userIds = data.map(task => task.assigned_to);
+  const { data: users } = await supabase
+    .from("profiles")
+    .select("id, name, email")
+    .in("id", userIds);
+  
+  const enhancedTasks = data.map(task => {
+    const assigneeUser = users?.find(u => u.id === task.assigned_to);
+    
+    const enhancedTask = {
+      ...task,
+      source_form: task.source_form && 'id' in task.source_form ? task.source_form : null,
+      assignee_name: assigneeUser?.name || assigneeUser?.email || "Unknown",
+      priority: task.priority || "medium"
+    };
+    
+    return enhancedTask;
+  });
+  
+  return enhancedTasks as unknown as Task[];
+};
+
 const Tasks = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
@@ -49,65 +85,14 @@ const Tasks = () => {
   
   const [activeTab, setActiveTab] = useState<string>("pending");
   
-  // Obtener tareas para el usuario actual o el proyecto
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['tasks', projectId, activeTab, user?.id],
     queryFn: async () => {
-      let query = supabase
-        .from('tasks')
-        .select(`
-          *,
-          source_form:form_id(id, title)
-        `);
-      
-      // Filtrar por estado
-      if (activeTab !== 'all') {
-        query = query.eq('status', activeTab);
-      }
-      
-      // Filtrar por proyecto si se especifica
-      if (projectId) {
-        query = query.eq('project_id', projectId);
-      } else {
-        // Si no hay proyecto, mostrar solo las tareas asignadas al usuario actual
-        query = query.eq('assigned_to', user?.id);
-      }
-      
-      const { data, error } = await query;
-      
-      if (error) {
-        throw error;
-      }
-      
-      // Obtener nombres de usuarios asignados
-      const userIds = [...new Set(data.map(task => task.assigned_to))];
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, name, email')
-          .in('id', userIds);
-        
-        // Añadir nombre del asignado a las tareas
-        return data.map(task => {
-          const assignee = profiles?.find(profile => profile.id === task.assigned_to);
-          return {
-            ...task,
-            assignee_name: assignee?.name || assignee?.email || 'Usuario desconocido',
-            priority: task.priority || 'medium',
-          };
-        }) as Task[];
-      }
-      
-      return data.map(task => ({
-        ...task,
-        assignee_name: 'Usuario desconocido',
-        priority: task.priority || 'medium',
-      })) as Task[];
+      return getTasks(activeTab);
     },
     enabled: !!user?.id,
   });
   
-  // Mutación para actualizar el estado de una tarea
   const updateTaskStatusMutation = useMutation({
     mutationFn: async ({ taskId, status }: { taskId: string; status: 'pending' | 'in_progress' | 'completed' }) => {
       const { data, error } = await supabase
@@ -137,7 +122,6 @@ const Tasks = () => {
     },
   });
   
-  // Mutación para eliminar una tarea
   const deleteTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
       const { error } = await supabase
@@ -164,13 +148,11 @@ const Tasks = () => {
     },
   });
   
-  // Formatear la fecha relativa en español
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Sin fecha';
     return formatRelative(parseISO(dateString), new Date(), { locale: es });
   };
   
-  // Obtener color de prioridad
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
@@ -184,7 +166,6 @@ const Tasks = () => {
     }
   };
   
-  // Obtener la etiqueta de prioridad en español
   const getPriorityLabel = (priority: string) => {
     switch (priority) {
       case 'high':
@@ -198,7 +179,6 @@ const Tasks = () => {
     }
   };
   
-  // Obtener el color del estado
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
@@ -212,7 +192,6 @@ const Tasks = () => {
     }
   };
   
-  // Obtener la etiqueta del estado en español
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'pending':
@@ -226,17 +205,14 @@ const Tasks = () => {
     }
   };
   
-  // Marcar como completada
   const handleMarkAsCompleted = (taskId: string) => {
     updateTaskStatusMutation.mutate({ taskId, status: 'completed' });
   };
   
-  // Marcar como en progreso
   const handleMarkAsInProgress = (taskId: string) => {
     updateTaskStatusMutation.mutate({ taskId, status: 'in_progress' });
   };
   
-  // Marcar como pendiente
   const handleMarkAsPending = (taskId: string) => {
     updateTaskStatusMutation.mutate({ taskId, status: 'pending' });
   };

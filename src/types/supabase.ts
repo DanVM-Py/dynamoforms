@@ -662,22 +662,22 @@ export type TableUpdate<T extends keyof Database['public']['Tables']> = Database
 
 export type Task = TableRow<'tasks'> & {
   source_form?: {
-    id: string
-    title: string
-  }
-  assignee_name?: string
-  priority?: string
+    id: string;
+    title: string;
+  } | null;
+  assignee_name?: string;
+  priority?: string;
 }
 
 export type TaskTemplate = TableRow<'task_templates'> & {
   source_form?: {
-    id: string
-    title: string
-  }
+    id: string;
+    title: string;
+  } | null;
   target_form?: {
-    id: string
-    title: string
-  }
+    id: string;
+    title: string;
+  } | null;
 }
 
 export type Form = TableRow<'forms'>
@@ -706,7 +706,16 @@ export type FormRole = TableRow<'form_roles'> & {
   };
 }
 
-export type ProjectUser = TableRow<'project_users'> & {
+export type ProjectUser = {
+  id: string;
+  project_id: string;
+  user_id: string;
+  status: "active" | "pending" | "inactive" | "rejected";
+  invited_at: string;
+  invited_by: string;
+  activated_at: string | null;
+  created_at: string;
+  created_by: string;
   email?: string;
   full_name?: string;
   role_name?: string;
