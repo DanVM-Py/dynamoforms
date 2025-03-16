@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
@@ -18,7 +17,7 @@ export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const params = useParams();
-  const { user, userProfile, isGlobalAdmin, isProjectAdmin, signOut } = useAuth();
+  const { user, userProfile, isGlobalAdmin, isProjectAdmin, isApprover, signOut } = useAuth();
   
   // Get the current project ID from session storage or localStorage if available
   const getProjectIdFromStorage = () => {
@@ -181,8 +180,16 @@ export function Sidebar() {
   // Try to get profile name from userProfile, fall back to email username
   const displayName = userProfile?.name || (user?.email ? user.email.split('@')[0] : 'Usuario');
   
+  // Get the user's role for display
+  const getUserRoleDisplay = () => {
+    if (isGlobalAdmin) return 'Administrador Global';
+    if (isProjectAdmin) return 'Administrador de Proyecto';
+    if (isApprover) return 'Aprobador';
+    return userProfile?.role || 'Usuario';
+  };
+  
   // Display role from profile
-  const displayRole = userProfile?.role || '';
+  const displayRole = getUserRoleDisplay();
 
   // Check if the user can access project roles (global admin or project admin with a project context)
   const canAccessProjectRoles = (isGlobalAdmin || isProjectAdmin) && projectId;

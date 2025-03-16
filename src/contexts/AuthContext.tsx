@@ -112,8 +112,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (projectAdminError) {
           console.error("Error fetching project admin status:", projectAdminError);
         } else {
-          setIsProjectAdmin(projectAdminData && projectAdminData.length > 0);
-          console.log("Project admin status:", projectAdminData && projectAdminData.length > 0);
+          const isAdmin = projectAdminData && projectAdminData.length > 0;
+          setIsProjectAdmin(isAdmin);
+          console.log("Project admin status:", isAdmin);
         }
       } catch (projectAdminError) {
         console.error("Error in project admin check:", projectAdminError);

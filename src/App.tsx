@@ -62,13 +62,12 @@ function App() {
                 </ProtectedRoute>
               } />
               <Route path="/projects/:projectId/roles" element={
-                <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin>
+                <ProtectedRoute requireProjectAdmin>
                   <ProjectRoles />
                 </ProtectedRoute>
               } />
-              {/* Add new route for Project Users */}
               <Route path="/projects/:projectId/users" element={
-                <ProtectedRoute requireGlobalAdmin={false} requireProjectAdmin>
+                <ProtectedRoute requireProjectAdmin>
                   <ProjectUsers />
                 </ProtectedRoute>
               } />

@@ -1,3 +1,4 @@
+
 import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -49,27 +50,43 @@ const ProtectedRoute = ({
     );
   }
 
+  // Debug the roles
+  console.log("Role check for protected route:", {
+    isGlobalAdmin,
+    isProjectAdmin,
+    isApprover,
+    requireGlobalAdmin,
+    requireProjectAdmin,
+    requireRegularUser,
+    requireApprover
+  });
+
   // If global admin is required and user is not a global admin, redirect
   if (requireGlobalAdmin && !isGlobalAdmin) {
+    console.log("Access denied: Global admin required");
     return <Navigate to="/" replace />;
   }
 
   // If project admin is required and user is neither project admin nor global admin, redirect
   if (requireProjectAdmin && !isProjectAdmin && !isGlobalAdmin) {
+    console.log("Access denied: Project admin required");
     return <Navigate to="/" replace />;
   }
 
   // If regular user is required and user is either global or project admin, redirect
   if (requireRegularUser && (isGlobalAdmin || isProjectAdmin)) {
+    console.log("Access denied: Regular user required");
     return <Navigate to="/" replace />;
   }
 
   // If approver is required and user is neither approver nor global admin, redirect
   if (requireApprover && !isApprover && !isGlobalAdmin) {
+    console.log("Access denied: Approver required");
     return <Navigate to="/" replace />;
   }
 
   // If all checks pass, render the children
+  console.log("Access granted to protected route");
   return <>{children}</>;
 };
 
