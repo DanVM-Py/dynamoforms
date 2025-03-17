@@ -1,57 +1,86 @@
 
-# Dynamo System - Microservice Architecture
+# Dynamo System - Arquitectura de Microservicios
 
-This document outlines the technical architecture for the Dynamo System microservices.
+Este documento describe la arquitectura técnica del sistema Dynamo basada en microservicios.
 
-## Architecture Overview
+## Diagrama de Arquitectura
 
-![Microservice Architecture](https://via.placeholder.com/800x400?text=Dynamo+Microservice+Architecture)
+```
+┌─────────────┐       ┌─────────────┐
+│             │       │             │
+│   Cliente   │───────│ API Gateway │
+│             │       │             │
+└─────────────┘       └──────┬──────┘
+                             │
+┌──────────────────────────┬─┴───┬────────────────────────┐
+│                          │     │                        │
+▼                          ▼     ▼                        ▼
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│             │    │             │    │             │    │             │
+│ Auth Service│    │Projects Svc │    │ Forms Service│   │ Tasks Service│
+│             │    │             │    │             │    │             │
+└──────┬──────┘    └──────┬──────┘    └──────┬──────┘    └──────┬──────┘
+       │                  │                  │                  │
+       │                  │                  │                  │
+       ▼                  ▼                  ▼                  ▼
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│  Auth DB    │    │ Projects DB │    │   Forms DB  │    │   Tasks DB  │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
 
-### Core Principles
+                         ┌─────────────┐    ┌─────────────┐
+                         │             │    │             │
+                         │Notifications│    │Notifications│
+                         │  Service    │───▶│     DB      │
+                         │             │    │             │
+                         └─────────────┘    └─────────────┘
+```
 
-1. **Service Independence**: Each service operates independently with its own database
-2. **API-First**: All services communicate via well-defined APIs
-3. **DevOps Automation**: Consistent deployment across all environments
-4. **Observability**: Comprehensive monitoring and logging
+## Principios de Diseño
 
-## Service Definitions
+1. **Independencia de Servicios**: Cada servicio opera de forma autónoma con su propia base de datos
+2. **APIs Bien Definidas**: Interfaces claras entre servicios
+3. **Resiliencia**: Diseño tolerante a fallos
+4. **Escalabilidad**: Capacidad de escalar servicios individualmente
+5. **Observabilidad**: Monitoreo completo del sistema
 
-### API Gateway Service
+## Definición de Servicios
 
-**Purpose**: Route requests to appropriate microservices and handle authentication
+### API Gateway
 
-**Key Components**:
-- Request routing
-- Authentication verification
-- Rate limiting
-- Request/response logging
-- Service discovery
+**Propósito**: Punto de entrada único para todas las solicitudes de clientes
 
-**Technology Stack**:
-- Kong or AWS API Gateway
-- JWT validation
-- Redis for rate limiting
+**Componentes Clave**:
+- Enrutamiento de solicitudes
+- Autenticación centralizada
+- Limitación de tasa de solicitudes
+- Logging de solicitudes/respuestas
+- Descubrimiento de servicios
+
+**Tecnología**:
+- Express con middleware de enrutamiento
+- Validación JWT
+- Redis para límites de tasa
 
 **Endpoints**:
-- `/{service-name}/*` - Proxied requests to services
-- `/auth/*` - Authentication endpoints
+- `/{nombre-servicio}/*` - Solicitudes proxy a servicios
+- `/auth/*` - Endpoints de autenticación
 
 ### Auth Service
 
-**Purpose**: Handle authentication, authorization, and user management
+**Propósito**: Gestionar autenticación, autorización y usuarios
 
-**Key Components**:
-- User authentication
-- Session management
-- Role-based access control
-- User profile management
+**Componentes Clave**:
+- Autenticación de usuarios
+- Gestión de sesiones
+- Control de acceso basado en roles
+- Gestión de perfiles de usuario
 
-**Technology Stack**:
+**Tecnología**:
 - Supabase Auth
 - PostgreSQL
-- Edge Functions
+- Funciones Edge
 
-**Database Tables**:
+**Tablas de Base de Datos**:
 - profiles
 - user_roles
 - sessions
@@ -65,19 +94,19 @@ This document outlines the technical architecture for the Dynamo System microser
 
 ### Projects Service
 
-**Purpose**: Manage projects and project memberships
+**Propósito**: Gestionar proyectos y membresías
 
-**Key Components**:
-- Project CRUD operations
-- Project user management
-- Project permissions
+**Componentes Clave**:
+- Operaciones CRUD de proyectos
+- Gestión de usuarios de proyectos
+- Permisos de proyectos
 
-**Technology Stack**:
+**Tecnología**:
 - Node.js/Express
 - PostgreSQL
 - Supabase
 
-**Database Tables**:
+**Tablas de Base de Datos**:
 - projects
 - project_users
 - project_admins
@@ -93,20 +122,20 @@ This document outlines the technical architecture for the Dynamo System microser
 
 ### Forms Service
 
-**Purpose**: Handle form creation, management, and responses
+**Propósito**: Gestionar formularios y respuestas
 
-**Key Components**:
-- Form builder
-- Form template management
-- Form response collection
-- Form access control
+**Componentes Clave**:
+- Constructor de formularios
+- Gestión de plantillas
+- Recopilación de respuestas
+- Control de acceso a formularios
 
-**Technology Stack**:
+**Tecnología**:
 - Node.js/Express
 - PostgreSQL
-- Supabase Storage (for file uploads)
+- Supabase Storage (para archivos)
 
-**Database Tables**:
+**Tablas de Base de Datos**:
 - forms
 - form_responses
 - form_access
@@ -122,20 +151,20 @@ This document outlines the technical architecture for the Dynamo System microser
 
 ### Tasks Service
 
-**Purpose**: Manage tasks, assignments, and workflows
+**Propósito**: Gestionar tareas, asignaciones y flujos de trabajo
 
-**Key Components**:
-- Task management
-- Task assignment
-- Task status tracking
-- Task templates
+**Componentes Clave**:
+- Gestión de tareas
+- Asignación de tareas
+- Seguimiento de estados
+- Plantillas de tareas
 
-**Technology Stack**:
+**Tecnología**:
 - Node.js/Express
 - PostgreSQL
-- Redis (for task queues)
+- Redis (para colas de tareas)
 
-**Database Tables**:
+**Tablas de Base de Datos**:
 - tasks
 - task_templates
 - task_assignments
@@ -151,21 +180,21 @@ This document outlines the technical architecture for the Dynamo System microser
 
 ### Notifications Service
 
-**Purpose**: Handle notifications across all channels
+**Propósito**: Gestionar notificaciones en todos los canales
 
-**Key Components**:
-- Notification management
-- Email integration
-- In-app notifications
-- Notification preferences
+**Componentes Clave**:
+- Gestión de notificaciones
+- Integración de correo electrónico
+- Notificaciones en aplicación
+- Preferencias de notificación
 
-**Technology Stack**:
+**Tecnología**:
 - Node.js/Express
 - PostgreSQL
-- Redis (for pub/sub)
-- SMTP integration
+- Redis (para pub/sub)
+- Integración SMTP
 
-**Database Tables**:
+**Tablas de Base de Datos**:
 - notifications
 - notification_preferences
 - notification_templates
@@ -177,91 +206,51 @@ This document outlines the technical architecture for the Dynamo System microser
 - `GET /notifications/preferences`
 - `PUT /notifications/preferences`
 
-## Cross-Cutting Concerns
+## Patrones de Comunicación
 
-### Authentication Flow
+### Comunicación Síncrona
+- APIs REST para comunicación directa entre servicios
+- Validación de solicitudes en los límites de servicios
+- Circuit breakers para tolerancia a fallos
 
-1. Client obtains JWT from Auth Service
-2. JWT is included in all requests to API Gateway
-3. API Gateway validates JWT and adds user context to requests
-4. Individual services check permissions based on user context
+### Comunicación Asíncrona
+- Comunicación basada en eventos para cambios de datos
+- Colas de mensajes para procesamiento de tareas
+- Publicación-suscripción para notificaciones
 
-### Data Consistency
+## Infraestructura
 
-- Each service owns its data
-- Services publish events on data changes
-- Other services subscribe to relevant events
-- Eventually consistent data model
+### Por Cada Servicio
+- Namespace de Kubernetes
+- Instancia de base de datos
+- Almacenamiento (si es necesario)
+- Caché (si es necesario)
+- Secretos
 
-### Deployment Pipeline
-
-Each service follows the dev → QA → prod workflow:
-
-```
-Service Code → Build → Unit Tests → Container → Integration Tests → Deployment
-```
-
-Environment-specific configuration is managed through:
-- Environment variables
-- Config maps
-- Secrets management
-
-### Monitoring and Logging
-
-- Centralized logging with structured logs
-- Distributed tracing across services
-- Service health monitoring
-- Business metrics dashboards
-
-## Service Communication Patterns
-
-### Synchronous Communication
-
-- REST APIs for direct service-to-service communication
-- Request validation at service boundaries
-- Circuit breakers for fault tolerance
-
-### Asynchronous Communication
-
-- Event-based communication for data changes
-- Message queues for task processing
-- Publish-subscribe for notifications
-
-## Local Development
-
-Developers can run:
-- The entire system using Docker Compose
-- Individual services with dependencies mocked
-- Hybrid mode with some services local, others from dev environment
-
-## Infrastructure Requirements
-
-### For Each Service
-
-- Kubernetes namespace
-- Database instance
-- Storage (if needed)
-- Cache (if needed)
-- Secrets
-
-### Shared Infrastructure
-
+### Infraestructura Compartida
 - API Gateway
 - Service Mesh
-- Log aggregation
-- Monitoring system
-- CI/CD pipeline
+- Agregación de logs
+- Sistema de monitoreo
+- Pipeline CI/CD
 
-## Migration Approach
+## Monitoreo y Observabilidad
 
-The migration will follow the Strangler Pattern:
-1. Build microservice alongside monolith
-2. Gradually route traffic to microservice
-3. Decommission monolith functionality when microservice is proven
+- Logs estructurados centralizados
+- Trazabilidad distribuida entre servicios
+- Monitoreo de salud de servicios
+- Dashboards de métricas de negocio
 
-## Additional Resources
+## Consideraciones de Seguridad
 
-- Service API specifications (OpenAPI/Swagger)
-- Database schema definitions
-- Event schemas
-- Infrastructure as Code templates
+- Autenticación JWT en todas las comunicaciones
+- Políticas RLS en todas las bases de datos
+- Secretos gestionados de forma segura
+- Auditoría de acceso a datos
+
+## Recursos Adicionales
+
+- Especificaciones API (OpenAPI/Swagger)
+- Definiciones de esquemas de base de datos
+- Esquemas de eventos
+- Plantillas de Infraestructura como Código

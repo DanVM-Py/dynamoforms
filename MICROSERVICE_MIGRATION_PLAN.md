@@ -1,242 +1,92 @@
 
 # Dynamo System - Microservice Migration Plan
 
-This document outlines the strategy and implementation plan for migrating the Dynamo System from a monolithic architecture to a microservice-based architecture.
+Este documento detalla el plan de migración del Sistema Dynamo desde una arquitectura monolítica a una arquitectura de microservicios.
 
-## 1. Current Architecture Analysis
+## 1. Enfoque de Migración Directa
 
-### Monolithic Components
-- **Authentication & User Management**: Centralized auth system with role-based access
-- **Forms Module**: Form building, rendering, and response collection
-- **Projects Module**: Project management and user assignments
-- **Tasks Module**: Task creation, assignment, and tracking
-- **Notifications Module**: User notification system (WIP)
+Dado que el sistema no está aún en producción, hemos adoptado un enfoque de migración directa en lugar de una estrategia gradual. Esto nos permite:
 
-### Current Integration Points
-- Shared database (Supabase PostgreSQL)
-- Unified frontend React application
-- Common authentication context
-- Edge Functions for server-side operations
+- Realizar un rediseño completo sin preocupaciones de compatibilidad con versiones anteriores
+- Resetear las bases de datos según sea necesario
+- Implementar todos los servicios simultáneamente
+- Evitar mantener sistemas paralelos durante la transición
 
-## 2. Target Microservice Architecture
+## 2. Arquitectura de Microservicios Implementada
 
-### Proposed Services
-1. **API Gateway Service**
-   - Entry point for all client requests
-   - Authentication and request routing
-   - Rate limiting and request validation
+Hemos desarrollado los siguientes servicios:
+
+1. **API Gateway**
+   - Punto de entrada único para todas las solicitudes
+   - Manejo centralizado de autenticación
+   - Enrutamiento a servicios específicos
 
 2. **Auth Service**
-   - User authentication and session management
-   - Profile management
-   - Role-based access control
+   - Gestión de usuarios y autenticación
+   - Perfiles de usuario y roles
+   - JWT y manejo de sesiones
 
 3. **Projects Service**
-   - Project CRUD operations
-   - Project user management
-   - Project-level permissions
+   - Administración de proyectos
+   - Gestión de usuarios de proyectos
+   - Permisos a nivel de proyecto
 
 4. **Forms Service**
-   - Form builder functionality
-   - Form template management
-   - Form response collection and storage
+   - Creación y gestión de formularios
+   - Recopilación de respuestas
+   - Validación de datos
 
 5. **Tasks Service**
-   - Task management
-   - Task templates
-   - Task assignments and status tracking
+   - Gestión de tareas
+   - Asignaciones y plantillas
+   - Seguimiento de estados
 
 6. **Notifications Service**
-   - User notifications
-   - Email integration
-   - Notification preferences
+   - Sistema de notificaciones
+   - Preferencias de notificación
+   - Integración de correo electrónico
 
-7. **Analytics Service** (Future)
-   - Form response analytics
-   - User activity tracking
-   - System usage metrics
+## 3. Tecnologías Utilizadas
 
-### Service Communication
-- REST APIs for synchronous communication
-- Event-based messaging for asynchronous operations
-- Shared authentication tokens
+- **Backend**: Node.js con Express para cada servicio
+- **Base de Datos**: PostgreSQL con Supabase (instancia separada para cada servicio)
+- **Autenticación**: Sistema JWT centralizado con Supabase Auth
+- **Comunicación**: APIs REST para interacciones síncronas
+- **Contenedores**: Docker para empaquetado de servicios
+- **Orquestación**: Kubernetes para gestión de servicios
 
-## 3. Migration Strategy
+## 4. Proceso de Despliegue
 
-### Phase 1: Preparation (Months 1-2)
-- Set up microservice infrastructure
-- Define service boundaries and APIs
-- Create service templates and scaffolding
-- Implement API Gateway prototype
+Cada servicio sigue un flujo de despliegue consistente:
 
-### Phase 2: Strangler Pattern Implementation (Months 3-6)
-1. **Extract Notifications Service** (Month 3)
-   - Lowest coupling with existing system
-   - Create standalone notifications database
-   - Implement notification API
-   - Update frontend to use new notification endpoints
+1. Control de versiones en repositorio Git separado
+2. Construcción en pipeline CI/CD
+3. Pruebas unitarias e integración
+4. Despliegue en entorno de desarrollo
+5. Pruebas de QA
+6. Promoción a producción
 
-2. **Extract Auth Service** (Month 4)
-   - Implement standalone auth service
-   - Migrate user profiles and authentication
-   - Update API Gateway to validate tokens
+## 5. Estrategia de Datos
 
-3. **Extract Projects Service** (Month 5)
-   - Implement Projects API
-   - Migrate project data
-   - Update dependent services to use Projects API
+- Base de datos independiente para cada servicio
+- Esquemas de datos optimizados para cada dominio
+- APIs bien definidas para acceso a datos entre servicios
+- Eventos para sincronización de datos cuando sea necesario
 
-4. **Extract Forms Service** (Month 6)
-   - Implement Forms API
-   - Migrate form templates and responses
-   - Update frontend to use Forms API
+## 6. Monitoreo y Observabilidad
 
-### Phase 3: Complete Migration (Months 7-9)
-1. **Extract Tasks Service** (Month 7)
-   - Implement Tasks API
-   - Migrate task data
-   - Update frontend to use Tasks API
+- Sistema centralizado de logging
+- Métricas de rendimiento de servicios
+- Trazabilidad distribuida
+- Alertas automatizadas
 
-2. **Analytics Service** (Month 8)
-   - Implement initial analytics capabilities
-   - Set up data collection from other services
+## 7. Próximos Pasos
 
-3. **Decommission Monolith** (Month 9)
-   - Verify all functionality in microservices
-   - Redirect all traffic through API Gateway
-   - Gracefully shut down monolithic application
-
-## 4. Technical Implementation Plan
-
-### Database Strategy
-- **Pattern**: Database-per-service
-- **Implementation**:
-  - Create separate Supabase projects for each service
-  - Implement data migration scripts
-  - Set up initial data synchronization during transition
-
-### Service Implementation
-- **Technology Stack**:
-  - Node.js/Express or FastAPI for service implementation
-  - Supabase for database and authentication
-  - Docker for containerization
-  - Kubernetes for orchestration
-
-### Environment Strategy
-- Extend current dev → QA → prod workflow to each service
-- Implement centralized configuration management
-- Service-specific environment variables
-
-### CI/CD Pipeline
-- Separate build pipelines for each service
-- Coordinated deployment strategy
-- Automated testing at service boundaries
-
-## 5. Environment-Specific Considerations
-
-### Development Environment
-- Local service development with Docker Compose
-- Service mocking for cross-service development
-- Development-specific feature flags
-
-### QA Environment
-- Full microservice deployment
-- Integration testing across services
-- Performance testing under realistic loads
-
-### Production Environment
-- Blue/green deployment strategy
-- Canary releases for critical services
-- Enhanced monitoring and observability
-
-## 6. Rollout and Testing Strategy
-
-### Testing Approach
-- Unit tests for individual services
-- Integration tests for service interactions
-- End-to-end tests for critical user flows
-- Performance testing for each service
-
-### Rollout Strategy
-- Gradual feature migration
-- Parallel running of monolith and microservices
-- Feature toggles for rollback capability
-- Phased user migration
-
-## 7. Monitoring and Observability
-
-### Monitoring Infrastructure
-- Centralized logging system
-- Distributed tracing across services
-- Service health dashboards
-- Alert system for service degradation
-
-### Key Metrics
-- Service response times
-- Error rates
-- Resource utilization
-- Business KPIs
-
-## 8. Risk Management
-
-### Potential Risks
-- Service communication failures
-- Data consistency issues
-- Performance degradation
-- Development team adaptation
-
-### Mitigation Strategies
-- Circuit breakers and fallback mechanisms
-- Consistent data validation across services
-- Performance testing at each phase
-- Team training and documentation
-
-## 9. Team Structure and Responsibilities
-
-### Proposed Team Organization
-- Platform Team: Infrastructure, CI/CD, shared components
-- Service Teams: Service-specific development and maintenance
-- Integration Team: Cross-service functionality and testing
-
-### Knowledge Transfer
-- Documentation of service boundaries and APIs
-- Internal workshops on microservice patterns
-- Pair programming during initial service development
-
-## 10. Next Steps
-
-1. **Immediate Actions**:
-   - Create detailed API specifications for each service
-   - Set up containerization infrastructure
-   - Implement API Gateway prototype
-   - Design database migration strategy
-
-2. **Decision Points**:
-   - Technology stack finalization
-   - Service boundary confirmation
-   - Team restructuring approach
-   - Migration timeline approval
+1. Refinamiento de APIs entre servicios
+2. Optimización de rendimiento
+3. Implementación de pruebas de resiliencia
+4. Expansión de capacidades de monitoreo
 
 ---
 
-**Appendix A: Service Dependency Map**
-
-```
-API Gateway
-├── Auth Service
-├── Projects Service
-│   ├── Forms Service
-│   └── Tasks Service
-├── Forms Service
-│   └── Tasks Service
-├── Tasks Service
-└── Notifications Service
-```
-
-**Appendix B: Initial API Endpoints**
-
-Example API structure for each service will be documented here.
-
-**Appendix C: Estimated Timeline**
-
-Detailed Gantt chart with key milestones and dependencies.
+Este plan refleja la implementación completa de la arquitectura de microservicios para el Sistema Dynamo.

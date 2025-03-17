@@ -1,76 +1,134 @@
 
-# Dynamo System - Deployment Workflow
+# Dynamo System - Flujo de Despliegue de Microservicios
 
-This document outlines the deployment workflow for the Dynamo System.
+Este documento describe el flujo de despliegue para el Sistema Dynamo basado en microservicios.
 
-## Development → QA → Production Workflow
+## Flujo Desarrollo → QA → Producción
 
-We follow a structured workflow to ensure code quality and minimize errors in production:
+Cada microservicio sigue un flujo estructurado para garantizar la calidad del código y minimizar errores en producción:
 
-### 1. Development Environment
+### 1. Entorno de Desarrollo
 
-- **Purpose:** Active development and initial testing
-- **Command:** `npm run dev` (local) or `npm run build:dev` (for deployment)
-- **URL:** https://dev.yourapp.com
-- **Visual Indicator:** Blue "Development Environment" badge
-- **Features:**
-  - Full debugging tools
-  - Verbose logging
-  - Development database connection
-  - All feature flags enabled
+- **Propósito:** Desarrollo activo y pruebas iniciales
+- **Comando:** `npm run dev` (local) o `npm run build:dev` (para despliegue)
+- **URL Base:** https://dev.yourapp.com
+- **Indicador Visual:** Insignia azul "Entorno de Desarrollo"
+- **Características:**
+  - Herramientas completas de depuración
+  - Logging detallado
+  - Conexión a bases de datos de desarrollo
+  - Todos los feature flags habilitados
 
-### 2. QA Environment
+### 2. Entorno de QA
 
-- **Purpose:** Testing before production deployment
-- **Command:** `npm run build:qa`
-- **URL:** https://qa.yourapp.com
-- **Visual Indicator:** Amber "Quality Assurance Environment" badge
-- **Features:**
-  - Limited debugging tools
-  - Structured error logging
-  - QA database connection
-  - Feature flags match production
+- **Propósito:** Pruebas antes del despliegue a producción
+- **Comando:** `npm run build:qa`
+- **URL Base:** https://qa.yourapp.com
+- **Indicador Visual:** Insignia ámbar "Entorno de Control de Calidad"
+- **Características:**
+  - Herramientas limitadas de depuración
+  - Logging estructurado de errores
+  - Conexión a bases de datos de QA
+  - Feature flags iguales a producción
 
-### 3. Production Environment
+### 3. Entorno de Producción
 
-- **Purpose:** Live environment used by end users
-- **Command:** `npm run build:prod`
-- **URL:** https://app.yourapp.com
-- **Visual Indicator:** None
-- **Features:**
-  - No debugging tools visible to users
-  - Error logging to monitoring systems only
-  - Production database connection
-  - Carefully controlled feature flags
+- **Propósito:** Entorno en vivo utilizado por usuarios finales
+- **Comando:** `npm run build:prod`
+- **URL Base:** https://app.yourapp.com
+- **Indicador Visual:** Ninguno
+- **Características:**
+  - Sin herramientas de depuración visibles
+  - Logging de errores solo hacia sistemas de monitoreo
+  - Conexión a bases de datos de producción
+  - Control cuidadoso de feature flags
 
-## Build and Deployment Process
+## Proceso de Construcción y Despliegue de Microservicios
 
-1. **Local Development:**
+### Servicios Individuales
+
+Cada microservicio se despliega independientemente siguiendo estos pasos:
+
+1. **Construcción del Servicio:**
    ```bash
-   npm run dev
+   cd service-directory
+   npm run build
    ```
 
-2. **Preparing for QA:**
+2. **Construcción de Contenedor:**
    ```bash
-   npm run build:qa
-   # Deploy the /dist/qa directory to QA environment
+   docker build -t dynamo/service-name:version .
    ```
 
-3. **Deploying to Production:**
+3. **Pruebas de Contenedor:**
    ```bash
-   npm run build:prod
-   # Deploy the /dist/production directory to Production environment
+   docker run --rm dynamo/service-name:version npm test
    ```
 
-## Deployment Checklist
-
-Before deploying to production:
-
-1. All tests passing in QA environment
-2. Feature verification by QA team
-3. Performance testing completed
-4. Security review completed
-5. Run pre-deployment verification script:
+4. **Despliegue en Kubernetes:**
    ```bash
-   node scripts/verify-deployment.js --env=production
+   kubectl apply -f k8s/service-name/deployment.yaml
    ```
+
+### API Gateway
+
+El API Gateway se despliega de manera similar pero con pasos adicionales:
+
+1. **Actualización de Configuración de Rutas:**
+   ```bash
+   npm run update-routes
+   ```
+
+2. **Construcción y Despliegue:**
+   ```bash
+   npm run build
+   docker build -t dynamo/api-gateway:version .
+   kubectl apply -f k8s/api-gateway/deployment.yaml
+   ```
+
+## Lista de Verificación para Despliegue
+
+Antes de desplegar a producción, verificar:
+
+1. Todas las pruebas pasando en entorno de QA
+2. Verificación de funcionalidades por equipo de QA
+3. Pruebas de rendimiento completadas
+4. Revisión de seguridad completada
+5. Ejecutar script de verificación pre-despliegue:
+   ```bash
+   node scripts/verify-deployment.js --env=production --service=service-name
+   ```
+
+## Estrategia de Rollback
+
+En caso de problemas después del despliegue:
+
+1. **Rollback Inmediato:**
+   ```bash
+   kubectl rollout undo deployment/service-name
+   ```
+
+2. **Verificación Post-Rollback:**
+   ```bash
+   node scripts/verify-service-health.js --service=service-name
+   ```
+
+## Monitoreo Post-Despliegue
+
+Después de cada despliegue:
+
+1. Verificar métricas de servicio
+2. Comprobar logs de errores
+3. Probar puntos de integración
+4. Verificar tiempos de respuesta
+
+## Repositorios de Código
+
+Cada servicio tiene su propio repositorio:
+
+- API Gateway: https://github.com/your-org/api-gateway
+- Auth Service: https://github.com/your-org/auth-service
+- Projects Service: https://github.com/your-org/projects-service
+- Forms Service: https://github.com/your-org/forms-service
+- Tasks Service: https://github.com/your-org/tasks-service
+- Notifications Service: https://github.com/your-org/notifications-service

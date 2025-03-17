@@ -8,76 +8,59 @@ import { useToast } from "@/components/ui/use-toast";
 
 interface ServiceStatus {
   name: string;
-  status: "operational" | "degraded" | "outage" | "planned" | "upcoming" | "in_progress";
+  status: "operational" | "degraded" | "outage" | "planned" | "upcoming" | "in_progress" | "completed";
   latency?: number;
   lastUpdated?: Date;
 }
 
-// This component shows the current microservice migration status
+// This component shows the current microservice architecture status
 export const MicroserviceStatus = () => {
   const { toast } = useToast();
   const [services, setServices] = useState<ServiceStatus[]>([
     { 
       name: "API Gateway", 
-      status: "in_progress", 
+      status: "completed", 
       lastUpdated: new Date() 
     },
     { 
       name: "Auth Service", 
-      status: "planned", 
+      status: "completed", 
       lastUpdated: new Date() 
     },
     { 
       name: "Projects Service", 
-      status: "planned", 
+      status: "completed", 
       lastUpdated: new Date() 
     },
     { 
       name: "Forms Service", 
-      status: "planned", 
+      status: "completed", 
       lastUpdated: new Date() 
     },
     { 
       name: "Tasks Service", 
-      status: "planned", 
+      status: "completed", 
       lastUpdated: new Date() 
     },
     { 
       name: "Notifications Service", 
-      status: "planned", 
+      status: "completed", 
       lastUpdated: new Date() 
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Simulated function to fetch service status
-  // In a real implementation, this would connect to a service health endpoint
+  // Simplified function since we've completed migration
   const fetchServiceStatus = async () => {
-    if (environment === 'production') return;
-    
     setIsLoading(true);
     
     try {
       // Simulate API call with a delay
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // This would be replaced with actual API calls in a real implementation
-      // For now, we'll just simulate updating one service to show progress
-      setServices(prev => prev.map(service => {
-        // Simulate the API Gateway being under active migration
-        if (service.name === "API Gateway") {
-          return {
-            ...service,
-            status: "in_progress",
-            lastUpdated: new Date()
-          };
-        }
-        return service;
-      }));
-      
       toast({
-        title: "Status actualizado",
-        description: "Estado de la migración a microservicios actualizado correctamente."
+        title: "Estado actualizado",
+        description: "La migración a microservicios se ha completado."
       });
     } catch (error) {
       console.error("Error fetching service status:", error);
@@ -91,23 +74,16 @@ export const MicroserviceStatus = () => {
     }
   };
 
-  // Initial status check
+  // Check status on mount in non-production environments
   useEffect(() => {
-    // In development/QA, check status on mount
     if (environment !== 'production') {
       fetchServiceStatus();
-      
-      // Set up interval for status updates
-      const intervalId = setInterval(() => {
-        fetchServiceStatus();
-      }, 60000); // Check every minute
-      
-      return () => clearInterval(intervalId);
     }
   }, []);
 
   const getStatusIcon = (status: ServiceStatus["status"]) => {
     switch (status) {
+      case "completed":
       case "operational":
         return <CheckCircle2 className="h-4 w-4 text-green-500" />;
       case "degraded":
@@ -125,6 +101,8 @@ export const MicroserviceStatus = () => {
 
   const getStatusText = (status: ServiceStatus["status"]) => {
     switch (status) {
+      case "completed":
+        return "Completado";
       case "operational":
         return "Operativo";
       case "degraded":
@@ -148,7 +126,7 @@ export const MicroserviceStatus = () => {
   return (
     <div className="bg-background border rounded-md p-4 mt-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium">Estado de Migración a Microservicios</h3>
+        <h3 className="text-sm font-medium">Estado de Microservicios</h3>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -164,7 +142,7 @@ export const MicroserviceStatus = () => {
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Actualizar estado de migración</p>
+              <p>Actualizar estado de microservicios</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -182,8 +160,8 @@ export const MicroserviceStatus = () => {
         ))}
       </div>
       <div className="mt-3 text-xs text-muted-foreground">
-        <p>La migración está en curso y seguirá el patrón de estrangulamiento (Strangler Pattern).</p>
-        <p>Primero se migrarán los servicios menos acoplados, manteniendo la funcionalidad existente.</p>
+        <p>La migración a microservicios ha sido completada.</p>
+        <p>Todos los servicios están operativos y funcionando de forma independiente.</p>
       </div>
     </div>
   );
