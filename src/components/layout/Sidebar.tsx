@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
@@ -79,6 +78,16 @@ export function Sidebar() {
   const isGroupActive = (paths: string[]) => {
     return paths.some(path => location.pathname === path || location.pathname.startsWith(path));
   };
+
+  const canAccessProjectRoles = (isGlobalAdmin || isProjectAdmin) && !!projectId;
+  
+  console.log("Sidebar Debug:", { 
+    projectId, 
+    isGlobalAdmin, 
+    isProjectAdmin, 
+    canAccessProjectRoles,
+    currentPath: location.pathname
+  });
 
   const MenuItem = ({ icon: Icon, text, to, isActive: customActive }: { icon: any; text: string; to: string; isActive?: boolean }) => {
     const isActive = customActive !== undefined ? customActive : location.pathname === to;
@@ -176,9 +185,6 @@ export function Sidebar() {
   
   const displayRole = getUserRoleDisplay();
 
-  // This determines if the user can access project roles and users pages
-  const canAccessProjectRoles = (isGlobalAdmin || isProjectAdmin) && projectId;
-
   return (
     <>
       {overlay}
@@ -215,10 +221,8 @@ export function Sidebar() {
         </div>
 
         <div className="mt-6 flex flex-col flex-1 gap-y-1 px-3">
-          {/* Home menu item - visible to all users */}
           <MenuItem icon={Home} text="Inicio" to="/" />
           
-          {/* Operations menu group - visible to all users */}
           <MenuGroup 
             title="Operación" 
             icon={Activity} 
@@ -235,7 +239,6 @@ export function Sidebar() {
               text="Tareas" 
               to="/tasks" 
             />
-            {/* Task Templates - only visible to global admins and project admins */}
             {(isGlobalAdmin || isProjectAdmin) && (
               <MenuItem 
                 icon={Settings} 
@@ -250,15 +253,13 @@ export function Sidebar() {
             />
           </MenuGroup>
           
-          {/* Administration menu group - only visible to global admins and project admins */}
-          {(isGlobalAdmin || (isProjectAdmin && projectId)) && (
+          {(isGlobalAdmin || isProjectAdmin) && (
             <MenuGroup 
               title="Administración" 
               icon={Settings} 
               id="administration"
               paths={['/projects', '/admin', '/projects/' + projectId + '/roles', '/projects/' + projectId + '/users']}
             >
-              {/* Projects menu - only visible to global admins */}
               {isGlobalAdmin && (
                 <MenuItem 
                   icon={Building2} 
@@ -267,7 +268,6 @@ export function Sidebar() {
                 />
               )}
               
-              {/* Project Roles menu - visible to global admins and project admins */}
               {canAccessProjectRoles && (
                 <MenuItem 
                   icon={Settings} 
@@ -277,7 +277,6 @@ export function Sidebar() {
                 />
               )}
               
-              {/* Project Users menu - visible to global admins and project admins */}
               {canAccessProjectRoles && (
                 <MenuItem 
                   icon={Users} 
@@ -287,7 +286,6 @@ export function Sidebar() {
                 />
               )}
               
-              {/* Global Users Admin menu - only visible to global admins */}
               {isGlobalAdmin && (
                 <MenuItem 
                   icon={Users} 
@@ -299,7 +297,6 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* User profile section - visible to all authenticated users */}
         {user && (
           <div className="mt-auto px-3 pt-3 border-t">
             <div className={`flex items-center p-3 rounded-md ${isExpanded || isMobileMenuOpen ? 'justify-between' : 'justify-center'}`}>
