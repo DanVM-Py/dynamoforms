@@ -307,12 +307,12 @@ export function Sidebar() {
               title="Systems" 
               icon={Server} 
               id="systems"
-              paths={['/monitoring']}
+              paths={['/systems/monitoring']}
             >
               <MenuItem 
                 icon={Activity} 
                 text="Monitoreo" 
-                to="/monitoring" 
+                to="/systems/monitoring" 
               />
             </MenuGroup>
           )}

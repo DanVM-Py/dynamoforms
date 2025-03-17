@@ -131,6 +131,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/monitoring",
+    element: (
+      <ProtectedRoute requireGlobalAdmin={true}>
+        <Suspense fallback={<Loading />}><Monitoring /></Suspense>
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: "*",
     element: <Suspense fallback={<Loading />}><NotFound /></Suspense>,
   },
