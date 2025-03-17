@@ -35,12 +35,6 @@ const navItems: NavItem[] = [
     section: 'operations',
   },
   {
-    title: "Proyectos",
-    href: "/projects",
-    icon: FolderKanban,
-    section: 'operations',
-  },
-  {
     title: "Formularios",
     href: "/forms",
     icon: FileText,
@@ -52,29 +46,37 @@ const navItems: NavItem[] = [
     icon: ListTodo,
     section: 'operations',
   },
-  
-  // Administración
-  {
-    title: "Plantillas",
-    href: "/task-templates",
-    icon: Settings,
-    section: 'administration',
-  },
   {
     title: "Notificaciones",
     href: "/notifications",
     icon: Bell,
+    section: 'operations',
+  },
+  
+  // Administración - visible for project_admin and global_admin
+  {
+    title: "Plantillas",
+    href: "/task-templates",
+    icon: Settings,
+    requiredRoles: ["project_admin", "global_admin"],
     section: 'administration',
+  },
+  
+  // Systems - only for global_admin
+  {
+    title: "Proyectos",
+    href: "/projects",
+    icon: FolderKanban,
+    requiredRoles: ["global_admin"],
+    section: 'systems',
   },
   {
     title: "Admin",
     href: "/admin",
     icon: UserCog,
     requiredRoles: ["global_admin"],
-    section: 'administration',
+    section: 'systems',
   },
-  
-  // Systems - solo para global_admin
   {
     title: "Monitoreo",
     href: "/systems/monitoring",
