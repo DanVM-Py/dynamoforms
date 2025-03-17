@@ -37,7 +37,7 @@ export const router = createBrowserRouter([
   {
     path: "/admin",
     element: (
-      <ProtectedRoute requiredRole="global_admin">
+      <ProtectedRoute requireGlobalAdmin={true}>
         <Suspense fallback={<Loading />}><Admin /></Suspense>
       </ProtectedRoute>
     ),
@@ -125,7 +125,7 @@ export const router = createBrowserRouter([
   {
     path: "/monitoring",
     element: (
-      <ProtectedRoute requiredRole="global_admin">
+      <ProtectedRoute requireGlobalAdmin={true}>
         <Suspense fallback={<Loading />}><Monitoring /></Suspense>
       </ProtectedRoute>
     ),

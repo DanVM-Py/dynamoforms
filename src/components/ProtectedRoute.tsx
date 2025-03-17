@@ -11,6 +11,7 @@ interface ProtectedRouteProps {
   requireRegularUser?: boolean;
   requireApprover?: boolean;
   requireFormAccess?: boolean;
+  requiredRole?: string; // Added this prop
 }
 
 const ProtectedRoute = ({ 
@@ -19,7 +20,8 @@ const ProtectedRoute = ({
   requireProjectAdmin = false,
   requireRegularUser = false,
   requireApprover = false,
-  requireFormAccess = false
+  requireFormAccess = false,
+  requiredRole // Handle the new prop
 }: ProtectedRouteProps) => {
   const { user, userProfile, loading, isGlobalAdmin, isProjectAdmin, isApprover } = useAuth();
 
@@ -41,7 +43,7 @@ const ProtectedRoute = ({
   }
 
   // Second loading state - waiting for profile data
-  if ((requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover || requireFormAccess) && loading) {
+  if ((requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover || requireFormAccess || requiredRole) && loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="flex flex-col items-center bg-white p-8 rounded-lg shadow-sm">
@@ -50,6 +52,12 @@ const ProtectedRoute = ({
         </div>
       </div>
     );
+  }
+
+  // Check specific role requirement
+  if (requiredRole === "global_admin" && !isGlobalAdmin) {
+    console.log("Access denied: Global admin required");
+    return <Navigate to="/" replace />;
   }
 
   // Check role restrictions
@@ -76,8 +84,6 @@ const ProtectedRoute = ({
     return <Navigate to="/" replace />;
   }
 
-  // Form access verification is handled inside the Forms component
-  
   // All checks passed, render the children
   return <>{children}</>;
 };

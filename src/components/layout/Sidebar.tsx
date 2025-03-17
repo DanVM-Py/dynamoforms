@@ -1,7 +1,12 @@
+
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
-import { Building2, FileText, Home, Menu, PanelLeftClose, Bell, CheckSquare, User, Users, LogOut, Settings, ChevronDown, ChevronRight, Activity } from 'lucide-react';
+import { 
+  Building2, FileText, Home, Menu, PanelLeftClose, Bell, CheckSquare, 
+  User, Users, LogOut, Settings, ChevronDown, ChevronRight, Activity, 
+  Server, Database, CpuIcon 
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -11,7 +16,8 @@ export function Sidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     operation: true, 
-    administration: true
+    administration: true,
+    systems: true
   });
   const isMobile = useWindowWidth() < 768;
   const location = useLocation();
@@ -293,6 +299,21 @@ export function Sidebar() {
                   to="/admin" 
                 />
               )}
+            </MenuGroup>
+          )}
+          
+          {isGlobalAdmin && (
+            <MenuGroup 
+              title="Systems" 
+              icon={Server} 
+              id="systems"
+              paths={['/monitoring']}
+            >
+              <MenuItem 
+                icon={Activity} 
+                text="Monitoreo" 
+                to="/monitoring" 
+              />
             </MenuGroup>
           )}
         </div>

@@ -19,7 +19,7 @@ type NavItem = {
   title: string;
   href: string;
   icon: React.ElementType;
-  requiredRole?: string;
+  requiredRoles?: string[];
 };
 
 const navItems: NavItem[] = [
@@ -57,29 +57,32 @@ const navItems: NavItem[] = [
     title: "Admin",
     href: "/admin",
     icon: UserCog,
-    requiredRole: "global_admin",
+    requiredRoles: ["global_admin"],
   },
   {
     title: "Monitoreo",
     href: "/monitoring",
     icon: Activity,
-    requiredRole: "global_admin",
+    requiredRoles: ["global_admin"],
   },
 ];
 
 const NavItems = ({ collapsed }: { collapsed: boolean }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userRole } = useAuth();
+  const { isGlobalAdmin, isProjectAdmin, isApprover } = useAuth();
 
   const handleNavigate = (href: string) => {
     navigate(href);
   };
 
-  // Filtrar elementos de navegación según el rol del usuario
+  // Filter navigation items based on user roles
   const filteredNavItems = navItems.filter((item) => {
-    if (!item.requiredRole) return true;
-    return userRole === item.requiredRole;
+    if (!item.requiredRoles) return true;
+    if (item.requiredRoles.includes("global_admin") && isGlobalAdmin) return true;
+    if (item.requiredRoles.includes("project_admin") && isProjectAdmin) return true;
+    if (item.requiredRoles.includes("approver") && isApprover) return true;
+    return false;
   });
 
   return (
