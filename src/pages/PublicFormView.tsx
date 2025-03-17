@@ -1,205 +1,48 @@
 
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { FormRenderer } from "@/components/form-renderer/FormRenderer";
-import { customSupabase } from "@/integrations/supabase/customClient";
-import { useToast } from "@/components/ui/use-toast";
-import { ArrowLeft, AlertCircle } from "lucide-react";
-import { v4 as uuidv4 } from "uuid";
-import { FormResponseHandler } from "@/components/form-renderer/FormResponseHandler";
+// Find and update the submitForm function to properly handle anonymous submissions
+const submitForm = async () => {
+  if (!formData) return;
 
-const PublicFormView = () => {
-  const { formId } = useParams();
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [responseId, setResponseId] = useState<string | null>(null);
-  
-  useEffect(() => {
-    if (formId) {
-      fetchForm(formId);
-    }
-  }, [formId]);
-  
-  const fetchForm = async (id: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      console.log("[PublicFormView] Fetching public form with ID:", id);
-      
-      // Check if the form exists and is public and active
-      const { data: formCheck, error: checkError } = await customSupabase
-        .from('forms')
-        .select('id, title, description, schema, status, is_public')
-        .eq('id', id)
-        .eq('status', 'active')
-        .eq('is_public', true)
-        .maybeSingle();
-      
-      console.log("[PublicFormView] Form check response:", { formCheck, checkError });
-      
-      if (checkError) {
-        // Handle different error types
-        if (checkError.code === 'PGRST116') {
-          console.error('[PublicFormView] No form found with ID:', id);
-          setError("Este formulario no existe o no está disponible públicamente.");
-        } else if (checkError.message.includes('JWT') || checkError.message.includes('API key')) {
-          console.error('[PublicFormView] Authentication error:', checkError);
-          setError("Error de autenticación. Por favor contacte al administrador.");
-        } else {
-          console.error('[PublicFormView] Error checking form:', checkError);
-          setError(`Error al verificar el formulario: ${checkError.message || 'Error desconocido'}`);
-        }
-        setLoading(false);
-        return;
-      }
-      
-      if (!formCheck) {
-        console.error('[PublicFormView] No active public form found with ID:', id);
-        setError("Este formulario no está disponible públicamente o no está activo.");
-        setLoading(false);
-        return;
-      }
-      
-      console.log("[PublicFormView] Form data found:", formCheck);
-      setForm(formCheck);
-      
-    } catch (error: any) {
-      console.error('[PublicFormView] Error loading form:', error);
-      setError("No se pudo cargar el formulario. Error: " + (error.message || "Desconocido"));
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const handleSubmit = async (formData: any) => {
-    if (!formId || !form) return;
+  try {
+    setSubmitting(true);
+
+    // First, check if we need to upload any files
+    const processedFormData = await processUploadFields(formData, formData.components);
     
-    try {
-      setSubmitting(true);
-      
-      console.log("[PublicFormView] Submitting public form response:", {
-        form_id: formId,
-        response_data: formData
-      });
-      
-      const responsePayload = {
-        form_id: formId,
-        response_data: formData,
-        submitted_at: new Date().toISOString(),
-        is_anonymous: true // Mark this as an anonymous submission
-      };
-      
-      console.log("[PublicFormView] Sending payload:", responsePayload);
-      
-      const { data: responseData, error: responseError } = await customSupabase
-        .from('form_responses')
-        .insert(responsePayload)
-        .select('id')
-        .single();
-      
-      if (responseError) {
-        console.error('[PublicFormView] Error submitting form:', responseError);
-        throw new Error(responseError.message || 'Error al enviar el formulario');
-      }
-      
-      console.log('[PublicFormView] Form submission successful:', responseData);
-      
-      toast({
-        title: "Respuesta enviada",
-        description: "Tu respuesta ha sido registrada correctamente. ¡Gracias!",
-      });
-      
-      // If we have a response ID, set it to trigger FormResponseHandler
-      if (responseData && responseData.id) {
-        setResponseId(responseData.id);
-      } else {
-        // Fallback to success page if we don't have a response ID
-        navigate(`/public/forms/${formId}/success`);
-      }
-      
-    } catch (error: any) {
-      console.error('[PublicFormView] Error submitting form:', error);
-      toast({
-        title: "Error al enviar",
-        description: "No se pudo enviar tu respuesta: " + (error.message || "Error desconocido"),
-        variant: "destructive",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-  
-  // If we have a response ID, render the FormResponseHandler component
-  if (responseId && formId) {
-    return <FormResponseHandler formId={formId} responseId={responseId} isPublic={true} />;
-  }
-  
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="animate-pulse text-gray-500">Cargando formulario...</div>
-      </div>
-    );
-  }
-  
-  if (error || !form) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <Card className="w-full max-w-2xl mx-auto">
-          <CardHeader>
-            <CardTitle className="text-center text-red-500 flex items-center justify-center">
-              <AlertCircle className="mr-2 h-5 w-5" />
-              Formulario no disponible
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-center">{error || "Este formulario no está disponible o no existe."}</p>
-          </CardContent>
-          <CardFooter className="flex justify-center">
-            <Button variant="outline" onClick={() => navigate("/")}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver al inicio
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
-        <Card>
-          <CardHeader>
-            <CardTitle>{form.title}</CardTitle>
-            {form.description && (
-              <p className="text-gray-500 mt-2">{form.description}</p>
-            )}
-          </CardHeader>
-          <CardContent>
-            <FormRenderer 
-              formId={form.id} 
-              schema={form.schema}
-              onSubmit={handleSubmit}
-              readOnly={false}
-              isPublic={true}
-            />
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <p className="text-xs text-gray-500">Las respuestas a este formulario serán almacenadas para su análisis.</p>
-          </CardFooter>
-        </Card>
-      </div>
-    </div>
-  );
-};
+    // Create the submission data object
+    const submissionData = {
+      form_id: formId,
+      response_data: processedFormData,
+      submitted_at: new Date().toISOString(),
+      is_anonymous: true,
+      user_id: null // Set to null for anonymous submissions
+    };
 
-export default PublicFormView;
+    // Submit the form response
+    const { data, error } = await supabase
+      .from('form_responses')
+      .insert(submissionData);
+
+    if (error) {
+      console.error("Error submitting form:", error);
+      toast({
+        title: "Error al enviar formulario",
+        description: error.message,
+        variant: "destructive"
+      });
+      setSubmitting(false);
+      return;
+    }
+
+    // On success, redirect to the success page
+    navigate(`/public/forms/${formId}/success`);
+  } catch (error: any) {
+    console.error("Error in form submission process:", error);
+    toast({
+      title: "Error al procesar el formulario",
+      description: error.message || "Ha ocurrido un error. Por favor, intenta nuevamente.",
+      variant: "destructive"
+    });
+    setSubmitting(false);
+  }
+};

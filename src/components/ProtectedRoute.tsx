@@ -52,46 +52,33 @@ const ProtectedRoute = ({
     );
   }
 
-  // Debug the roles
-  console.log("Role check for protected route:", {
-    isGlobalAdmin,
-    isProjectAdmin,
-    isApprover,
-    requireGlobalAdmin,
-    requireProjectAdmin,
-    requireRegularUser,
-    requireApprover,
-    requireFormAccess
-  });
-
-  // If global admin is required and user is not a global admin, redirect
+  // Check role restrictions
   if (requireGlobalAdmin && !isGlobalAdmin) {
     console.log("Access denied: Global admin required");
     return <Navigate to="/" replace />;
   }
 
-  // If project admin is required and user is neither project admin nor global admin, redirect
+  // If project admin is required, allow both project admins and global admins (since global admins have higher privileges)
   if (requireProjectAdmin && !isProjectAdmin && !isGlobalAdmin) {
     console.log("Access denied: Project admin required");
     return <Navigate to="/" replace />;
   }
 
-  // If regular user is required and user is either global or project admin, redirect
+  // If regular user is required, check that the user is NOT a global or project admin
   if (requireRegularUser && (isGlobalAdmin || isProjectAdmin)) {
     console.log("Access denied: Regular user required");
     return <Navigate to="/" replace />;
   }
 
-  // If approver is required and user is neither approver nor global admin, redirect
+  // If approver is required, allow both approvers and global admins
   if (requireApprover && !isApprover && !isGlobalAdmin) {
     console.log("Access denied: Approver required");
     return <Navigate to="/" replace />;
   }
 
-  // Form access verification is now handled inside the Forms component
-
-  // If all checks pass, render the children
-  console.log("Access granted to protected route");
+  // Form access verification is handled inside the Forms component
+  
+  // All checks passed, render the children
   return <>{children}</>;
 };
 
