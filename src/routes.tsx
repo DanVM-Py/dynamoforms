@@ -123,7 +123,7 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: "/monitoring",
+    path: "/systems/monitoring",
     element: (
       <ProtectedRoute requireGlobalAdmin={true}>
         <Suspense fallback={<Loading />}><Monitoring /></Suspense>
