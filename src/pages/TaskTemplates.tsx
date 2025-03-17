@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -43,7 +44,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { cn } from "@/lib/utils"
-import { ReloadIcon } from '@radix-ui/react-icons';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Database } from '@/integrations/supabase/types';
 import { Skeleton } from "@/components/ui/skeleton"
@@ -60,7 +61,7 @@ const formTemplateSchema = z.object({
   description: z.string().optional(),
   source_form_id: z.string().uuid({ message: "Selecciona un formulario de origen válido." }),
   target_form_id: z.string().uuid({ message: "Selecciona un formulario de destino válido." }),
-  assignment_type: z.enum(["automatic", "manual"]),
+  assignment_type: z.enum(["static", "dynamic"]),
   assignee_form_field: z.string().optional(),
   default_assignee: z.string().uuid().optional(),
   due_days: z.number().optional(),
@@ -77,18 +78,12 @@ const TaskTemplates = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const { user } = useAuth();
 
   // Fetch task templates
-  const { data: taskTemplates, isLoading: isLoadingTemplates, isError: isErrorTemplates } = useQuery<
-    (TaskTemplate & {
-      source_form: Form | null;
-      target_form: Form | null;
-    })[]
-  >(
-    ['taskTemplates', projectId],
-    async () => {
+  const { data: taskTemplates, isLoading: isLoadingTemplates, isError: isErrorTemplates } = useQuery({
+    queryKey: ['taskTemplates', projectId],
+    queryFn: async () => {
       if (!projectId) {
         console.warn("Project ID is missing.");
         return [];
@@ -108,14 +103,14 @@ const TaskTemplates = () => {
         console.error("Error fetching task templates:", error);
         throw error;
       }
-      return data;
+      return data || [];
     }
-  );
+  });
 
   // Fetch forms for dropdown
-  const { data: forms, isLoading: isLoadingForms, isError: isErrorForms } = useQuery<Form[]>(
-    ['forms', projectId],
-    async () => {
+  const { data: forms, isLoading: isLoadingForms, isError: isErrorForms } = useQuery({
+    queryKey: ['forms', projectId],
+    queryFn: async () => {
       if (!projectId) {
         console.warn("Project ID is missing.");
         return [];
@@ -132,9 +127,9 @@ const TaskTemplates = () => {
         console.error("Error fetching forms:", error);
         throw error;
       }
-      return data;
+      return data || [];
     }
-  );
+  });
 
   // React Hook Form setup
   const form = useForm<FormTemplateValues>({
@@ -144,7 +139,7 @@ const TaskTemplates = () => {
       description: "",
       source_form_id: "",
       target_form_id: "",
-      assignment_type: "manual",
+      assignment_type: "static",
       assignee_form_field: "",
       default_assignee: "",
       due_days: 7,
@@ -155,44 +150,47 @@ const TaskTemplates = () => {
   });
 
   // Mutation for creating a task template
-  const { mutate: createTaskTemplate, isLoading: isCreating } = useMutation(
-    async (data: FormTemplateValues) => {
+  const createTemplateMutation = useMutation({
+    mutationFn: async (data: FormTemplateValues) => {
       if (!projectId) {
         throw new Error("Project ID is missing.");
       }
 
+      const templateData = {
+        ...data,
+        project_id: projectId
+      };
+
       const { error } = await supabase
         .from('task_templates')
-        .insert([{ ...data, project_id: projectId }]);
+        .insert([templateData]);
 
       if (error) {
         console.error("Error creating task template:", error);
         throw error;
       }
     },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries(['taskTemplates', projectId]);
-        toast({
-          title: "Plantilla de tarea creada",
-          description: "La plantilla de tarea se ha creado correctamente.",
-        });
-        setIsCreateDialogOpen(false);
-        form.reset();
-      },
-      onError: (error: any) => {
-        toast({
-          title: "Error al crear plantilla de tarea",
-          description: error.message,
-          variant: "destructive"
-        });
-      },
-    }
-  );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['taskTemplates', projectId] });
+      toast({
+        title: "Plantilla de tarea creada",
+        description: "La plantilla de tarea se ha creado correctamente.",
+      });
+      setIsCreateDialogOpen(false);
+      form.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error al crear plantilla de tarea",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
 
   // Mutation for updating a task template
-  const { mutate: updateTaskTemplate, isLoading: isUpdating } = useMutation(
-    async ({ id, data }: { id: string, data: FormTemplateValues }) => {
+  const updateTemplateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string, data: FormTemplateValues }) => {
       const { error } = await supabase
         .from('task_templates')
         .update(data)
@@ -203,25 +201,23 @@ const TaskTemplates = () => {
         throw error;
       }
     },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries(['taskTemplates', projectId]);
-        toast({
-          title: "Plantilla de tarea actualizada",
-          description: "La plantilla de tarea se ha actualizado correctamente.",
-        });
-        setIsEditDialogOpen(false);
-        form.reset();
-      },
-      onError: (error: any) => {
-        toast({
-          title: "Error al actualizar plantilla de tarea",
-          description: error.message,
-          variant: "destructive"
-        });
-      },
-    }
-  );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['taskTemplates', projectId] });
+      toast({
+        title: "Plantilla de tarea actualizada",
+        description: "La plantilla de tarea se ha actualizado correctamente.",
+      });
+      setIsEditDialogOpen(false);
+      form.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error al actualizar plantilla de tarea",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
 
   // Handlers
   const handleCreateDialogOpen = () => {
@@ -239,7 +235,7 @@ const TaskTemplates = () => {
     form.setValue("description", template.description || "");
     form.setValue("source_form_id", template.source_form_id);
     form.setValue("target_form_id", template.target_form_id);
-    form.setValue("assignment_type", template.assignment_type as "automatic" | "manual");
+    form.setValue("assignment_type", template.assignment_type as "static" | "dynamic");
     form.setValue("assignee_form_field", template.assignee_form_field || "");
     form.setValue("default_assignee", template.default_assignee || "");
     form.setValue("due_days", template.due_days || 7);
@@ -255,9 +251,9 @@ const TaskTemplates = () => {
 
   const handleSubmit = (values: FormTemplateValues) => {
     if (selectedTemplate) {
-      updateTaskTemplate({ id: selectedTemplate.id, data: values });
+      updateTemplateMutation.mutate({ id: selectedTemplate.id, data: values });
     } else {
-      createTaskTemplate(values);
+      createTemplateMutation.mutate(values);
     }
   };
 
@@ -291,7 +287,7 @@ const TaskTemplates = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {taskTemplates?.map((template) => (
+              {taskTemplates && taskTemplates.map((template) => (
                 <TableRow key={template.id}>
                   <TableCell className="font-medium">{template.title}</TableCell>
                   <TableCell>{template.source_form ? template.source_form.title : 'N/A'}</TableCell>
@@ -364,7 +360,7 @@ const TaskTemplates = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {forms?.map((form) => (
+                          {forms && forms.map((form) => (
                             <SelectItem key={form.id} value={form.id}>{form.title}</SelectItem>
                           ))}
                         </SelectContent>
@@ -386,7 +382,7 @@ const TaskTemplates = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {forms?.map((form) => (
+                          {forms && forms.map((form) => (
                             <SelectItem key={form.id} value={form.id}>{form.title}</SelectItem>
                           ))}
                         </SelectContent>
@@ -410,15 +406,15 @@ const TaskTemplates = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="automatic">Automática</SelectItem>
-                          <SelectItem value="manual">Manual</SelectItem>
+                          <SelectItem value="static">Estática</SelectItem>
+                          <SelectItem value="dynamic">Dinámica</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                {form.getValues("assignment_type") === "automatic" && (
+                {form.getValues("assignment_type") === "dynamic" && (
                   <FormField
                     control={form.control}
                     name="assignee_form_field"
@@ -442,7 +438,12 @@ const TaskTemplates = () => {
                     <FormItem>
                       <FormLabel>Días para completar</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="Días para completar" {...field} />
+                        <Input 
+                          type="number" 
+                          placeholder="Días para completar" 
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -475,9 +476,9 @@ const TaskTemplates = () => {
                     Cancelar
                   </Button>
                 </DialogClose>
-                <Button type="submit" disabled={isCreating}>
-                  {isCreating && (
-                    <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />
+                <Button type="submit" disabled={createTemplateMutation.isPending}>
+                  {createTemplateMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
                   Crear
                 </Button>
@@ -542,7 +543,7 @@ const TaskTemplates = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {forms?.map((form) => (
+                          {forms && forms.map((form) => (
                             <SelectItem key={form.id} value={form.id}>{form.title}</SelectItem>
                           ))}
                         </SelectContent>
@@ -564,7 +565,7 @@ const TaskTemplates = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {forms?.map((form) => (
+                          {forms && forms.map((form) => (
                             <SelectItem key={form.id} value={form.id}>{form.title}</SelectItem>
                           ))}
                         </SelectContent>
@@ -588,15 +589,15 @@ const TaskTemplates = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="automatic">Automática</SelectItem>
-                          <SelectItem value="manual">Manual</SelectItem>
+                          <SelectItem value="static">Estática</SelectItem>
+                          <SelectItem value="dynamic">Dinámica</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                {form.getValues("assignment_type") === "automatic" && (
+                {form.getValues("assignment_type") === "dynamic" && (
                   <FormField
                     control={form.control}
                     name="assignee_form_field"
@@ -620,7 +621,12 @@ const TaskTemplates = () => {
                     <FormItem>
                       <FormLabel>Días para completar</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="Días para completar" {...field} />
+                        <Input 
+                          type="number" 
+                          placeholder="Días para completar" 
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -647,16 +653,15 @@ const TaskTemplates = () => {
                   )}
                 />
               </div>
-              {/* Add inheritance mapping UI here */}
               <div className="flex justify-end space-x-2">
                 <DialogClose asChild>
                   <Button type="button" variant="secondary" onClick={handleEditDialogClose}>
                     Cancelar
                   </Button>
                 </DialogClose>
-                <Button type="submit" disabled={isUpdating}>
-                  {isUpdating && (
-                    <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />
+                <Button type="submit" disabled={updateTemplateMutation.isPending}>
+                  {updateTemplateMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
                   Guardar
                 </Button>

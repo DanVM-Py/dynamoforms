@@ -18,7 +18,7 @@ import TaskTemplates from './pages/TaskTemplates';
 import Forms from './pages/Forms';
 import FormEdit from './pages/FormEdit';
 import FormResponses from './pages/FormResponses';
-import PublicFormView from './pages/PublicFormView';
+import { PublicFormView } from './pages/PublicFormView';
 import PublicFormSuccess from './pages/PublicFormSuccess';
 import NotFound from './pages/NotFound';
 import { Toaster } from "@/components/ui/toaster"
