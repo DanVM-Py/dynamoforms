@@ -5,7 +5,6 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ServiceMetrics } from "./ServiceMetrics";
-import { MicroserviceStatus } from "@/components/environment/MicroserviceStatus";
 import { MicroserviceConfig } from "@/components/environment/MicroserviceConfig";
 import { useQuery } from '@tanstack/react-query';
 import { environment } from '@/config/environment';
@@ -179,8 +178,8 @@ export function MonitoringDashboard() {
         
         <TabsContent value="metrics" className="space-y-4">
           <ServiceMetrics />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="md:col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+            <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Alertas Activas</CardTitle>
                 <CardDescription>
@@ -193,7 +192,6 @@ export function MonitoringDashboard() {
                 </div>
               </CardContent>
             </Card>
-            <MicroserviceStatus />
           </div>
         </TabsContent>
         
