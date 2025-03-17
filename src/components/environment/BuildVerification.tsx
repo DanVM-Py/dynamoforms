@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle2, RefreshCw, AlertCircle } from 'lucide-react';
+import { CheckCircle2, RefreshCw, AlertCircle, FileWarning } from 'lucide-react';
 import { environment, getEnvironmentName } from '@/config/environment';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -10,6 +10,8 @@ interface BuildInfo {
   environment: string;
   timestamp: string;
   buildId?: string;
+  gitCommit?: string;
+  buildNumber?: string;
 }
 
 export const BuildVerification = () => {
@@ -18,52 +20,122 @@ export const BuildVerification = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Attempt to load build info on component mount
+  useEffect(() => {
+    checkBuildInfo();
+  }, []);
+
   const checkBuildInfo = async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // Attempt to fetch build-info.json which should be created during the build process
-      const response = await fetch(`/build-info.json?t=${Date.now()}`);
+      // Try different paths to find build-info.json
+      const paths = [
+        '/build-info.json',
+        '/public/build-info.json',
+        `/build-info-${environment}.json`,
+        '../build-info.json'
+      ];
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch build info: ${response.status}`);
+      let response = null;
+      let succeeded = false;
+      
+      for (const path of paths) {
+        try {
+          console.log(`Attempting to fetch build info from: ${path}`);
+          response = await fetch(`${path}?t=${Date.now()}`);
+          
+          if (response.ok) {
+            console.log(`Successfully fetched build info from: ${path}`);
+            succeeded = true;
+            break;
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch from ${path}:`, err);
+          // Continue to the next path
+        }
+      }
+      
+      if (!succeeded || !response) {
+        throw new Error('Could not find build-info.json in any of the expected locations');
       }
       
       const data = await response.json();
       setBuildInfo(data);
       
-      toast({
-        title: "Información de Build Verificada",
-        description: `Ambiente: ${data.environment}, Generado: ${new Date(data.timestamp).toLocaleString()}`,
-      });
+      // Check if build environment matches current environment
+      if (data.environment !== environment) {
+        setError(`¡Advertencia! El build actual (${data.environment}) no coincide con el entorno de ejecución (${environment})`);
+        
+        toast({
+          variant: "destructive",
+          title: "Advertencia de Entorno",
+          description: `El build desplegado es para ${data.environment}, pero estás en ${environment}`,
+        });
+      } else {
+        toast({
+          title: "Información de Build Verificada",
+          description: `Ambiente: ${data.environment}, Generado: ${new Date(data.timestamp).toLocaleString()}`,
+        });
+      }
     } catch (err) {
       console.error("Error fetching build info:", err);
-      setError("No se pudo obtener la información del build. Es posible que este despliegue no se haya generado con los nuevos scripts de build.");
+      setError("No se pudo obtener la información del build. Puede que este despliegue no tenga un archivo build-info.json.");
       
       toast({
         variant: "destructive",
         title: "Error de Verificación",
         description: "No se pudo obtener la información del build actual",
       });
+      
+      // Create a mock build info for development purposes
+      if (environment === 'development') {
+        generateNewBuildInfo();
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const generateNewBuildInfo = () => {
-    // This is just for demonstration - in a real scenario this would be done during the build process
     const mockBuildInfo: BuildInfo = {
       environment: environment,
       timestamp: new Date().toISOString(),
-      buildId: Math.random().toString(36).substring(2, 10)
+      buildId: Math.random().toString(36).substring(2, 10),
+      gitCommit: 'development',
+      buildNumber: 'local-dev'
     };
     
     setBuildInfo(mockBuildInfo);
     
     toast({
-      title: "Información de Build Generada",
-      description: "Esta es una simulación para demostración. En un entorno real, esto se generaría durante el proceso de build.",
+      title: "Información de Build Simulada",
+      description: "Esta es una simulación para entorno de desarrollo.",
+    });
+  };
+
+  // Add a public build-info.json file for development environments
+  const createBuildInfoFile = () => {
+    const mockBuildInfo: BuildInfo = {
+      environment: environment,
+      timestamp: new Date().toISOString(),
+      buildId: Math.random().toString(36).substring(2, 10),
+      gitCommit: 'development',
+      buildNumber: 'local-dev'
+    };
+    
+    const dataStr = JSON.stringify(mockBuildInfo, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileLink = document.createElement('a');
+    exportFileLink.setAttribute('href', dataUri);
+    exportFileLink.setAttribute('download', 'build-info.json');
+    exportFileLink.click();
+    
+    toast({
+      title: "Archivo build-info.json Generado",
+      description: "Coloca este archivo en la raíz de tu despliegue para verificar el build.",
     });
   };
 
@@ -79,9 +151,15 @@ export const BuildVerification = () => {
         {buildInfo ? (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
+              {buildInfo.environment === environment ? (
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+              ) : (
+                <FileWarning className="h-5 w-5 text-amber-500" />
+              )}
               <span className="font-medium">Ambiente del Build:</span> 
-              <span className="font-semibold">{buildInfo.environment}</span>
+              <span className={`font-semibold ${buildInfo.environment === environment ? 'text-green-600' : 'text-amber-600'}`}>
+                {buildInfo.environment.toUpperCase()}
+              </span>
             </div>
             <div>
               <span className="font-medium">Generado:</span> {new Date(buildInfo.timestamp).toLocaleString()}
@@ -89,6 +167,21 @@ export const BuildVerification = () => {
             {buildInfo.buildId && (
               <div>
                 <span className="font-medium">ID del Build:</span> {buildInfo.buildId}
+              </div>
+            )}
+            {buildInfo.gitCommit && (
+              <div>
+                <span className="font-medium">Commit:</span> {buildInfo.gitCommit}
+              </div>
+            )}
+            {buildInfo.buildNumber && (
+              <div>
+                <span className="font-medium">Número de Build:</span> {buildInfo.buildNumber}
+              </div>
+            )}
+            {error && (
+              <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md text-amber-700">
+                {error}
               </div>
             )}
           </div>
@@ -105,7 +198,7 @@ export const BuildVerification = () => {
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex justify-between gap-2">
+      <CardFooter className="flex flex-wrap justify-between gap-2">
         <Button 
           variant="outline" 
           onClick={checkBuildInfo}
@@ -123,13 +216,24 @@ export const BuildVerification = () => {
             </>
           )}
         </Button>
-        <Button 
-          variant="secondary"
-          onClick={generateNewBuildInfo}
-          disabled={isLoading}
-        >
-          Simular Build Info
-        </Button>
+        {environment === 'development' && (
+          <>
+            <Button 
+              variant="secondary"
+              onClick={generateNewBuildInfo}
+              disabled={isLoading}
+            >
+              Simular Build Info
+            </Button>
+            <Button 
+              variant="secondary"
+              onClick={createBuildInfoFile}
+              disabled={isLoading}
+            >
+              Descargar build-info.json
+            </Button>
+          </>
+        )}
       </CardFooter>
     </Card>
   );

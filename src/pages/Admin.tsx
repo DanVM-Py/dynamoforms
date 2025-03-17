@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,9 +11,15 @@ import { environment } from '@/config/environment';
 const Admin = () => {
   return (
     <PageContainer
-      title="Administración"
-      description="Panel de administración y configuración del sistema"
+      className="space-y-6"
     >
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Administración</h1>
+        <p className="text-muted-foreground">
+          Panel de administración y configuración del sistema
+        </p>
+      </div>
+      
       <Tabs defaultValue="summary" className="w-full">
         <TabsList>
           <TabsTrigger value="summary">Resumen</TabsTrigger>

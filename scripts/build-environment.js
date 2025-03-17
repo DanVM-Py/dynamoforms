@@ -45,12 +45,41 @@ const buildForEnvironment = () => {
       env: { ...process.env }
     });
     
+    // Ensure the dist directory exists
+    const distDir = path.resolve(__dirname, '..', 'dist');
+    const envDistDir = path.resolve(distDir, targetEnv);
+    
+    if (!fs.existsSync(distDir)) {
+      fs.mkdirSync(distDir, { recursive: true });
+    }
+    
+    if (!fs.existsSync(envDistDir)) {
+      fs.mkdirSync(envDistDir, { recursive: true });
+    }
+    
     // Generate build info
     console.log('📝 Generating build info...');
-    execSync(`node scripts/generate-build-info.js --env=${targetEnv}`, {
+    const generateBuildInfoScript = path.resolve(__dirname, 'generate-build-info.js');
+    
+    execSync(`node ${generateBuildInfoScript} --env=${targetEnv}`, {
       stdio: 'inherit',
       env: { ...process.env }
     });
+    
+    // Copy build-info.json to the root directory for easier access
+    const buildInfoSource = path.join(envDistDir, 'build-info.json');
+    const buildInfoDest = path.join(distDir, `build-info-${targetEnv}.json`);
+    const buildInfoRoot = path.join(distDir, 'build-info.json');
+    
+    if (fs.existsSync(buildInfoSource)) {
+      fs.copyFileSync(buildInfoSource, buildInfoDest);
+      fs.copyFileSync(buildInfoSource, buildInfoRoot);
+      console.log(`✅ Build info generated at: ${buildInfoSource}`);
+      console.log(`✅ Build info copied to: ${buildInfoDest}`);
+      console.log(`✅ Build info copied to: ${buildInfoRoot}`);
+    } else {
+      console.error(`❌ Build info not generated at: ${buildInfoSource}`);
+    }
     
     console.log(`✅ Build completed for ${targetEnv} environment`);
     console.log(`📁 Output directory: dist/${targetEnv}`);
@@ -58,7 +87,7 @@ const buildForEnvironment = () => {
     if (targetEnv === 'production') {
       console.log('\n🚀 DEPLOYMENT INSTRUCTIONS:');
       console.log('1. Use the files in dist/production for production deployment');
-      console.log('2. Ensure the correct environment variables are set');
+      console.log('2. Ensure build-info.json is included in the deployment');
       console.log('3. Update your deployment platform to use this specific build folder\n');
     }
     

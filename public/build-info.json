@@ -1,0 +1,9 @@
+
+{
+  "environment": "development",
+  "buildId": "dev-local-build",
+  "timestamp": "2025-03-17T23:45:00.000Z",
+  "gitCommit": "development",
+  "buildNumber": "local-dev",
+  "nodeName": "localhost"
+}
