@@ -2,13 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
 import { 
-  Building2, FileText, Home, Menu, PanelLeftClose, Bell, CheckSquare, 
-  User, Users, LogOut, Settings, ChevronDown, ChevronRight, Activity, 
-  Server, Database, CpuIcon 
+  Menu, PanelLeftClose, User, LogOut
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import NavItems from './NavItems';
 
 export function Sidebar() {
@@ -69,16 +66,6 @@ export function Sidebar() {
     }
   };
 
-  const canAccessProjectRoles = (isGlobalAdmin || isProjectAdmin) && !!projectId;
-  
-  console.log("Sidebar Debug:", { 
-    projectId, 
-    isGlobalAdmin, 
-    isProjectAdmin, 
-    canAccessProjectRoles,
-    currentPath: location.pathname
-  });
-
   const sidebarClasses = `${
     isMobile ? 'fixed z-20 top-0 bottom-0 left-0' : 'sticky top-0'
   } h-screen bg-white border-r ${
@@ -88,7 +75,7 @@ export function Sidebar() {
   const overlay = isMobile && isMobileMenuOpen && (
     <div
       className="fixed inset-0 bg-black/30 z-10"
-      onClick={toggleMobileMenu}
+      onClick={() => setIsMobileMenuOpen(false)}
     />
   );
 
@@ -108,8 +95,8 @@ export function Sidebar() {
       
       {isMobile && (
         <button
-          onClick={toggleMobileMenu}
-          className="fixed bottom-4 right-4 z-30 bg-dynamo-600 text-white p-3 rounded-full shadow-lg hover:bg-dynamo-700 transition-colors md:hidden"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="fixed bottom-4 right-4 z-30 bg-purple-600 text-white p-3 rounded-full shadow-lg hover:bg-purple-700 transition-colors md:hidden"
         >
           <Menu className="h-6 w-6" />
         </button>
@@ -122,12 +109,12 @@ export function Sidebar() {
       >
         <div className="flex items-center px-4 py-2 justify-between">
           {(isExpanded || isMobileMenuOpen) ? (
-            <Link to="/" className="text-xl font-bold text-dynamo-700">Dynamo</Link>
+            <Link to="/" className="text-xl font-bold text-purple-700">Dynamo</Link>
           ) : (
-            <Link to="/" className="text-xl font-bold text-dynamo-700">D</Link>
+            <Link to="/" className="text-xl font-bold text-purple-700">D</Link>
           )}
           {!isMobile && (
-            <button onClick={toggleSidebar} className="text-gray-500 hover:text-gray-700">
+            <button onClick={() => setIsExpanded(!isExpanded)} className="text-gray-500 hover:text-gray-700">
               {isExpanded ? (
                 <PanelLeftClose className="h-5 w-5" />
               ) : (
@@ -137,13 +124,13 @@ export function Sidebar() {
           )}
         </div>
 
-        <div className="mt-6 flex flex-col flex-1 gap-y-1 px-3">
+        <div className="mt-4 flex flex-col flex-1 overflow-y-auto">
           <NavItems collapsed={!(isExpanded || isMobileMenuOpen)} />
         </div>
 
         {user && (
           <div className="mt-auto px-3 pt-3 border-t">
-            <div className={`flex items-center p-3 rounded-md ${isExpanded || isMobileMenuOpen ? 'justify-between' : 'justify-center'}`}>
+            <div className={`flex items-center p-2 rounded-md ${isExpanded || isMobileMenuOpen ? 'justify-between' : 'justify-center'}`}>
               <div className="flex items-center">
                 <div className="bg-gray-200 rounded-full p-2">
                   <User className="h-5 w-5 text-gray-600" />
@@ -151,7 +138,7 @@ export function Sidebar() {
                 
                 {(isExpanded || isMobileMenuOpen) && (
                   <div className="ml-3 overflow-hidden">
-                    <p className="text-base font-semibold text-dynamo-700 truncate">{displayName}</p>
+                    <p className="text-sm font-semibold text-gray-700 truncate">{displayName}</p>
                     <p className="text-xs text-gray-500 truncate">{displayRole}</p>
                   </div>
                 )}
@@ -163,6 +150,7 @@ export function Sidebar() {
                   size="icon"
                   onClick={handleSignOut}
                   title="Cerrar sesión"
+                  className="text-gray-500 hover:text-gray-700"
                 >
                   <LogOut className="h-4 w-4" />
                 </Button>
