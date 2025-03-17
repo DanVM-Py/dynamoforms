@@ -8,6 +8,7 @@ import { ServiceMetrics } from "./ServiceMetrics";
 import { MicroserviceConfig } from "@/components/environment/MicroserviceConfig";
 import { useQuery } from '@tanstack/react-query';
 import { environment } from '@/config/environment';
+import { Sidebar } from "@/components/layout/Sidebar";
 
 // Componente para mostrar logs del sistema
 interface LogEntry {
@@ -161,52 +162,56 @@ function LogViewer() {
 // Componente principal del Dashboard de Monitoreo
 export function MonitoringDashboard() {
   return (
-    <div className="max-w-[1200px] mx-auto px-4 py-4">
-      <div className="mb-4">
-        <h2 className="text-2xl font-bold tracking-tight">Monitor del Sistema</h2>
-        <p className="text-muted-foreground">
-          Monitoreo en tiempo real de la infraestructura de microservicios
-        </p>
-      </div>
+    <div className="flex h-screen">
+      <Sidebar />
       
-      <Tabs defaultValue="metrics">
-        <TabsList className="mb-4">
-          <TabsTrigger value="metrics">Métricas</TabsTrigger>
-          <TabsTrigger value="logs">Logs</TabsTrigger>
-          <TabsTrigger value="config">Configuración</TabsTrigger>
-        </TabsList>
+      <div className="max-w-[1200px] mx-auto px-4 py-4 flex-1 overflow-auto">
+        <div className="mb-4">
+          <h2 className="text-2xl font-bold tracking-tight">Monitor del Sistema</h2>
+          <p className="text-muted-foreground">
+            Monitoreo en tiempo real de la infraestructura de microservicios
+          </p>
+        </div>
         
-        <TabsContent value="metrics" className="space-y-4">
-          <ServiceMetrics />
-          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Alertas Activas</CardTitle>
-                <CardDescription>
-                  Problemas detectados que requieren atención
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="p-8 text-center text-muted-foreground">
-                  No hay alertas activas en este momento.
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+        <Tabs defaultValue="metrics">
+          <TabsList className="mb-4">
+            <TabsTrigger value="metrics">Métricas</TabsTrigger>
+            <TabsTrigger value="logs">Logs</TabsTrigger>
+            <TabsTrigger value="config">Configuración</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="metrics" className="space-y-4">
+            <ServiceMetrics />
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Alertas Activas</CardTitle>
+                  <CardDescription>
+                    Problemas detectados que requieren atención
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="p-8 text-center text-muted-foreground">
+                    No hay alertas activas en este momento.
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="logs">
+            <LogViewer />
+          </TabsContent>
+          
+          <TabsContent value="config">
+            <MicroserviceConfig />
+          </TabsContent>
+        </Tabs>
         
-        <TabsContent value="logs">
-          <LogViewer />
-        </TabsContent>
-        
-        <TabsContent value="config">
-          <MicroserviceConfig />
-        </TabsContent>
-      </Tabs>
-      
-      <div className="mt-4 text-xs text-muted-foreground text-center">
-        <p>Monitor interno de microservicios - Entorno: {environment}</p>
-        <p>Todos los datos son simulados con fines de demostración</p>
+        <div className="mt-4 text-xs text-muted-foreground text-center">
+          <p>Monitor interno de microservicios - Entorno: {environment}</p>
+          <p>Todos los datos son simulados con fines de demostración</p>
+        </div>
       </div>
     </div>
   );

@@ -114,7 +114,8 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
         variant="ghost"
         className={cn(
           "justify-start h-10",
-          location.pathname === item.href && "bg-secondary",
+          (location.pathname === item.href || 
+           (item.href === "/systems/monitoring" && location.pathname === "/monitoring")) && "bg-secondary",
           collapsed && "justify-center px-2"
         )}
         onClick={() => handleNavigate(item.href)}
