@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -93,8 +92,8 @@ const TaskTemplates = () => {
         .from('task_templates')
         .select(`
           *,
-          source_form:source_form_id (title, description),
-          target_form:target_form_id (title, description)
+          source_form:source_form_id (id, title, description),
+          target_form:target_form_id (id, title, description)
         `)
         .eq('project_id', projectId)
         .order('created_at', { ascending: false });
@@ -158,12 +157,16 @@ const TaskTemplates = () => {
 
       const templateData = {
         ...data,
-        project_id: projectId
+        project_id: projectId,
+        title: data.title,
+        source_form_id: data.source_form_id,
+        target_form_id: data.target_form_id,
+        assignment_type: data.assignment_type
       };
 
       const { error } = await supabase
         .from('task_templates')
-        .insert([templateData]);
+        .insert(templateData);
 
       if (error) {
         console.error("Error creating task template:", error);
@@ -193,7 +196,13 @@ const TaskTemplates = () => {
     mutationFn: async ({ id, data }: { id: string, data: FormTemplateValues }) => {
       const { error } = await supabase
         .from('task_templates')
-        .update(data)
+        .update({
+          ...data,
+          title: data.title,
+          source_form_id: data.source_form_id,
+          target_form_id: data.target_form_id,
+          assignment_type: data.assignment_type
+        })
         .eq('id', id);
 
       if (error) {
@@ -287,11 +296,11 @@ const TaskTemplates = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {taskTemplates && taskTemplates.map((template) => (
+              {taskTemplates && taskTemplates.length > 0 ? taskTemplates.map((template: any) => (
                 <TableRow key={template.id}>
                   <TableCell className="font-medium">{template.title}</TableCell>
-                  <TableCell>{template.source_form ? template.source_form.title : 'N/A'}</TableCell>
-                  <TableCell>{template.target_form ? template.target_form.title : 'N/A'}</TableCell>
+                  <TableCell>{template.source_form && template.source_form.title ? template.source_form.title : 'N/A'}</TableCell>
+                  <TableCell>{template.target_form && template.target_form.title ? template.target_form.title : 'N/A'}</TableCell>
                   <TableCell>{template.is_active ? 'Activo' : 'Inactivo'}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="outline" size="sm" onClick={() => handleEdit(template)}>
@@ -299,7 +308,11 @@ const TaskTemplates = () => {
                     </Button>
                   </TableCell>
                 </TableRow>
-              ))}
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center">No hay plantillas disponibles</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -360,7 +373,7 @@ const TaskTemplates = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {forms && forms.map((form) => (
+                          {forms && forms.length > 0 && forms.map((form: any) => (
                             <SelectItem key={form.id} value={form.id}>{form.title}</SelectItem>
                           ))}
                         </SelectContent>
@@ -382,7 +395,7 @@ const TaskTemplates = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {forms && forms.map((form) => (
+                          {forms && forms.length > 0 && forms.map((form: any) => (
                             <SelectItem key={form.id} value={form.id}>{form.title}</SelectItem>
                           ))}
                         </SelectContent>
@@ -543,7 +556,7 @@ const TaskTemplates = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {forms && forms.map((form) => (
+                          {forms && forms.length > 0 && forms.map((form: any) => (
                             <SelectItem key={form.id} value={form.id}>{form.title}</SelectItem>
                           ))}
                         </SelectContent>
@@ -565,7 +578,7 @@ const TaskTemplates = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {forms && forms.map((form) => (
+                          {forms && forms.length > 0 && forms.map((form: any) => (
                             <SelectItem key={form.id} value={form.id}>{form.title}</SelectItem>
                           ))}
                         </SelectContent>

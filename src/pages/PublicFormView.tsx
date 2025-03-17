@@ -135,7 +135,7 @@ export function PublicFormView() {
     <div className="container mx-auto py-8 px-4">
       <div className="max-w-4xl mx-auto">
         <FormRenderer
-          formSchema={formData}
+          schema={formData}
           onSubmit={submitForm}
           isSubmitting={submitting}
           isPublic={true}

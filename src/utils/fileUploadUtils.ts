@@ -82,3 +82,49 @@ export const uploadBase64Image = async (
     throw new Error("No se pudo subir la imagen. Por favor, inténtelo de nuevo.");
   }
 };
+
+/**
+ * Processes form values to handle file uploads
+ * @param formValues The form values to process
+ * @param components The form components definition
+ * @returns The processed form values with file URLs
+ */
+export const processUploadFields = async (formValues: any, components: any[]): Promise<any> => {
+  if (!components || !Array.isArray(components)) {
+    return formValues;
+  }
+
+  const processedValues = { ...formValues };
+  
+  // Identify and process file upload fields
+  for (const component of components) {
+    if (component.type === 'file' && formValues[component.id]) {
+      if (Array.isArray(formValues[component.id])) {
+        // Handle multiple files
+        const fileUrls = [];
+        for (const file of formValues[component.id]) {
+          if (file instanceof File) {
+            const url = await uploadFileToStorage(file, 'form_uploads');
+            fileUrls.push(url);
+          } else if (typeof file === 'string') {
+            // Already a URL or data URL
+            fileUrls.push(file);
+          }
+        }
+        processedValues[component.id] = fileUrls;
+      } else if (formValues[component.id] instanceof File) {
+        // Handle single file
+        const url = await uploadFileToStorage(formValues[component.id], 'form_uploads');
+        processedValues[component.id] = url;
+      }
+    } else if (component.type === 'signature' && formValues[component.id]) {
+      // Handle signature field (base64 image)
+      if (typeof formValues[component.id] === 'string' && formValues[component.id].startsWith('data:')) {
+        const url = await uploadBase64Image(formValues[component.id], 'signatures');
+        processedValues[component.id] = url;
+      }
+    }
+  }
+  
+  return processedValues;
+};
