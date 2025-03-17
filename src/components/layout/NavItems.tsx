@@ -15,11 +15,15 @@ import {
   Users,
   Home,
   Cog,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useState } from "react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type NavItem = {
   title: string;
@@ -28,6 +32,14 @@ type NavItem = {
   requiredRoles?: string[];
   section?: 'operations' | 'project_administration' | 'administration' | 'systems';
   color?: string;
+};
+
+type NavSection = {
+  title: string;
+  section: 'operations' | 'project_administration' | 'administration' | 'systems';
+  icon: React.ElementType;
+  requiredRoles?: string[];
+  items: NavItem[];
 };
 
 const navItems: NavItem[] = [
@@ -45,21 +57,21 @@ const navItems: NavItem[] = [
     href: "/forms",
     icon: FileText,
     section: 'operations',
-    color: "text-blue-600",
+    color: "text-gray-600",
   },
   {
     title: "Tareas",
     href: "/tasks",
     icon: ListTodo,
     section: 'operations',
-    color: "text-blue-600",
+    color: "text-gray-600",
   },
   {
     title: "Notificaciones",
     href: "/notifications",
     icon: Bell,
     section: 'operations',
-    color: "text-blue-600",
+    color: "text-gray-600",
   },
   
   // Administración de Proyecto - visible for project_admin and global_admin
@@ -69,7 +81,7 @@ const navItems: NavItem[] = [
     icon: Settings,
     requiredRoles: ["project_admin", "global_admin"],
     section: 'project_administration',
-    color: "text-purple-600",
+    color: "text-gray-600",
   },
   {
     title: "Roles del Proyecto",
@@ -77,7 +89,7 @@ const navItems: NavItem[] = [
     icon: Cog,
     requiredRoles: ["project_admin", "global_admin"],
     section: 'project_administration',
-    color: "text-purple-600",
+    color: "text-gray-600",
   },
   {
     title: "Usuarios del Proyecto",
@@ -85,7 +97,7 @@ const navItems: NavItem[] = [
     icon: Users,
     requiredRoles: ["project_admin", "global_admin"],
     section: 'project_administration',
-    color: "text-purple-600",
+    color: "text-gray-600",
   },
   
   // Administración - only for global_admin
@@ -95,7 +107,7 @@ const navItems: NavItem[] = [
     icon: FolderKanban,
     requiredRoles: ["global_admin"],
     section: 'administration',
-    color: "text-purple-600",
+    color: "text-gray-600",
   },
   {
     title: "Administración",
@@ -103,7 +115,7 @@ const navItems: NavItem[] = [
     icon: UserCog,
     requiredRoles: ["global_admin"],
     section: 'administration',
-    color: "text-purple-600",
+    color: "text-gray-600",
   },
   
   // Systems - only for global_admin
@@ -113,7 +125,7 @@ const navItems: NavItem[] = [
     icon: Activity,
     requiredRoles: ["global_admin"],
     section: 'systems',
-    color: "text-purple-600",
+    color: "text-gray-600",
   },
 ];
 
@@ -121,6 +133,12 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isGlobalAdmin, isProjectAdmin, isApprover } = useAuth();
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    operations: true,
+    project_administration: true,
+    administration: true,
+    systems: true
+  });
 
   const handleNavigate = (href: string) => {
     navigate(href);
@@ -144,16 +162,52 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
   const adminItems = filteredNavItems.filter(item => item.section === 'administration');
   const systemItems = filteredNavItems.filter(item => item.section === 'systems');
 
+  const navSections: NavSection[] = [
+    {
+      title: "Operación",
+      section: 'operations',
+      icon: Activity,
+      items: operationItems
+    },
+    {
+      title: "Administración de Proyecto",
+      section: 'project_administration',
+      icon: Settings,
+      requiredRoles: ["project_admin", "global_admin"],
+      items: projectAdminItems
+    },
+    {
+      title: "Administración",
+      section: 'administration',
+      icon: Cog,
+      requiredRoles: ["global_admin"],
+      items: adminItems
+    },
+    {
+      title: "Systems",
+      section: 'systems',
+      icon: Database,
+      requiredRoles: ["global_admin"],
+      items: systemItems
+    }
+  ];
+
+  const filteredNavSections = navSections.filter(section => {
+    if (!section.requiredRoles) return true;
+    if (section.requiredRoles.includes("global_admin") && isGlobalAdmin) return true;
+    if (section.requiredRoles.includes("project_admin") && isProjectAdmin) return true;
+    return false;
+  }).filter(section => section.items.length > 0);
+
   const renderNavItem = (item: NavItem) => (
     <Button
       key={item.href}
       variant="ghost"
       className={cn(
-        "justify-start h-10 w-full hover:bg-gray-100",
+        "justify-start h-10 w-full hover:bg-gray-100 text-gray-600",
         (location.pathname === item.href || 
          (item.href === "/systems/monitoring" && location.pathname === "/monitoring")) && "bg-gray-100 font-medium",
         collapsed && "justify-center px-2",
-        item.color
       )}
       onClick={() => handleNavigate(item.href)}
     >
@@ -162,17 +216,11 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
     </Button>
   );
 
-  const renderSectionItems = (items: NavItem[], sectionTitle?: string) => {
-    return (
-      <div className="space-y-1 py-2">
-        {!collapsed && sectionTitle && (
-          <div className="px-3 mb-2 text-sm font-medium text-purple-700">{sectionTitle}</div>
-        )}
-        <div className="space-y-1 px-3">
-          {items.map(renderNavItem)}
-        </div>
-      </div>
-    );
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
   };
 
   return (
@@ -183,33 +231,48 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
         </div>
       )}
       
-      {operationItems.length > 0 && (
-        <div>
-          {!collapsed && <div className="px-3 text-sm font-medium text-blue-700">Operación</div>}
-          {renderSectionItems(operationItems)}
+      {filteredNavSections.map((section) => (
+        <div key={section.section} className="mb-1">
+          {!collapsed ? (
+            <Collapsible
+              open={openSections[section.section]}
+              onOpenChange={() => toggleSection(section.section)}
+              className="w-full"
+            >
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-between px-3 text-gray-600 hover:bg-gray-100 h-10"
+                >
+                  <div className="flex items-center">
+                    <section.icon className="h-5 w-5 mr-3" />
+                    <span className="font-medium">{section.title}</span>
+                  </div>
+                  {openSections[section.section] ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pl-2">
+                <div className="space-y-1 px-3 py-1">
+                  {section.items.map(renderNavItem)}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          ) : (
+            <div className="px-3 py-2">
+              <div className="flex justify-center">
+                <section.icon className="h-5 w-5 text-gray-600" />
+              </div>
+              <div className="space-y-1 pt-2">
+                {section.items.map(renderNavItem)}
+              </div>
+            </div>
+          )}
         </div>
-      )}
-      
-      {projectAdminItems.length > 0 && (
-        <div>
-          {!collapsed && <div className="px-3 text-sm font-medium text-purple-700">Administración de Proyecto</div>}
-          {renderSectionItems(projectAdminItems)}
-        </div>
-      )}
-      
-      {adminItems.length > 0 && (
-        <div>
-          {!collapsed && <div className="px-3 text-sm font-medium text-purple-700">Administración</div>}
-          {renderSectionItems(adminItems)}
-        </div>
-      )}
-      
-      {systemItems.length > 0 && (
-        <div>
-          {!collapsed && <div className="px-3 text-sm font-medium text-purple-700">Systems</div>}
-          {renderSectionItems(systemItems)}
-        </div>
-      )}
+      ))}
     </div>
   );
 };
