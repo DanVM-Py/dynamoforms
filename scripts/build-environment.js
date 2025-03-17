@@ -9,7 +9,6 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const deployConfig = require('../deployment.config');
 
 // Get target environment from command line argument
 const getTargetEnv = () => {
@@ -35,18 +34,23 @@ const buildForEnvironment = () => {
   
   try {
     // Run environment-specific build command
-    console.log(`📦 Running build command: vite build --mode ${targetEnv}`);
-    execSync(`vite build --mode ${targetEnv}`, { stdio: 'inherit' });
+    const buildCmd = `vite build --mode ${targetEnv}`;
+    console.log(`📦 Running build command: ${buildCmd}`);
     
-    // Create a build info file to track which environment was used
-    const buildInfoPath = path.join(__dirname, '..', 'dist', targetEnv, 'build-info.json');
-    const buildInfo = {
-      environment: targetEnv,
-      timestamp: new Date().toISOString(),
-      config: deployConfig.environments[targetEnv]
-    };
+    // Set environment variable for the child process
+    process.env.MODE = targetEnv;
     
-    fs.writeFileSync(buildInfoPath, JSON.stringify(buildInfo, null, 2));
+    execSync(buildCmd, { 
+      stdio: 'inherit',
+      env: { ...process.env }
+    });
+    
+    // Generate build info
+    console.log('📝 Generating build info...');
+    execSync(`node scripts/generate-build-info.js --env=${targetEnv}`, {
+      stdio: 'inherit',
+      env: { ...process.env }
+    });
     
     console.log(`✅ Build completed for ${targetEnv} environment`);
     console.log(`📁 Output directory: dist/${targetEnv}`);
