@@ -22,7 +22,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type NavItem = {
@@ -32,6 +32,7 @@ type NavItem = {
   requiredRoles?: string[];
   section?: 'operations' | 'project_administration' | 'administration' | 'systems';
   color?: string;
+  dynamicPath?: boolean;
 };
 
 type NavSection = {
@@ -85,19 +86,21 @@ const navItems: NavItem[] = [
   },
   {
     title: "Roles del Proyecto",
-    href: "/project-roles",
+    href: "/projects/:projectId/roles",
     icon: Cog,
     requiredRoles: ["project_admin", "global_admin"],
     section: 'project_administration',
     color: "text-gray-600",
+    dynamicPath: true,
   },
   {
     title: "Usuarios del Proyecto",
-    href: "/project-users",
+    href: "/projects/:projectId/users",
     icon: Users,
     requiredRoles: ["project_admin", "global_admin"],
     section: 'project_administration',
     color: "text-gray-600",
+    dynamicPath: true,
   },
   
   // Administración - only for global_admin
@@ -139,9 +142,24 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
     administration: true,
     systems: true
   });
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
 
-  const handleNavigate = (href: string) => {
-    navigate(href);
+  useEffect(() => {
+    // Try to get current project ID from session storage
+    const projectId = sessionStorage.getItem('currentProjectId');
+    if (projectId) {
+      setCurrentProjectId(projectId);
+    }
+  }, []);
+
+  const handleNavigate = (href: string, dynamicPath?: boolean) => {
+    if (dynamicPath && currentProjectId) {
+      // Replace :projectId with the actual project ID
+      const actualPath = href.replace(':projectId', currentProjectId);
+      navigate(actualPath);
+    } else {
+      navigate(href);
+    }
   };
 
   // Filter navigation items based on user roles
@@ -199,22 +217,32 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
     return false;
   }).filter(section => section.items.length > 0);
 
-  const renderNavItem = (item: NavItem) => (
-    <Button
-      key={item.href}
-      variant="ghost"
-      className={cn(
-        "justify-start h-10 w-full hover:bg-gray-100 text-gray-600",
-        (location.pathname === item.href || 
-         (item.href === "/systems/monitoring" && location.pathname === "/monitoring")) && "bg-gray-100 font-medium",
-        collapsed && "justify-center px-2",
-      )}
-      onClick={() => handleNavigate(item.href)}
-    >
-      <item.icon className={cn("h-5 w-5", collapsed ? "mr-0" : "mr-3")} />
-      {!collapsed && <span>{item.title}</span>}
-    </Button>
-  );
+  const renderNavItem = (item: NavItem) => {
+    const isActive = (): boolean => {
+      if (item.dynamicPath && currentProjectId) {
+        const actualPath = item.href.replace(':projectId', currentProjectId);
+        return location.pathname === actualPath;
+      }
+      return location.pathname === item.href || 
+        (item.href === "/systems/monitoring" && location.pathname === "/monitoring");
+    };
+    
+    return (
+      <Button
+        key={item.href}
+        variant="ghost"
+        className={cn(
+          "justify-start h-10 w-full hover:bg-gray-100 text-gray-600",
+          isActive() && "bg-gray-100 font-medium",
+          collapsed && "justify-center px-2",
+        )}
+        onClick={() => handleNavigate(item.href, item.dynamicPath)}
+      >
+        <item.icon className={cn("h-5 w-5", collapsed ? "mr-0" : "mr-3")} />
+        {!collapsed && <span>{item.title}</span>}
+      </Button>
+    );
+  };
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => ({
