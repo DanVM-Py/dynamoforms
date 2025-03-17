@@ -35,13 +35,14 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: `dist/${mode}`,
       sourcemap: mode !== 'production',
-      // Create a different build for each environment
       rollupOptions: {
         output: {
           manualChunks: {
             vendor: ['react', 'react-dom', 'react-router-dom'],
             ui: [
-              '@/components/ui',
+              '@radix-ui/react-dialog',
+              '@radix-ui/react-dropdown-menu',
+              '@radix-ui/react-toast',
               'lucide-react',
               'tailwind-merge',
               'class-variance-authority'
