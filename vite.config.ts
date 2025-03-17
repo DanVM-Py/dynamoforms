@@ -1,22 +1,54 @@
-import { defineConfig } from "vite";
+
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-  },
-  plugins: [
-    react(),
-    mode === 'development' &&
-    componentTagger(),
-  ].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
+export default defineConfig(({ mode }) => {
+  // Load env file based on mode (development, qa, production)
+  const env = loadEnv(mode, process.cwd(), '');
+  
+  console.log(`Building for environment: ${mode}`);
+  
+  // Determine environment-specific configuration
+  const defineEnv = {
+    'window.ENV': JSON.stringify(mode)
+  };
+  
+  return {
+    server: {
+      host: "::",
+      port: 8080,
     },
-  },
-}));
+    plugins: [
+      react(),
+      mode === 'development' &&
+      componentTagger(),
+    ].filter(Boolean),
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
+    },
+    define: defineEnv,
+    build: {
+      outDir: `dist/${mode}`,
+      sourcemap: mode !== 'production',
+      // Create a different build for each environment
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom', 'react-router-dom'],
+            ui: [
+              '@/components/ui',
+              'lucide-react',
+              'tailwind-merge',
+              'class-variance-authority'
+            ]
+          }
+        }
+      }
+    }
+  };
+});

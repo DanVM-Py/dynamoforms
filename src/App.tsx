@@ -27,6 +27,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ProjectRoles from './pages/ProjectRoles';
 import ProjectUsers from './pages/ProjectUsers';
 import { FormResponseHandler } from './components/form-renderer/FormResponseHandler';
+import { EnvironmentIndicator } from './components/environment/EnvironmentIndicator';
 
 const queryClient = new QueryClient();
 
@@ -112,6 +113,7 @@ function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />
+            <EnvironmentIndicator />
           </ThemeProvider>
         </QueryClientProvider>
       </AuthProvider>
