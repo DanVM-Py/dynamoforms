@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +8,7 @@ import { customSupabase } from "@/integrations/supabase/customClient";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
+import { FormResponseHandler } from "@/components/form-renderer/FormResponseHandler";
 
 const PublicFormView = () => {
   const { formId } = useParams();
@@ -17,6 +19,7 @@ const PublicFormView = () => {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [responseId, setResponseId] = useState<string | null>(null);
   
   useEffect(() => {
     if (formId) {
@@ -82,12 +85,8 @@ const PublicFormView = () => {
     try {
       setSubmitting(true);
       
-      // Create an anonymous user ID for tracking purposes
-      const anonymousUserId = uuidv4();
-      
       console.log("[PublicFormView] Submitting public form response:", {
         form_id: formId,
-        user_id: anonymousUserId,
         response_data: formData
       });
       
@@ -95,8 +94,7 @@ const PublicFormView = () => {
         form_id: formId,
         response_data: formData,
         submitted_at: new Date().toISOString(),
-        is_anonymous: true, // Mark this as an anonymous submission
-        // Don't include user_id for anonymous submissions
+        is_anonymous: true // Mark this as an anonymous submission
       };
       
       console.log("[PublicFormView] Sending payload:", responsePayload);
@@ -119,11 +117,9 @@ const PublicFormView = () => {
         description: "Tu respuesta ha sido registrada correctamente. ¡Gracias!",
       });
       
-      // If we have a response ID, use the FormResponseHandler to process it
+      // If we have a response ID, set it to trigger FormResponseHandler
       if (responseData && responseData.id) {
-        navigate(`/public/forms/${formId}/response/${responseData.id}`, { 
-          state: { isPublic: true }
-        });
+        setResponseId(responseData.id);
       } else {
         // Fallback to success page if we don't have a response ID
         navigate(`/public/forms/${formId}/success`);
@@ -140,6 +136,11 @@ const PublicFormView = () => {
       setSubmitting(false);
     }
   };
+  
+  // If we have a response ID, render the FormResponseHandler component
+  if (responseId && formId) {
+    return <FormResponseHandler formId={formId} responseId={responseId} isPublic={true} />;
+  }
   
   if (loading) {
     return (

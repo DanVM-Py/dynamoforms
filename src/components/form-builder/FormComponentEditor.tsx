@@ -53,7 +53,8 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
     selectionType: component.selectionType || 'single',
     content: component.content || '',
     groupId: component.groupId || undefined,
-    acceptedFileTypes: component.acceptedFileTypes || ['.pdf', '.docx', '.jpg', '.png']
+    acceptedFileTypes: component.acceptedFileTypes || ['.pdf', '.docx', '.jpg', '.png'],
+    minValue: component.minValue || undefined
   });
   
   const [showWhenCondition, setShowWhenCondition] = useState<'equals' | 'not-equals'>(
@@ -102,6 +103,15 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
     const value = parseInt(e.target.value);
     if (!isNaN(value) && value > 0) {
       setEditedComponent(prev => ({...prev, [field]: value}));
+    }
+  };
+  
+  const handleMinValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    if (!isNaN(value)) {
+      setEditedComponent(prev => ({...prev, minValue: value}));
+    } else {
+      setEditedComponent(prev => ({...prev, minValue: undefined}));
     }
   };
   
@@ -202,7 +212,8 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
         ? editedComponent.placeholder 
         : undefined,
       selectionType: type === 'checkbox' ? 'multiple' : undefined,
-      content: type === 'info_text' ? (editedComponent.content || 'Texto informativo para los usuarios del formulario') : undefined
+      content: type === 'info_text' ? (editedComponent.content || 'Texto informativo para los usuarios del formulario') : undefined,
+      minValue: type === 'number' ? editedComponent.minValue : undefined
     };
     
     setEditedComponent(updatedComponent);
@@ -398,6 +409,19 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
                       {editedComponent.type === 'text' ? 'Recomendado: 300 caracteres' : 'Recomendado: 1000 caracteres'}
                     </p>
                   </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="minValue">Valor mínimo permitido</Label>
+                    <Input 
+                      id="minValue"
+                      type="number"
+                      value={editedComponent.minValue !== undefined ? editedComponent.minValue : ''}
+                      onChange={handleMinValueChange}
+                    />
+                    <p className="text-xs text-gray-500">
+                      Define el valor mínimo que puede ingresarse en este campo
+                    </p>
+                  </div>
                 </div>
               )}
               
@@ -426,6 +450,19 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
                     />
                     <p className="text-xs text-gray-500">
                       Recomendado: Hasta 10 caracteres para números
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="minValue">Valor mínimo permitido</Label>
+                    <Input 
+                      id="minValue"
+                      type="number"
+                      value={editedComponent.minValue !== undefined ? editedComponent.minValue : ''}
+                      onChange={handleMinValueChange}
+                    />
+                    <p className="text-xs text-gray-500">
+                      Define el valor mínimo que puede ingresarse en este campo
                     </p>
                   </div>
                 </div>

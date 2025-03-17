@@ -1,9 +1,13 @@
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
-  ({ className, type, ...props }, ref) => {
+const Input = React.forwardRef<HTMLInputElement, React.ComponentPropsWithoutRef<"input"> & { minValue?: number }>(
+  ({ className, type, minValue, ...props }, ref) => {
+    // Apply min attribute for number inputs when minValue is provided
+    const minAttr = type === 'number' && minValue !== undefined ? { min: minValue } : {};
+    
     return (
       <input
         type={type}
@@ -12,6 +16,7 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
           className
         )}
         ref={ref}
+        {...minAttr}
         {...props}
       />
     )
