@@ -3,7 +3,11 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-const Input = React.forwardRef<HTMLInputElement, React.ComponentPropsWithoutRef<"input"> & { minValue?: number }>(
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  minValue?: number;
+}
+
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, minValue, ...props }, ref) => {
     // Apply min attribute for number inputs when minValue is provided
     const minAttr = type === 'number' && minValue !== undefined ? { min: minValue } : {};

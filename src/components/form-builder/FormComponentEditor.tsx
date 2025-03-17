@@ -24,12 +24,16 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { FormComponent, FormGroup } from "./FormBuilder";
 
+interface ExtendedFormComponent extends FormComponent {
+  minValue?: number;
+}
+
 interface FormComponentEditorProps {
-  component: FormComponent;
-  onSave: (component: FormComponent) => void;
+  component: ExtendedFormComponent;
+  onSave: (component: ExtendedFormComponent) => void;
   onCancel: () => void;
   groups?: FormGroup[];
-  allComponents?: FormComponent[];
+  allComponents?: ExtendedFormComponent[];
 }
 
 export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
@@ -39,7 +43,7 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
   groups = [],
   allComponents = []
 }) => {
-  const [editedComponent, setEditedComponent] = useState<FormComponent>({
+  const [editedComponent, setEditedComponent] = useState<ExtendedFormComponent>({
     ...component,
     maxLength: component.maxLength || (
       component.type === 'text' ? 300 : 
@@ -184,7 +188,7 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
   };
 
   const handleComponentTypeChange = (type: string) => {
-    const updatedComponent: FormComponent = {
+    const updatedComponent: ExtendedFormComponent = {
       ...editedComponent,
       type: type,
       options: ['select', 'radio', 'checkbox'].includes(type) 
@@ -403,10 +407,10 @@ export const FormComponentEditor: React.FC<FormComponentEditorProps> = ({
                       value={editedComponent.maxLength || ''}
                       onChange={(e) => handleNumberChange(e, 'maxLength')}
                       min={1}
-                      max={10000}
+                      max={20}
                     />
                     <p className="text-xs text-gray-500">
-                      {editedComponent.type === 'text' ? 'Recomendado: 300 caracteres' : 'Recomendado: 1000 caracteres'}
+                      Recomendado: Hasta 10 caracteres para números
                     </p>
                   </div>
                   

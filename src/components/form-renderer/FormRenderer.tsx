@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { v4 as uuidv4 } from "uuid";
 import { FileUploader } from "../FileUploader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { isComponentRequired, isAboveMinValue } from "@/utils/formValidationUtils";
 
 export interface FormRendererProps {
   formId: string;
@@ -52,7 +54,10 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
   const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   const validateField = (component: any, value: any) => {
-    if (component.required && (!value || (typeof value === 'string' && value.trim() === ''))) {
+    // Check if component is required based on its conditional display
+    const required = isComponentRequired(component, formData);
+    
+    if (required && (!value || (typeof value === 'string' && value.trim() === ''))) {
       return `El campo "${component.label}" es requerido.`;
     }
     
@@ -60,8 +65,14 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
       return `El campo "${component.label}" debe contener un correo electrónico válido.`;
     }
     
-    if (component.type === 'number' && value && isNaN(Number(value))) {
-      return `El campo "${component.label}" debe contener un número válido.`;
+    if (component.type === 'number' && value) {
+      if (isNaN(Number(value))) {
+        return `El campo "${component.label}" debe contener un número válido.`;
+      }
+      
+      if (component.minValue !== undefined && !isAboveMinValue(value, component.minValue)) {
+        return `El campo "${component.label}" debe ser mayor o igual a ${component.minValue}.`;
+      }
     }
     
     return null;
@@ -88,11 +99,21 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
     let errorFields: string[] = [];
     
     schema.components.forEach(component => {
-      const value = formData[component.id];
-      const error = validateField(component, value);
-      if (error) {
-        newErrors[component.id] = error;
-        errorFields.push(component.label);
+      // Only validate if the component is currently visible
+      const shouldBeDisplayed = !component.conditionalDisplay || (() => {
+        const controllingValue = formData[component.conditionalDisplay.controlledBy];
+        return component.conditionalDisplay.showWhen === 'equals'
+          ? controllingValue === component.conditionalDisplay.value
+          : controllingValue !== component.conditionalDisplay.value;
+      })();
+      
+      if (shouldBeDisplayed) {
+        const value = formData[component.id];
+        const error = validateField(component, value);
+        if (error) {
+          newErrors[component.id] = error;
+          errorFields.push(component.label);
+        }
       }
     });
 
@@ -124,14 +145,14 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
 
       const userId = (await supabase.auth.getUser()).data.user?.id;
       
-      const submissionData = {
+      let submissionData: any = {
         form_id: formId,
         response_data: formData,
-        is_anonymous: isPublic && !userId,
+        is_anonymous: isPublic && !userId
       };
       
       if (userId) {
-        submissionData['user_id'] = userId;
+        submissionData.user_id = userId;
       }
 
       const { data, error } = await supabase
