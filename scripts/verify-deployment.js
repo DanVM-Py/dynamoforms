@@ -7,6 +7,8 @@
  */
 
 const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 const deployConfig = require('../deployment.config');
 
 // Get current branch
@@ -27,6 +29,12 @@ const getTargetEnv = () => {
     return envArg.split('=')[1];
   }
   return null;
+};
+
+// Check if build exists for the target environment
+const checkBuildExists = (environment) => {
+  const buildDir = path.join(__dirname, '..', 'dist', environment);
+  return fs.existsSync(buildDir);
 };
 
 // Main verification logic
@@ -52,8 +60,19 @@ const verifyDeployment = () => {
       process.exit(1);
     }
   } else {
-    console.log(`✅ Deployment verification passed. Deploying branch '${branch}' to '${targetEnv || expectedEnv}'.`);
+    console.log(`✅ Branch '${branch}' is appropriate for '${targetEnv || expectedEnv}' environment.`);
   }
+  
+  // Check if build exists
+  if (targetEnv && !checkBuildExists(targetEnv)) {
+    console.error(`❌ ERROR: No build found for ${targetEnv} environment!`);
+    console.error(`Run 'node scripts/build-environment.js --env=${targetEnv}' first.`);
+    process.exit(1);
+  } else if (targetEnv) {
+    console.log(`✅ Build verified for ${targetEnv} environment.`);
+  }
+  
+  console.log(`✅ Deployment verification passed. Deploying branch '${branch}' to '${targetEnv || expectedEnv}'.`);
 };
 
 verifyDeployment();
