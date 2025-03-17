@@ -6,6 +6,13 @@
  * a consistent way to access environment information throughout the application.
  */
 
+// Extend Window interface to include ENV property
+declare global {
+  interface Window {
+    ENV?: string;
+  }
+}
+
 // Define all possible environment types
 export type Environment = 'development' | 'qa' | 'production';
 
