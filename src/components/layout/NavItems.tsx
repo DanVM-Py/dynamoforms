@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Network,
   Database,
+  Users,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -23,11 +24,11 @@ type NavItem = {
   href: string;
   icon: React.ElementType;
   requiredRoles?: string[];
-  section?: 'operations' | 'administration' | 'systems';
+  section?: 'operations' | 'project_administration' | 'administration' | 'systems';
 };
 
 const navItems: NavItem[] = [
-  // Operación
+  // Operación - visible for all users
   {
     title: "Dashboard",
     href: "/",
@@ -53,30 +54,46 @@ const navItems: NavItem[] = [
     section: 'operations',
   },
   
-  // Administración - visible for project_admin and global_admin
+  // Administración de Proyecto - visible for project_admin and global_admin
   {
     title: "Plantillas",
     href: "/task-templates",
     icon: Settings,
     requiredRoles: ["project_admin", "global_admin"],
-    section: 'administration',
+    section: 'project_administration',
+  },
+  {
+    title: "Roles del Proyecto",
+    href: "/project-roles",
+    icon: UserCog,
+    requiredRoles: ["project_admin", "global_admin"],
+    section: 'project_administration',
+  },
+  {
+    title: "Usuarios del Proyecto",
+    href: "/project-users",
+    icon: Users,
+    requiredRoles: ["project_admin", "global_admin"],
+    section: 'project_administration',
   },
   
-  // Systems - only for global_admin
+  // Administración - only for global_admin
+  {
+    title: "Usuarios",
+    href: "/admin",
+    icon: UserCog,
+    requiredRoles: ["global_admin"],
+    section: 'administration',
+  },
   {
     title: "Proyectos",
     href: "/projects",
     icon: FolderKanban,
     requiredRoles: ["global_admin"],
-    section: 'systems',
+    section: 'administration',
   },
-  {
-    title: "Admin",
-    href: "/admin",
-    icon: UserCog,
-    requiredRoles: ["global_admin"],
-    section: 'systems',
-  },
+  
+  // Systems - only for global_admin
   {
     title: "Monitoreo",
     href: "/systems/monitoring",
@@ -106,7 +123,8 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
 
   // Group items by section
   const operationItems = filteredNavItems.filter(item => item.section === 'operations');
-  const administrationItems = filteredNavItems.filter(item => item.section === 'administration');
+  const projectAdminItems = filteredNavItems.filter(item => item.section === 'project_administration');
+  const adminItems = filteredNavItems.filter(item => item.section === 'administration');
   const systemItems = filteredNavItems.filter(item => item.section === 'systems');
 
   const renderNavItems = (items: NavItem[]) => {
@@ -137,10 +155,17 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
         </div>
       )}
       
-      {administrationItems.length > 0 && (
+      {projectAdminItems.length > 0 && (
+        <div className="space-y-1">
+          {!collapsed && <div className="px-2 text-xs font-semibold text-muted-foreground">ADMINISTRACIÓN DE PROYECTO</div>}
+          {renderNavItems(projectAdminItems)}
+        </div>
+      )}
+      
+      {adminItems.length > 0 && (
         <div className="space-y-1">
           {!collapsed && <div className="px-2 text-xs font-semibold text-muted-foreground">ADMINISTRACIÓN</div>}
-          {renderNavItems(administrationItems)}
+          {renderNavItems(adminItems)}
         </div>
       )}
       
