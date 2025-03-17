@@ -32,7 +32,8 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
         const { data, error } = await client.functions.invoke('create-chained-task', {
           body: JSON.stringify({
             formResponseId: responseId,
-            sourceFormId: formId
+            sourceFormId: formId,
+            isAnonymous: isPublic // Pass the anonymous flag to the edge function
           }),
           headers: {
             'Content-Type': 'application/json'

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,7 +56,6 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
       return `El campo "${component.label}" es requerido.`;
     }
     
-    // Add more specific validations based on field type
     if (component.type === 'email' && value && !/\S+@\S+\.\S+/.test(value)) {
       return `El campo "${component.label}" debe contener un correo electrónico válido.`;
     }
@@ -77,7 +75,6 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
       const error = validateField(component, value);
       setErrors(prevErrors => ({ ...prevErrors, [id]: error }));
       
-      // Clear submission error when user starts typing again
       if (submissionError) {
         setSubmissionError(null);
       }
@@ -120,15 +117,21 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
     setSubmissionError(null);
 
     try {
+      if (onSubmit) {
+        onSubmit(formData);
+        return;
+      }
+
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      
       const submissionData = {
         form_id: formId,
         response_data: formData,
-        user_id: isPublic ? uuidv4() : (await supabase.auth.getUser()).data.user?.id,
+        is_anonymous: isPublic && !userId,
       };
-
-      if (onSubmit) {
-        onSubmit(submissionData);
-        return;
+      
+      if (userId) {
+        submissionData['user_id'] = userId;
       }
 
       const { data, error } = await supabase

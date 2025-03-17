@@ -3,179 +3,190 @@
 // https://deno.land/manual/getting_started/setup_your_environment
 // This enables autocomplete, go to definition, etc.
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+async function handleCreateChainedTask(
+  formResponseId: string,
+  sourceFormId: string,
+  isAnonymous: boolean,
+  supabase: SupabaseClient
+) {
+  console.log(`Creating chained task for form response: ${formResponseId}, from form: ${sourceFormId}, isAnonymous: ${isAnonymous}`);
+
+  try {
+    // Fetch the form response data
+    const { data: formResponse, error: responseError } = await supabase
+      .from("form_responses")
+      .select("*")
+      .eq("id", formResponseId)
+      .single();
+
+    if (responseError) {
+      throw new Error(`Error fetching form response: ${responseError.message}`);
+    }
+
+    if (!formResponse) {
+      throw new Error(`Form response with ID ${formResponseId} not found`);
+    }
+    
+    // Get the active task templates for this source form
+    const { data: taskTemplates, error: templatesError } = await supabase
+      .from("task_templates")
+      .select(`
+        id, 
+        title, 
+        description, 
+        source_form_id, 
+        target_form_id, 
+        assignment_type,
+        default_assignee,
+        assignee_form_field,
+        due_days,
+        inheritance_mapping,
+        project_id
+      `)
+      .eq("source_form_id", sourceFormId)
+      .eq("is_active", true);
+
+    if (templatesError) {
+      throw new Error(`Error fetching task templates: ${templatesError.message}`);
+    }
+
+    if (!taskTemplates || taskTemplates.length === 0) {
+      console.log(`No active task templates found for form ${sourceFormId}`);
+      return { message: "No task templates to process" };
+    }
+
+    // For each template, create a task
+    const createdTasks = [];
+    for (const template of taskTemplates) {
+      let assignedUserId = template.default_assignee;
+
+      // Skip task creation if this is an anonymous submission and we need specific assignee data
+      if (isAnonymous && template.assignment_type === "dynamic" && !assignedUserId) {
+        console.log(`Skipping task creation for anonymous submission because dynamic assignment is required`);
+        continue;
+      }
+      
+      // For dynamic assignment, extract assignee from form response data if possible
+      if (template.assignment_type === "dynamic" && template.assignee_form_field && !isAnonymous) {
+        const responseData = formResponse.response_data;
+        const fieldValue = responseData[template.assignee_form_field];
+        
+        if (fieldValue) {
+          // If field contains a user ID
+          assignedUserId = fieldValue;
+        }
+      }
+      
+      // If we don't have an assignee at this point, use default
+      if (!assignedUserId) {
+        // For anonymous submissions, we'll need a fallback assignee
+        // This could be a system admin or project owner
+        console.log(`No assignee determined, using default or skipping`);
+        if (!template.default_assignee) {
+          console.log(`No default assignee for template ${template.id}, skipping task creation`);
+          continue;
+        }
+        assignedUserId = template.default_assignee;
+      }
+
+      // Calculate due date if applicable
+      let dueDate = null;
+      if (template.due_days) {
+        const date = new Date();
+        date.setDate(date.getDate() + template.due_days);
+        dueDate = date.toISOString();
+      }
+
+      // Create the task
+      const { data: task, error: taskError } = await supabase
+        .from("tasks")
+        .insert({
+          title: template.title,
+          description: template.description,
+          status: "pending",
+          assigned_to: assignedUserId,
+          form_id: template.target_form_id,
+          form_response_id: formResponseId,
+          project_id: template.project_id,
+          source_form_id: sourceFormId,
+          due_date: dueDate,
+        })
+        .select()
+        .single();
+
+      if (taskError) {
+        console.error(`Error creating task: ${taskError.message}`);
+        continue;
+      }
+
+      console.log(`Created task: ${task.id}`);
+      createdTasks.push(task);
+    }
+
+    return { message: `Created ${createdTasks.length} tasks`, tasks: createdTasks };
+  } catch (err) {
+    console.error("Error in handleCreateChainedTask:", err);
+    throw err;
+  }
 }
 
 serve(async (req) => {
-  // Handle CORS preflight request
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  // Handle OPTIONS request for CORS
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    });
   }
 
   try {
-    // Get request data
-    const { formId, formResponseId, responseData, projectId, submitterId } = await req.json()
-
-    if (!formId || !formResponseId || !responseData) {
-      return new Response(
-        JSON.stringify({ error: 'Faltan parámetros requeridos' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
-    }
-
-    // Create Supabase client
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
 
-    console.log(`Procesando herencia de formulario para: ${formId}, respuesta: ${formResponseId}`)
-
-    // Find templates where this form is the source
-    let query = supabaseClient
-      .from('task_templates')
-      .select('*')
-      .eq('source_form_id', formId)
-      .eq('is_active', true)
-
-    if (projectId) {
-      query = query.eq('project_id', projectId)
-    }
-
-    const { data: templates, error } = await query
-
-    if (error) {
-      console.error("Error al buscar plantillas de tareas:", error)
-      throw error
-    }
-
-    if (!templates || templates.length === 0) {
-      console.log("No se encontraron plantillas de tareas aplicables.")
+    const requestData = await req.json();
+    const { formResponseId, sourceFormId, isAnonymous = false } = requestData;
+    
+    if (!formResponseId || !sourceFormId) {
       return new Response(
-        JSON.stringify({ success: true, message: 'No se encontraron plantillas aplicables', tasksCreated: 0 }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+        JSON.stringify({
+          error: "Missing required fields: formResponseId, sourceFormId",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
-    console.log(`Se encontraron ${templates.length} plantillas de tareas aplicables.`)
+    const result = await handleCreateChainedTask(
+      formResponseId,
+      sourceFormId,
+      isAnonymous,
+      supabaseClient
+    );
 
-    const createdTasks = []
-
-    // Process each template
-    for (const template of templates) {
-      try {
-        // Determine the assignee
-        let assigneeId = template.default_assignee
-
-        if (template.assignment_type === 'dynamic' && template.assignee_form_field) {
-          const emailField = template.assignee_form_field
-          const userEmail = responseData[emailField]
-
-          if (userEmail) {
-            // Look up user by email
-            const { data: userProfile } = await supabaseClient
-              .from('profiles')
-              .select('id')
-              .eq('email', userEmail)
-              .single()
-
-            if (userProfile) {
-              assigneeId = userProfile.id
-            }
-          }
-        }
-
-        // If no assignee could be determined, use the submitter as fallback
-        if (!assigneeId && submitterId) {
-          assigneeId = submitterId
-        }
-
-        // If still no assignee, log an error and skip this template
-        if (!assigneeId) {
-          console.error("No se pudo determinar el asignado para la tarea. La tarea no será creada.")
-          continue
-        }
-
-        // Calculate due date
-        let dueDate = null
-        if (template.due_days) {
-          const date = new Date()
-          date.setDate(date.getDate() + template.due_days)
-          dueDate = date.toISOString()
-        }
-
-        // Create task
-        const { data: task, error: taskError } = await supabaseClient
-          .from('tasks')
-          .insert({
-            title: template.title,
-            description: template.description,
-            status: 'pending',
-            assigned_to: assigneeId,
-            due_date: dueDate,
-            form_id: template.target_form_id,
-            form_response_id: formResponseId,
-            project_id: projectId || template.project_id,
-            source_form_id: formId
-          })
-          .select()
-          .single()
-
-        if (taskError) {
-          console.error("Error al crear la tarea:", taskError)
-          continue
-        }
-
-        console.log(`Tarea creada con éxito: ${task.id}`)
-        createdTasks.push(task)
-
-        // Create notification for the assignee
-        await supabaseClient
-          .from('notifications')
-          .insert({
-            user_id: assigneeId,
-            title: 'Nueva tarea asignada',
-            message: `Se te ha asignado una nueva tarea: ${template.title}`,
-            type: 'task_assigned',
-            read: false,
-            project_id: projectId || template.project_id,
-            metadata: {
-              task_id: task.id,
-              form_id: template.target_form_id
-            }
-          })
-
-        // Apply inheritance mapping if available
-        if (template.inheritance_mapping && Object.keys(template.inheritance_mapping).length > 0) {
-          console.log("Procesando mapeo de campos para prepoblar la tarea")
-          // This functionality would be responsible for prepopulating form fields
-          // It's handled on the frontend when opening the form
-        }
-      } catch (templateError) {
-        console.error(`Error procesando plantilla ${template.id}:`, templateError)
-      }
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Se crearon ${createdTasks.length} tareas basadas en plantillas`,
-        tasksCreated: createdTasks.length,
-        tasks: createdTasks
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
-    console.error("Error general:", error)
+    console.error("Error processing request:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    )
+      JSON.stringify({ error: error.message || "Unknown error occurred" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
-})
+});

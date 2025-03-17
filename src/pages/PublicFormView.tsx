@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,9 +93,10 @@ const PublicFormView = () => {
       
       const responsePayload = {
         form_id: formId,
-        user_id: anonymousUserId, // Using a UUID as anonymous user ID
         response_data: formData,
-        submitted_at: new Date().toISOString()
+        submitted_at: new Date().toISOString(),
+        is_anonymous: true, // Mark this as an anonymous submission
+        // Don't include user_id for anonymous submissions
       };
       
       console.log("[PublicFormView] Sending payload:", responsePayload);

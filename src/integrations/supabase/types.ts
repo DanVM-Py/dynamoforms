@@ -13,23 +13,26 @@ export type Database = {
         Row: {
           form_id: string
           id: string
+          is_anonymous: boolean
           response_data: Json
           submitted_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           form_id: string
           id?: string
+          is_anonymous?: boolean
           response_data?: Json
           submitted_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           form_id?: string
           id?: string
+          is_anonymous?: boolean
           response_data?: Json
           submitted_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
