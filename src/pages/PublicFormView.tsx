@@ -137,7 +137,8 @@ export function PublicFormView() {
         <FormRenderer
           schema={formData}
           onSubmit={submitForm}
-          isSubmitting={submitting}
+          formId={formId || ''}
+          readOnly={false}
           isPublic={true}
         />
       </div>
