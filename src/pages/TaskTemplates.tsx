@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -23,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus, Edit, Trash2, Loader2, ReloadIcon } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
@@ -284,21 +283,19 @@ const TaskTemplates = () => {
 
       const { data, error } = await supabase
         .from('task_templates')
-        .insert([
-          {
-            title,
-            description,
-            source_form_id: sourceFormId,
-            target_form_id: targetFormId,
-            is_active: isActive,
-            project_id: projectId,
-            inheritance_mapping: inheritanceMapping,
-            assignment_type: assignmentType,
-            default_assignee: defaultAssignee,
-            due_days: dueDays,
-            assignee_form_field: assigneeFormField
-          },
-        ])
+        .insert({
+          title,
+          description,
+          source_form_id: sourceFormId,
+          target_form_id: targetFormId,
+          is_active: isActive,
+          project_id: projectId,
+          inheritance_mapping: inheritanceMapping,
+          assignment_type: assignmentType,
+          default_assignee: defaultAssignee,
+          due_days: dueDays,
+          assignee_form_field: assigneeFormField
+        })
         .select();
 
       if (error) {
@@ -497,16 +494,17 @@ const TaskTemplates = () => {
         // Skip if profiles is null
         if (!projectUser.profiles) continue;
         
-        // Create a local variable
+        // Create a local variable and verify it's not null
         const profilesObj = projectUser.profiles;
+        if (!profilesObj) continue;
         
         // Check if it's an object with the required properties
         if (typeof profilesObj !== 'object') continue;
         
-        // Safely check each property
-        const id = 'id' in profilesObj ? profilesObj.id : null;
-        const name = 'name' in profilesObj ? profilesObj.name : null;
-        const email = 'email' in profilesObj ? profilesObj.email : null;
+        // Safely extract each property with null checking
+        const id = profilesObj && 'id' in profilesObj ? profilesObj.id : null;
+        const name = profilesObj && 'name' in profilesObj ? profilesObj.name : null;
+        const email = profilesObj && 'email' in profilesObj ? profilesObj.email : null;
         
         // Only add to users if all properties are non-null
         if (id !== null && name !== null && email !== null) {
@@ -957,3 +955,4 @@ const TaskTemplates = () => {
 };
 
 export default TaskTemplates;
+
