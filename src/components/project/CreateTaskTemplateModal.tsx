@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { 
   Dialog, 
@@ -32,7 +31,6 @@ interface CreateTaskTemplateModalProps {
   onSuccess?: () => void;
 }
 
-// Define schema for task template form
 const taskTemplateSchema = z.object({
   title: z.string().min(2, { message: "El título debe tener al menos 2 caracteres" }),
   description: z.string().optional(),
@@ -48,7 +46,6 @@ const taskTemplateSchema = z.object({
 
 type TaskTemplateFormValues = z.infer<typeof taskTemplateSchema>;
 
-// Type definition for form schema structure
 interface FormComponent {
   key: string;
   label?: string;
@@ -59,7 +56,6 @@ interface FormSchema {
   components?: FormComponent[];
 }
 
-// Component for field mapping between forms
 interface FieldMappingProps {
   sourceFormId: string;
   targetFormId: string;
@@ -79,7 +75,6 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
   const [compatibleFields, setCompatibleFields] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
 
-  // Fetch forms schemas
   useEffect(() => {
     const fetchFormSchemas = async () => {
       setLoading(true);
@@ -88,7 +83,6 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
           return;
         }
 
-        // Fetch source form schema
         const { data: sourceForm, error: sourceError } = await supabase
           .from('forms')
           .select('schema')
@@ -97,7 +91,6 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
 
         if (sourceError) throw sourceError;
 
-        // Fetch target form schema
         const { data: targetForm, error: targetError } = await supabase
           .from('forms')
           .select('schema')
@@ -106,14 +99,12 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
 
         if (targetError) throw targetError;
 
-        // Safely parse or assign schemas
         const safeSourceSchema = sourceForm.schema as FormSchema || { components: [] };
         const safeTargetSchema = targetForm.schema as FormSchema || { components: [] };
 
         setSourceSchema(safeSourceSchema);
         setTargetSchema(safeTargetSchema);
 
-        // Calculate compatible fields
         const compatibilityMap = calculateCompatibleFields(safeSourceSchema, safeTargetSchema);
         setCompatibleFields(compatibilityMap);
       } catch (error) {
@@ -126,7 +117,6 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
     fetchFormSchemas();
   }, [sourceFormId, targetFormId]);
 
-  // Determine which fields are compatible between forms
   const calculateCompatibleFields = (sourceSchema: FormSchema, targetSchema: FormSchema) => {
     const result: Record<string, string[]> = {};
 
@@ -134,7 +124,6 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
       return result;
     }
 
-    // Map each target field to source fields of compatible types
     targetSchema.components.forEach((targetComp) => {
       if (!targetComp.key) return;
 
@@ -144,7 +133,6 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
       sourceSchema.components.forEach((sourceComp) => {
         if (!sourceComp.key) return;
 
-        // Fields are compatible if they are the same type
         if (sourceComp.type === targetType) {
           compatibleSourceFields.push(sourceComp.key);
         }
@@ -158,15 +146,12 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
     return result;
   };
 
-  // Handle field mapping change
   const handleFieldChange = (targetField: string, sourceField: string) => {
     const newMapping = { ...mapping };
     
     if (sourceField === "") {
-      // If empty selection, remove the mapping
       delete newMapping[targetField];
     } else {
-      // Otherwise, set the mapping
       newMapping[targetField] = sourceField;
     }
     
@@ -174,7 +159,6 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
     onChange(newMapping);
   };
 
-  // Get label for a field from schema
   const getFieldLabel = (schema: FormSchema | null, fieldKey: string) => {
     if (!schema?.components) return fieldKey;
     
@@ -253,7 +237,10 @@ export const CreateTaskTemplateModal = ({
   const [currentTab, setCurrentTab] = useState('general');
   const [inheritanceMapping, setInheritanceMapping] = useState<Record<string, string>>({});
   
-  // Setup form with react-hook-form
+  useEffect(() => {
+    console.log("CreateTaskTemplateModal - projectId:", projectId);
+  }, [projectId]);
+  
   const form = useForm<TaskTemplateFormValues>({
     resolver: zodResolver(taskTemplateSchema),
     defaultValues: {
@@ -270,20 +257,19 @@ export const CreateTaskTemplateModal = ({
     },
   });
 
-  // Watch form values for conditional rendering
   const watchSourceFormId = form.watch('source_form_id');
   const watchTargetFormId = form.watch('target_form_id');
   const watchAssignmentType = form.watch('assignment_type');
 
-  // Fetch project forms for selection
-  const { data: forms, isLoading: isLoadingForms, refetch: refetchForms } = useQuery({
+  const { data: forms, isLoading: isLoadingForms, refetch: refetchForms, error: formsError } = useQuery({
     queryKey: ['forms', projectId],
     queryFn: async () => {
       if (!projectId) {
-        console.warn("Project ID is missing");
+        console.warn("Project ID is missing for forms query");
         return [];
       }
 
+      console.log(`Fetching forms for project: ${projectId}`);
       const { data, error } = await supabase
         .from('forms')
         .select('*')
@@ -294,20 +280,28 @@ export const CreateTaskTemplateModal = ({
         console.error("Error fetching forms:", error);
         throw error;
       }
+      
+      console.log(`Found ${data?.length || 0} forms for project ${projectId}`);
       return data || [];
     },
     enabled: !!projectId && open,
   });
 
-  // Fetch project users for assignee selection
-  const { data: projectUsers, isLoading: isLoadingUsers } = useQuery({
+  useEffect(() => {
+    if (formsError) {
+      console.error("Forms query error:", formsError);
+    }
+  }, [formsError]);
+
+  const { data: projectUsers, isLoading: isLoadingUsers, error: usersError } = useQuery({
     queryKey: ['projectUsers', projectId],
     queryFn: async () => {
       if (!projectId) {
-        console.warn("Project ID is missing");
+        console.warn("Project ID is missing for projectUsers query");
         return [];
       }
 
+      console.log(`Fetching users for project: ${projectId}`);
       const { data, error } = await supabase
         .from('project_users')
         .select(`
@@ -322,45 +316,49 @@ export const CreateTaskTemplateModal = ({
         throw error;
       }
       
-      // Map and filter out any null profiles
-      return data
-        .map(pu => pu.profiles)
-        .filter(Boolean) || [];
+      const users = data
+        .filter(pu => pu.profiles !== null)
+        .map(pu => pu.profiles) || [];
+        
+      console.log(`Found ${users.length} users for project ${projectId}`);
+      return users;
     },
     enabled: !!projectId && open,
   });
 
-  // Reset form when dialog opens
+  useEffect(() => {
+    if (usersError) {
+      console.error("Users query error:", usersError);
+    }
+  }, [usersError]);
+
   useEffect(() => {
     if (open) {
-      form.reset();
+      form.reset({
+        ...form.getValues(),
+        project_id: projectId
+      });
       setInheritanceMapping({});
       setCurrentTab('general');
+      
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: ['forms', projectId] });
+        queryClient.invalidateQueries({ queryKey: ['projectUsers', projectId] });
+      }
     }
-  }, [open, form]);
+  }, [open, projectId, form, queryClient]);
 
-  // Update mapping when source/target forms change
-  useEffect(() => {
-    if (watchSourceFormId && watchTargetFormId) {
-      setInheritanceMapping({});
-      form.setValue('inheritance_mapping', {});
-    }
-  }, [watchSourceFormId, watchTargetFormId, form]);
-
-  // Handle field mapping changes
   const handleMappingChange = (newMapping: Record<string, string>) => {
     setInheritanceMapping(newMapping);
     form.setValue('inheritance_mapping', newMapping);
   };
 
-  // Get email fields from source form for dynamic assignment
   const getEmailFields = () => {
     if (!watchSourceFormId || !forms) return [];
     
     const sourceForm = forms.find(f => f.id === watchSourceFormId);
     if (!sourceForm || !sourceForm.schema) return [];
     
-    // Use type casting to handle schema structure
     const schema = sourceForm.schema as FormSchema;
     if (!schema.components) return [];
     
@@ -372,14 +370,12 @@ export const CreateTaskTemplateModal = ({
       }));
   };
 
-  // Mutation for creating a task template
   const createTemplateMutation = useMutation({
     mutationFn: async (data: TaskTemplateFormValues) => {
       if (!projectId) {
         throw new Error("Project ID is required");
       }
       
-      // Make sure required fields are present
       const templateData = {
         project_id: projectId,
         title: data.title,
@@ -419,20 +415,26 @@ export const CreateTaskTemplateModal = ({
     },
   });
 
-  // Submit handler
   const onSubmit = (values: TaskTemplateFormValues) => {
     createTemplateMutation.mutate(values);
   };
 
-  // Get email fields for dynamic assignment
   const emailFields = getEmailFields();
 
-  // Handle form refresh
   const handleRefreshForms = () => {
+    if (!projectId) {
+      toast({
+        title: "Error",
+        description: "No project selected. Can't fetch forms.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     refetchForms();
     toast({
       title: "Actualizando",
-      description: "Refrescando lista de formularios...",
+      description: `Refrescando lista de formularios para proyecto ${projectId}...`,
     });
   };
 

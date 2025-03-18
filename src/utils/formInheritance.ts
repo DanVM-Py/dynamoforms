@@ -17,7 +17,7 @@ export const processFormInheritance = async (
   submitterId?: string
 ) => {
   try {
-    console.log(`Procesando herencia de formulario para: ${formId}, respuesta: ${formResponseId}`);
+    console.log(`Procesando herencia de formulario para: ${formId}, respuesta: ${formResponseId}, proyecto: ${projectId || 'no especificado'}`);
     
     // Find templates where this form is the source
     let query = supabase
@@ -26,7 +26,9 @@ export const processFormInheritance = async (
       .eq('source_form_id', formId)
       .eq('is_active', true);
     
+    // Add project filter if available
     if (projectId) {
+      console.log(`Filtrando por proyecto: ${projectId}`);
       query = query.eq('project_id', projectId);
     }
     
@@ -68,7 +70,8 @@ const createTaskFromTemplate = async (
   submitterId?: string
 ) => {
   try {
-    console.log(`Creando tarea desde plantilla: ${template.title}`);
+    console.log(`Creando tarea desde plantilla: ${template.title} (ID: ${template.id})`);
+    console.log(`Proyecto de la plantilla: ${template.project_id}, Proyecto del contexto: ${projectId}`);
     
     // Determine the assignee
     let assigneeId = template.default_assignee;
@@ -110,6 +113,16 @@ const createTaskFromTemplate = async (
       dueDate = date.toISOString();
     }
     
+    // Resolve project ID (use passed projectId first, fallback to template's project_id)
+    const finalProjectId = projectId || template.project_id;
+    
+    if (!finalProjectId) {
+      console.error("No se pudo determinar el proyecto para la tarea. La tarea no será creada.");
+      return;
+    }
+    
+    console.log(`Proyecto final para la tarea: ${finalProjectId}`);
+    
     // Create task
     const { data: task, error } = await supabase
       .from('tasks')
@@ -121,7 +134,7 @@ const createTaskFromTemplate = async (
         due_date: dueDate,
         form_id: template.target_form_id,
         form_response_id: formResponseId,
-        project_id: projectId || template.project_id,
+        project_id: finalProjectId,
         source_form_id: sourceFormId,
         priority: 'medium'
       })
@@ -133,7 +146,7 @@ const createTaskFromTemplate = async (
       return;
     }
     
-    console.log(`Tarea creada con éxito: ${task.id}`);
+    console.log(`Tarea creada con éxito: ${task.id} en proyecto ${finalProjectId}`);
     
     // Create notification for the assignee
     await supabase
@@ -144,7 +157,7 @@ const createTaskFromTemplate = async (
         message: `Se te ha asignado una nueva tarea: ${template.title}`,
         type: 'task_assigned',
         read: false,
-        project_id: projectId || template.project_id,
+        project_id: finalProjectId,
         metadata: {
           task_id: task.id,
           form_id: template.target_form_id,

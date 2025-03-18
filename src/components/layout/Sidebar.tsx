@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
@@ -10,7 +9,11 @@ import { Button } from '@/components/ui/button';
 import NavItems from './NavItems';
 import { supabase } from '@/integrations/supabase/client';
 
-export function Sidebar() {
+interface SidebarProps {
+  forceVisible?: boolean;
+}
+
+export function Sidebar({ forceVisible = false }: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
@@ -24,11 +27,11 @@ export function Sidebar() {
   useEffect(() => {
     setIsExpanded(!isMobile);
     
-    // Don't auto-close mobile menu on specific pages that need sidebar always visible
-    if (isMobile && !isAllowedPath(location.pathname)) {
+    // Don't auto-close mobile menu on specific pages or if forceVisible is true
+    if (isMobile && !forceVisible) {
       setIsMobileMenuOpen(false);
     }
-  }, [isMobile, location.pathname]);
+  }, [isMobile, location.pathname, forceVisible]);
 
   // Function to check if the current path needs sidebar to stay visible
   const isAllowedPath = (path: string) => {
@@ -179,7 +182,7 @@ export function Sidebar() {
     <>
       {overlay}
       
-      {isMobile && (
+      {isMobile && !forceVisible && (
         <button
           onClick={toggleMobileMenu}
           className="fixed bottom-4 right-4 z-30 bg-purple-600 text-white p-3 rounded-full shadow-lg hover:bg-purple-700 transition-colors md:hidden"

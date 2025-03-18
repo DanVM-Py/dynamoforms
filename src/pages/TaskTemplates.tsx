@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -105,7 +104,6 @@ const TaskTemplates = () => {
   const queryClient = useQueryClient();
   const { user, userProfile } = useAuth();
 
-  // Establecer el projectId inicial desde el userProfile
   useEffect(() => {
     if (userProfile?.project_id) {
       setProjectId(userProfile.project_id);
@@ -153,10 +151,9 @@ const TaskTemplates = () => {
 
       return data;
     },
-    enabled: true, // Always fetch templates
+    enabled: true,
   });
 
-  // Buscar los detalles de los formularios de origen y destino por separado
   const {
     data: forms,
     isLoading: isLoadingForms,
@@ -179,7 +176,7 @@ const TaskTemplates = () => {
 
       return data;
     },
-    enabled: !!projectId, // Solo ejecutar cuando projectId esté disponible
+    enabled: !!projectId,
   });
 
   const {
@@ -217,7 +214,6 @@ const TaskTemplates = () => {
     enabled: !!projectId,
   });
 
-  // Usamos un Map para almacenar los formularios por ID para referencia rápida
   const formsMap = React.useMemo(() => {
     const map = new Map<string, Form>();
     if (forms) {
@@ -232,11 +228,9 @@ const TaskTemplates = () => {
     if (!data || !Array.isArray(data)) return [];
     
     return data.map(template => {
-      // Obtener formularios de nuestro map
       const sourceForm = formsMap.get(template.source_form_id) || null;
       const targetForm = formsMap.get(template.target_form_id) || null;
       
-      // Asegurarse de que assignmentType es del tipo correcto
       const assignmentType: AssignmentType = template.assignment_type === "dynamic" 
         ? "dynamic" 
         : "static";
@@ -456,9 +450,9 @@ const TaskTemplates = () => {
     setIsTemplateAll(newFilter === "all");
   };
 
-  // Función mejorada para obtener usuarios del proyecto
   const getProjectUsers = async (projectId: string): Promise<User[]> => {
     try {
+      console.log(`Fetching users for project: ${projectId}`);
       const { data, error } = await supabase
         .from('project_users')
         .select(`
@@ -481,13 +475,7 @@ const TaskTemplates = () => {
       if (!data) return users;
       
       for (const projectUser of data) {
-        // Verificamos que projectUser.profiles exista y tenga las propiedades necesarias
-        if (projectUser.profiles && 
-            typeof projectUser.profiles === 'object' && 
-            'id' in projectUser.profiles && 
-            'name' in projectUser.profiles && 
-            'email' in projectUser.profiles) {
-          
+        if (projectUser.profiles) {
           const profile = projectUser.profiles as { id: string; name: string; email: string };
           
           users.push({
@@ -498,6 +486,7 @@ const TaskTemplates = () => {
         }
       }
       
+      console.log(`Found ${users.length} users for project ${projectId}`);
       return users;
     } catch (error) {
       console.error("Error fetching project users:", error);
@@ -505,7 +494,6 @@ const TaskTemplates = () => {
     }
   };
 
-  // Función para obtener campos de email de un formulario
   const getEmailFieldsFromForm = (formId: string): { key: string, label: string }[] => {
     const form = formsMap.get(formId);
     if (!form || !form.schema || !form.schema.components) {
@@ -631,7 +619,6 @@ const TaskTemplates = () => {
         </Alert>
       )}
 
-      {/* Dialogo de edición */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
