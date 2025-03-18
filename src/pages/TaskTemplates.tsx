@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -465,7 +466,7 @@ const TaskTemplates = () => {
         .from('project_users')
         .select(`
           user_id,
-          profiles:profiles!user_id(id, name, email)
+          profiles:profiles!inner(id, name, email)
         `)
         .eq('project_id', projectId);
 
@@ -823,6 +824,8 @@ const TaskTemplates = () => {
           refetchTaskTemplates();
         }}
       />
-      
+    </div>
+  );
+};
 
-
+export default TaskTemplates;
