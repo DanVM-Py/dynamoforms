@@ -194,8 +194,8 @@ export function CreateTaskTemplateModal({
           if (projectUser.profiles && typeof projectUser.profiles === 'object') {
             users.push({
               id: projectUser.profiles.id,
-              name: projectUser.profiles.name,
-              email: projectUser.profiles.email,
+              name: projectUser.profiles.name || 'Usuario sin nombre',
+              email: projectUser.profiles.email || 'No email',
             });
           }
         }
