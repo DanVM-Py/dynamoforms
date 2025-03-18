@@ -131,30 +131,34 @@ const TaskTemplatesPage = () => {
       return data.map(template => {
         let sourceForm = null;
         if (template.source_form && 
-            typeof template.source_form === 'object' && 
-            template.source_form !== null) {
-          if ('id' in template.source_form && 
-              'title' in template.source_form && 
-              template.source_form.id !== null && 
-              template.source_form.title !== null) {
+            typeof template.source_form === 'object') {
+          // Create a temporary variable to avoid repeated null checks
+          const tempSourceForm = template.source_form;
+          if (tempSourceForm !== null &&
+              'id' in tempSourceForm && 
+              'title' in tempSourceForm && 
+              tempSourceForm.id !== null && 
+              tempSourceForm.title !== null) {
             sourceForm = { 
-              id: String(template.source_form.id), 
-              title: String(template.source_form.title) 
+              id: String(tempSourceForm.id), 
+              title: String(tempSourceForm.title) 
             };
           }
         }
         
         let targetForm = null;
         if (template.target_form && 
-            typeof template.target_form === 'object' && 
-            template.target_form !== null) {
-          if ('id' in template.target_form && 
-              'title' in template.target_form && 
-              template.target_form.id !== null && 
-              template.target_form.title !== null) {
+            typeof template.target_form === 'object') {
+          // Create a temporary variable to avoid repeated null checks
+          const tempTargetForm = template.target_form;
+          if (tempTargetForm !== null &&
+              'id' in tempTargetForm && 
+              'title' in tempTargetForm && 
+              tempTargetForm.id !== null && 
+              tempTargetForm.title !== null) {
             targetForm = { 
-              id: String(template.target_form.id), 
-              title: String(template.target_form.title) 
+              id: String(tempTargetForm.id), 
+              title: String(tempTargetForm.title) 
             };
           }
         }
@@ -234,18 +238,20 @@ const TaskTemplatesPage = () => {
       const users: User[] = [];
       for (const projectUser of data) {
         if (projectUser.profiles && 
-            typeof projectUser.profiles === 'object' && 
-            projectUser.profiles !== null) {
-          if ('id' in projectUser.profiles && 
-              'name' in projectUser.profiles && 
-              'email' in projectUser.profiles && 
-              projectUser.profiles.id !== null && 
-              projectUser.profiles.name !== null && 
-              projectUser.profiles.email !== null) {
+            typeof projectUser.profiles === 'object') {
+          // Create a temporary variable to avoid repeated null checks
+          const tempProfiles = projectUser.profiles;
+          if (tempProfiles !== null &&
+              'id' in tempProfiles && 
+              'name' in tempProfiles && 
+              'email' in tempProfiles && 
+              tempProfiles.id !== null && 
+              tempProfiles.name !== null && 
+              tempProfiles.email !== null) {
             users.push({
-              id: String(projectUser.profiles.id),
-              name: String(projectUser.profiles.name),
-              email: String(projectUser.profiles.email)
+              id: String(tempProfiles.id),
+              name: String(tempProfiles.name),
+              email: String(tempProfiles.email)
             });
           }
         }
