@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { EnvironmentBadge } from '@/components/environment/EnvironmentBadge';
 import { EnvironmentIndicator } from '@/components/environment/EnvironmentIndicator';
 import { environment, isProduction } from '@/config/environment';
-import { DeploymentDiagnostic } from '@/components/environment/DeploymentDiagnostic';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -72,7 +71,6 @@ const Index = () => {
       <Tabs defaultValue="dashboard" className="space-y-4">
         <TabsList>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="diagnostics">Diagnóstico de Despliegue</TabsTrigger>
         </TabsList>
         
         <TabsContent value="dashboard">
@@ -114,10 +112,6 @@ const Index = () => {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-        
-        <TabsContent value="diagnostics">
-          <DeploymentDiagnostic />
         </TabsContent>
       </Tabs>
       
