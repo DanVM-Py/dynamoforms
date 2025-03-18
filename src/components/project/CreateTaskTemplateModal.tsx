@@ -173,7 +173,7 @@ export function CreateTaskTemplateModal({
         .from("project_users")
         .select(`
           user_id,
-          profiles:profiles!inner(id, name, email)
+          profiles:profiles!project_users_user_id_fkey(id, name, email)
         `)
         .eq("project_id", projectId);
 
@@ -191,7 +191,7 @@ export function CreateTaskTemplateModal({
       
       if (data) {
         for (const projectUser of data) {
-          if (projectUser.profiles && typeof projectUser.profiles === 'object') {
+          if (projectUser.profiles) {
             users.push({
               id: projectUser.profiles.id,
               name: projectUser.profiles.name || 'Usuario sin nombre',
