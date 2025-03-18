@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -84,7 +85,7 @@ interface Task {
 const TasksPage = () => {
   const [currentFilter, setCurrentFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const { projectId } = useParams();
+  const { projectId } = useParams<{ projectId: string }>();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -92,6 +93,12 @@ const TasksPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!projectId) {
+      console.warn("Project ID is missing.");
+    }
+  }, [projectId]);
 
   const taskSchema = z.object({
     title: z.string().min(2, {
@@ -124,7 +131,10 @@ const TasksPage = () => {
   const { data: tasks, isLoading, refetch } = useQuery({
     queryKey: ['tasks', projectId, currentFilter, searchQuery],
     queryFn: async () => {
-      if (!projectId) return [];
+      if (!projectId) {
+        console.warn("Project ID is missing.");
+        return [];
+      }
 
       let query = supabase
         .from('tasks')

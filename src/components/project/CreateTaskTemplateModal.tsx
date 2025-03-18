@@ -263,6 +263,11 @@ export const CreateTaskTemplateModal = ({
   const { data: forms, isLoading: isLoadingForms } = useQuery({
     queryKey: ['forms', projectId],
     queryFn: async () => {
+      if (!projectId) {
+        console.warn("Project ID is missing");
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('forms')
         .select('*')
@@ -279,6 +284,11 @@ export const CreateTaskTemplateModal = ({
   const { data: projectUsers, isLoading: isLoadingUsers } = useQuery({
     queryKey: ['projectUsers', projectId],
     queryFn: async () => {
+      if (!projectId) {
+        console.warn("Project ID is missing");
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('project_users')
         .select(`
@@ -320,6 +330,10 @@ export const CreateTaskTemplateModal = ({
   // Mutation for creating a task template
   const createTemplateMutation = useMutation({
     mutationFn: async (data: TaskTemplateFormValues) => {
+      if (!projectId) {
+        throw new Error("Project ID is required");
+      }
+      
       // Make sure required fields are present
       const templateData = {
         project_id: projectId,
