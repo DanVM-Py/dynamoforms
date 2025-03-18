@@ -1,5 +1,5 @@
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
@@ -25,9 +25,20 @@ const ProtectedRoute = ({
 }: ProtectedRouteProps) => {
   const { user, userProfile, loading, isGlobalAdmin, isProjectAdmin, isApprover } = useAuth();
   const location = useLocation();
-
-  // Show loading state while checking authentication
-  if (loading) {
+  const [showLoading, setShowLoading] = useState(true);
+  
+  // Set a maximum loading time to prevent infinite loading states
+  useEffect(() => {
+    // Only show the loading indicator for 5 seconds maximum
+    const timer = setTimeout(() => {
+      setShowLoading(false);
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
+  // Show loading state while checking authentication, but only for a limited time
+  if (loading && showLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="flex flex-col items-center bg-white p-8 rounded-lg shadow-sm">

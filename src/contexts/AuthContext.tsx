@@ -1,5 +1,5 @@
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
 import { toast } from "@/components/ui/use-toast";
@@ -26,8 +26,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
   const [isProjectAdmin, setIsProjectAdmin] = useState(false);
   const [isApprover, setIsApprover] = useState(false);
+  const [fetchComplete, setFetchComplete] = useState(false);
 
-  const fetchUserProfile = async (userId: string, skipLoading = false) => {
+  const fetchUserProfile = useCallback(async (userId: string, skipLoading = false) => {
     try {
       if (!skipLoading) setLoading(true);
       
@@ -68,18 +69,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("User is project admin:", isAdmin);
         setIsProjectAdmin(isAdmin);
       }
+      
+      setFetchComplete(true);
     } catch (error) {
       console.error("Error in user profile workflow:", error);
+      setFetchComplete(true);
     } finally {
       if (!skipLoading) setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     // Get initial session and set up auth state change listener
+    let authListener: { data: { subscription: { unsubscribe: () => void } } } | null = null;
+    
     const initializeAuth = async () => {
       try {
         setLoading(true);
+        setFetchComplete(false);
         
         // Get current session
         const { data: { session } } = await supabase.auth.getSession();
@@ -90,10 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (session?.user) {
           await fetchUserProfile(session.user.id, true);
+        } else {
+          setFetchComplete(true);
         }
         
         // Set up auth state change listener
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        authListener = supabase.auth.onAuthStateChange(
           async (event, newSession) => {
             console.log("Auth state changed:", event, !!newSession);
             setSession(newSession);
@@ -106,30 +115,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setIsGlobalAdmin(false);
               setIsProjectAdmin(false);
               setIsApprover(false);
+              setFetchComplete(true);
             }
           }
         );
-        
-        return () => {
-          subscription.unsubscribe();
-        };
       } catch (error) {
         console.error("Error initializing auth:", error);
+        setFetchComplete(true);
       } finally {
         setLoading(false);
       }
     };
 
     initializeAuth();
-  }, []);
+    
+    return () => {
+      // Clean up auth listener on unmount
+      if (authListener) {
+        authListener.data.subscription.unsubscribe();
+      }
+    };
+  }, [fetchUserProfile]);
 
-  const refreshUserProfile = async () => {
+  const refreshUserProfile = useCallback(async () => {
     if (user) {
       await fetchUserProfile(user.id);
     }
-  };
+  }, [user, fetchUserProfile]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -169,19 +183,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const value = {
+  // Use memoized context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     session,
     user,
     userProfile,
-    loading,
+    loading: loading || !fetchComplete, // Consider loading until fetch is complete
     signOut,
     isGlobalAdmin,
     isProjectAdmin,
     isApprover,
     refreshUserProfile
-  };
+  }), [session, user, userProfile, loading, fetchComplete, signOut, isGlobalAdmin, isProjectAdmin, isApprover, refreshUserProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

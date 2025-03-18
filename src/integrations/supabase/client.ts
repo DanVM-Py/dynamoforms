@@ -14,6 +14,7 @@ export const SERVICES = {
 };
 
 // Create a single instance of the Supabase client for the main API
+// Set reasonable timeouts to prevent hanging requests
 const supabaseClient = createClient<Database>(
   config.supabaseUrl, 
   config.supabaseAnonKey,
@@ -22,24 +23,33 @@ const supabaseClient = createClient<Database>(
       storageKey: config.storage.authTokenKey,
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: true
+      detectSessionInUrl: false // Disable to prevent navigation issues
     },
     db: {
       schema: 'public'
     },
-    // Disable the cache to prevent stale data
     global: {
       fetch: (url, options) => {
+        // Create a controller with timeout to prevent hanging requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
         return fetch(url, { 
           ...options, 
           cache: 'no-store',
-          // Add signal abort controller with reasonable timeout
-          signal: options?.signal || new AbortController().signal
+          signal: controller.signal
+        }).finally(() => {
+          clearTimeout(timeoutId);
         });
       }
     }
   }
 );
+
+// Set headers to avoid CORS issues
+if (typeof window !== 'undefined') {
+  supabaseClient.realtime.setAuth(localStorage.getItem(config.storage.authTokenKey) || '');
+}
 
 // Export the main API client as the default supabase client
 export const supabase = supabaseClient;

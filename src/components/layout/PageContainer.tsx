@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +14,11 @@ interface PageContainerProps {
 export const PageContainer = ({ children, className, hideSidebar = false, title }: PageContainerProps) => {
   const { user, loading } = useAuth();
   const isAuthenticated = !!user && !loading;
+  
+  // Log container rendering for debugging
+  useEffect(() => {
+    console.log("PageContainer rendered. User:", !!user, "Loading:", loading, "Authenticated:", isAuthenticated);
+  }, [user, loading, isAuthenticated]);
   
   return (
     <div className="flex min-h-screen bg-gray-50">

@@ -170,7 +170,6 @@ const Admin = () => {
       <Tabs defaultValue="users" className="space-y-4">
         <TabsList>
           <TabsTrigger value="users">Usuarios Globales</TabsTrigger>
-          <TabsTrigger value="database">Base de Datos</TabsTrigger>
           {isDevelopment && <TabsTrigger value="debug">Herramientas de Desarrollo</TabsTrigger>}
         </TabsList>
         
@@ -253,20 +252,6 @@ const Admin = () => {
                   </Table>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="database" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Gestión de Base de Datos</CardTitle>
-              <CardDescription>
-                Estadísticas y operaciones de la base de datos
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p>Herramientas de base de datos en construcción</p>
             </CardContent>
           </Card>
         </TabsContent>
