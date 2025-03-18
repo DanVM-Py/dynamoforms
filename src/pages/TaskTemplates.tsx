@@ -149,12 +149,10 @@ const TaskTemplates = () => {
           assignee_form_field
         `);
         
-      // First apply project filter if available
       if (projectId) {
         query = query.eq('project_id', projectId);
       }
       
-      // Then apply active/inactive filter
       if (filter === "active") {
         query = query.eq('is_active', true);
       } else if (filter === "inactive") {
@@ -281,7 +279,6 @@ const TaskTemplates = () => {
     return transformTaskTemplates(taskTemplatesData);
   }, [taskTemplatesData, formsMap]);
 
-  // Load form schemas when form IDs change during editing
   useEffect(() => {
     const loadFormSchema = async (formId: string, setSchema: (schema: any) => void) => {
       if (!formId) {
@@ -532,7 +529,7 @@ const TaskTemplates = () => {
         .from('project_users')
         .select(`
           user_id,
-          profiles:user_id(id, name, email)
+          profiles(id, name, email)
         `)
         .eq('project_id', projectId)
         .eq('status', 'active');
@@ -579,25 +576,20 @@ const TaskTemplates = () => {
       }));
   };
 
-  // Define field type compatibility
   const areFieldTypesCompatible = (sourceType: string, targetType: string) => {
-    // Define groups of compatible field types
     const textTypes = ['textfield', 'textarea', 'text'];
     const numberTypes = ['number', 'currency'];
     const dateTypes = ['datetime', 'date'];
     const selectionTypes = ['select', 'radio', 'checkbox'];
     
-    // Check if both types are in the same compatibility group
     if (textTypes.includes(sourceType) && textTypes.includes(targetType)) return true;
     if (numberTypes.includes(sourceType) && numberTypes.includes(targetType)) return true;
     if (dateTypes.includes(sourceType) && dateTypes.includes(targetType)) return true;
     if (selectionTypes.includes(sourceType) && selectionTypes.includes(targetType)) return true;
     
-    // Exact match for other types
     return sourceType === targetType;
   };
 
-  // Helper functions for inheritance mapping
   const getSourceFormFields = () => {
     if (!sourceFormSchema || !sourceFormSchema.components) return [];
     
@@ -622,13 +614,11 @@ const TaskTemplates = () => {
       }));
   };
 
-  // Handle field selection for inheritance mapping
   const handleFieldMapping = (sourceKey: string, targetKey: string) => {
     const newMapping = { ...inheritanceMapping };
     if (sourceKey) {
       newMapping[sourceKey] = targetKey;
     } else {
-      // Find the source key for this target and remove it
       const sourceKeyToRemove = Object.entries(inheritanceMapping)
         .find(([_, value]) => value === targetKey)?.[0];
       
@@ -964,7 +954,6 @@ const TaskTemplates = () => {
               {canAccessAdvancedTabs && getTargetFormFields().length > 0 ? (
                 <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
                   {getTargetFormFields().map((targetField) => {
-                    // Find if this target field has a source field mapped to it
                     const mappedSourceKey = Object.entries(inheritanceMapping)
                       .find(([_, value]) => value === targetField.key)?.[0] || "";
                       
@@ -1057,3 +1046,4 @@ const TaskTemplates = () => {
 };
 
 export default TaskTemplates;
+

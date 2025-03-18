@@ -20,4 +20,5 @@ COMMENT ON TABLE public.project_users IS 'Project user assignments';
 -- Add index for faster lookups
 CREATE INDEX IF NOT EXISTS project_users_project_id_idx ON public.project_users(project_id);
 CREATE INDEX IF NOT EXISTS project_users_user_id_idx ON public.project_users(user_id);
+CREATE INDEX IF NOT EXISTS project_users_status_idx ON public.project_users(status);
 

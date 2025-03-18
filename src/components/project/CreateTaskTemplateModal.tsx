@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -44,6 +45,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { isDevelopment } from "@/config/environment";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type AssignmentType = "static" | "dynamic";
 
@@ -147,11 +149,12 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
     try {
       console.log(`[CreateTaskTemplateModal] Fetching users for project: ${projectId}`);
       
+      // Fetch project users with their profile information
       const { data, error } = await supabase
         .from('project_users')
         .select(`
           user_id,
-          profiles:user_id(id, name, email)
+          profiles(id, name, email)
         `)
         .eq('project_id', projectId)
         .eq('status', 'active');
