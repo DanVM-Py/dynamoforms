@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { 
   Dialog, 
@@ -334,10 +335,20 @@ export const CreateTaskTemplateModal = ({
 
   useEffect(() => {
     if (open) {
+      // Reset form values but don't try to add project_id which isn't in the schema
       form.reset({
-        ...form.getValues(),
-        project_id: projectId
+        title: "",
+        description: "",
+        source_form_id: "",
+        target_form_id: "",
+        assignment_type: "static",
+        assignee_form_field: "",
+        default_assignee: "",
+        due_days: 7,
+        is_active: true,
+        inheritance_mapping: {}
       });
+      
       setInheritanceMapping({});
       setCurrentTab('general');
       

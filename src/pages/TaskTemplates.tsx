@@ -46,7 +46,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { isDevelopment } from "@/config/environment";
 import { CreateTaskTemplateModal } from "@/components/project/CreateTaskTemplateModal";
 
-// Define type for assignment type to match the database expected values
 type AssignmentType = "static" | "dynamic";
 
 interface Form {
@@ -457,11 +456,7 @@ const TaskTemplates = () => {
         .from('project_users')
         .select(`
           user_id,
-          profiles:user_id (
-            id,
-            name,
-            email
-          )
+          profiles:profiles!user_id(id, name, email)
         `)
         .eq('project_id', projectId);
 

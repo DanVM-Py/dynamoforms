@@ -86,7 +86,7 @@ const createTaskFromTemplate = async (
           .from('profiles')
           .select('id')
           .eq('email', userEmail)
-          .single();
+          .maybeSingle(); // Use maybeSingle instead of single to avoid errors
         
         if (userProfile) {
           assigneeId = userProfile.id;
@@ -139,14 +139,14 @@ const createTaskFromTemplate = async (
         priority: 'medium'
       })
       .select()
-      .single();
+      .maybeSingle(); // Use maybeSingle instead of single to avoid errors
     
     if (error) {
       console.error("Error al crear la tarea:", error);
       return;
     }
     
-    console.log(`Tarea creada con éxito: ${task.id} en proyecto ${finalProjectId}`);
+    console.log(`Tarea creada con éxito: ${task?.id} en proyecto ${finalProjectId}`);
     
     // Create notification for the assignee
     await supabase
@@ -159,7 +159,7 @@ const createTaskFromTemplate = async (
         read: false,
         project_id: finalProjectId,
         metadata: {
-          task_id: task.id,
+          task_id: task?.id,
           form_id: template.target_form_id,
           inheritance_mapping: template.inheritance_mapping || {}
         }
