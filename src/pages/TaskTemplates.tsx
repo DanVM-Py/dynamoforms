@@ -380,11 +380,11 @@ const TaskTemplates = () => {
   const watchTargetFormId = form.watch('target_form_id');
   const watchAssignmentType = form.watch('assignment_type');
 
-  // Update form when the target and source forms change
-  
-
   // Handle field mapping changes
-  
+  const handleMappingChange = (mapping: Record<string, string>) => {
+    setInheritanceMapping(mapping);
+    form.setValue("inheritance_mapping", mapping);
+  };
 
   // Mutation for creating a task template
   const createTemplateMutation = useMutation({

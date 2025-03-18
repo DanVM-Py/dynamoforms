@@ -147,7 +147,8 @@ const TasksPage = () => {
         query = query.ilike('title', `%${searchQuery}%`);
       }
 
-      query = query.order('due_date', { ascending: true, nullsLast: true });
+      // Order by due date, with nulls at the end
+      query = query.order('due_date', { ascending: true, nullsFirst: false });
 
       const { data, error } = await query;
 
