@@ -1,119 +1,67 @@
 
 import React from 'react';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { EnvironmentIndicator } from '@/components/environment/EnvironmentIndicator';
-import { MicroserviceStatus } from '@/components/environment/MicroserviceStatus';
-import { BuildVerification } from '@/components/environment/BuildVerification';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { environment } from '@/config/environment';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DeploymentDiagnostic } from '@/components/environment/DeploymentDiagnostic';
+import { BuildInfoDisplay } from '@/components/environment/BuildInfoDisplay';
+import { EnvironmentBadge } from '@/components/environment/EnvironmentBadge';
+import { environment, getEnvironmentName } from '@/config/environment';
 
 const Admin = () => {
   return (
-    <PageContainer
-      className="space-y-6"
-    >
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Administración</h1>
-        <p className="text-muted-foreground">
-          Panel de administración y configuración del sistema
-        </p>
+    <PageContainer title="Administración del Sistema">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold flex items-center gap-2">
+          Panel de Administración
+          <EnvironmentBadge />
+        </h2>
       </div>
-      
-      <Tabs defaultValue="summary" className="w-full">
-        <TabsList>
-          <TabsTrigger value="summary">Resumen</TabsTrigger>
-          <TabsTrigger value="environment">Entorno</TabsTrigger>
-          <TabsTrigger value="users">Usuarios</TabsTrigger>
-          <TabsTrigger value="roles">Roles</TabsTrigger>
-        </TabsList>
 
-        <TabsContent value="summary">
+      <Tabs defaultValue="deployment" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="deployment">Despliegue</TabsTrigger>
+          <TabsTrigger value="build-info">Información de Build</TabsTrigger>
+          <TabsTrigger value="database">Base de Datos</TabsTrigger>
+          <TabsTrigger value="users">Usuarios</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="deployment" className="space-y-4">
+          <DeploymentDiagnostic />
+        </TabsContent>
+        
+        <TabsContent value="build-info" className="space-y-4">
+          <BuildInfoDisplay />
+        </TabsContent>
+        
+        <TabsContent value="database" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Panel de Administración</CardTitle>
+              <CardTitle>Gestión de Base de Datos</CardTitle>
               <CardDescription>
-                Resumen del estado del sistema y configuración
+                Estadísticas y operaciones de la base de datos de {getEnvironmentName()}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <p>
-                Bienvenido al panel de administración. Utilice las pestañas para navegar
-                entre las diferentes secciones.
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Entorno Actual</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-bold">{environment.toUpperCase()}</p>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Estado de Servicios</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-bold text-green-500">Operativo</p>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              <BuildVerification />
+            <CardContent>
+              <p>Herramientas de base de datos en construcción</p>
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="environment">
-          <div className="grid grid-cols-1 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Configuración de Entorno</CardTitle>
-                <CardDescription>
-                  Información sobre el entorno actual y estado de los servicios
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <BuildVerification />
-                <MicroserviceStatus />
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="users">
+        
+        <TabsContent value="users" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Administración de Usuarios</CardTitle>
               <CardDescription>
-                Gestión de usuarios del sistema
+                Gestionar usuarios de la plataforma en {getEnvironmentName()}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p>La administración de usuarios se implementará próximamente...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="roles">
-          <Card>
-            <CardHeader>
-              <CardTitle>Administración de Roles</CardTitle>
-              <CardDescription>
-                Gestión de roles y permisos del sistema
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p>La administración de roles se implementará próximamente...</p>
+              <p>Herramientas de administración de usuarios en construcción</p>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-
-      <EnvironmentIndicator />
     </PageContainer>
   );
 };
