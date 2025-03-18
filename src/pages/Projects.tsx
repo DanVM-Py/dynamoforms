@@ -1,18 +1,22 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { Project } from "@/types/supabase";
 import { EditProjectModal } from "@/components/projects/EditProjectModal";
 import ProjectCard from "@/components/projects/ProjectCard";
-import { Plus } from "lucide-react";
 
 const Projects = () => {
   const { user } = useAuth();
@@ -23,6 +27,14 @@ const Projects = () => {
   const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
+  const [projectAdminId, setProjectAdminId] = useState("");
+  const [availableUsers, setAvailableUsers] = useState<Array<{id: string, name: string, email: string}>>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [formErrors, setFormErrors] = useState<{
+    name?: string;
+    description?: string;
+    admin?: string;
+  }>({});
 
   const { data: projects, refetch } = useQuery({
     queryKey: ['projects'],
@@ -44,8 +56,117 @@ const Projects = () => {
     }
   });
 
-  const handleOpenChange = () => {
-    setOpen(!open);
+  // Fetch available users for project admin selection
+  useEffect(() => {
+    if (open) {
+      const fetchUsers = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('id, name, email')
+            .not('role', 'eq', 'global_admin');
+            
+          if (error) throw error;
+          
+          setAvailableUsers(data || []);
+        } catch (error: any) {
+          console.error('Error fetching users:', error);
+          toast({
+            title: "Error loading users",
+            description: error?.message || "Could not load users.",
+            variant: "destructive",
+          });
+        }
+      };
+      
+      fetchUsers();
+      // Reset form state when dialog opens
+      setProjectName("");
+      setProjectDescription("");
+      setProjectAdminId("");
+      setFormErrors({});
+    }
+  }, [open, toast]);
+
+  const validateForm = () => {
+    const errors: {
+      name?: string;
+      description?: string;
+      admin?: string;
+    } = {};
+    
+    if (!projectName.trim()) {
+      errors.name = "El nombre del proyecto es obligatorio";
+    }
+    
+    if (!projectDescription.trim()) {
+      errors.description = "La descripción del proyecto es obligatoria";
+    }
+    
+    if (!projectAdminId) {
+      errors.admin = "Debes seleccionar un administrador para el proyecto";
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleCreateProject = async () => {
+    if (!validateForm()) {
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      // Step 1: Create the project
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .insert([
+          { 
+            name: projectName, 
+            description: projectDescription, 
+            created_by: user?.id 
+          },
+        ])
+        .select();
+
+      if (projectError) throw projectError;
+      
+      if (projectData && projectData.length > 0) {
+        const newProject = projectData[0];
+        
+        // Step 2: Assign the project admin
+        const { error: adminError } = await supabase
+          .from('project_admins')
+          .insert([
+            { 
+              project_id: newProject.id, 
+              user_id: projectAdminId,
+              assigned_by: user?.id
+            }
+          ]);
+          
+        if (adminError) throw adminError;
+        
+        toast({
+          title: "Proyecto creado exitosamente",
+          description: "El proyecto y su administrador han sido configurados."
+        });
+        
+        setOpen(false);
+        refetch();
+      }
+    } catch (error: any) {
+      console.error("Error creating project:", error);
+      toast({
+        title: "Error al crear el proyecto",
+        description: error?.message || "No se pudo crear el proyecto. Por favor, intenta de nuevo.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleEditProject = (project: Project) => {
@@ -80,31 +201,6 @@ const Projects = () => {
     }
   };
 
-  const handleCreateProject = async () => {
-    const { data, error } = await supabase
-      .from('projects')
-      .insert([
-        { name: projectName, description: projectDescription, created_by: user?.id },
-      ])
-      .select();
-
-    if (error) {
-      toast({
-        title: "Error creating project",
-        description: error.message,
-        variant: "destructive"
-      });
-    } else {
-      toast({
-        title: "Project created successfully!",
-      });
-      setOpen(false);
-      setProjectName("");
-      setProjectDescription("");
-      refetch(); // Refresh the projects list
-    }
-  };
-
   return (
     <PageContainer>
       <div className="flex items-center justify-between">
@@ -113,7 +209,7 @@ const Projects = () => {
           <DialogTrigger asChild>
             <Button><Plus className="mr-2 h-4 w-4" /> Create Project</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>Create Project</DialogTitle>
               <DialogDescription>
@@ -121,33 +217,80 @@ const Projects = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="name" className="text-right text-sm font-medium leading-none text-muted-foreground">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  id="name"
+              <div className="space-y-2">
+                <Label htmlFor="project-name" className="text-right">
+                  Nombre <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="project-name"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
-                  className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Enter project name"
+                  className={formErrors.name ? "border-red-500" : ""}
                 />
+                {formErrors.name && (
+                  <p className="text-sm text-red-500">{formErrors.name}</p>
+                )}
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="description" className="text-right text-sm font-medium leading-none text-muted-foreground">
-                  Description
-                </label>
-                <textarea
-                  id="description"
+              
+              <div className="space-y-2">
+                <Label htmlFor="project-description" className="text-right">
+                  Descripción <span className="text-red-500">*</span>
+                </Label>
+                <Textarea
+                  id="project-description"
                   value={projectDescription}
                   onChange={(e) => setProjectDescription(e.target.value)}
-                  className="col-span-3 flex h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Describe the purpose of the project"
+                  className={formErrors.description ? "border-red-500" : ""}
                 />
+                {formErrors.description && (
+                  <p className="text-sm text-red-500">{formErrors.description}</p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="project-admin" className="text-right">
+                  Administrador <span className="text-red-500">*</span>
+                </Label>
+                <Select 
+                  value={projectAdminId} 
+                  onValueChange={setProjectAdminId}
+                >
+                  <SelectTrigger id="project-admin" className={formErrors.admin ? "border-red-500" : ""}>
+                    <SelectValue placeholder="Select a project administrator" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableUsers.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name} ({user.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {formErrors.admin && (
+                  <p className="text-sm text-red-500">{formErrors.admin}</p>
+                )}
               </div>
             </div>
             <div className="flex justify-end space-x-2">
-              <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" onClick={handleCreateProject}>Create</Button>
+              <Button type="button" variant="secondary" onClick={() => setOpen(false)} disabled={isLoading}>
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                onClick={handleCreateProject}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                    Creando...
+                  </>
+                ) : (
+                  'Crear Proyecto'
+                )}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

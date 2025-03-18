@@ -32,7 +32,7 @@ const supabaseClient = createClient<Database>(
       fetch: (url, options) => {
         // Create a controller with timeout to prevent hanging requests
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout (increased from 10)
         
         return fetch(url, { 
           ...options, 
@@ -48,7 +48,10 @@ const supabaseClient = createClient<Database>(
 
 // Set headers to avoid CORS issues
 if (typeof window !== 'undefined') {
-  supabaseClient.realtime.setAuth(localStorage.getItem(config.storage.authTokenKey) || '');
+  const token = localStorage.getItem(config.storage.authTokenKey);
+  if (token) {
+    supabaseClient.realtime.setAuth(token);
+  }
 }
 
 // Export the main API client as the default supabase client

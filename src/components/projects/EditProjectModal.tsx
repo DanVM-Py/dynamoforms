@@ -49,6 +49,10 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<Profile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [errors, setErrors] = useState<{
+    name?: string;
+    description?: string;
+  }>({});
 
   useEffect(() => {
     if (open) {
@@ -56,6 +60,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
       setName(project?.name || "");
       setDescription(project?.description || "");
       setAdminId(project?.adminId || "");
+      setErrors({});
       fetchUsers();
     }
   }, [open, project]);
@@ -85,31 +90,60 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
     }
   };
 
+  const validateForm = (): boolean => {
+    const newErrors: {
+      name?: string;
+      description?: string;
+    } = {};
+    
+    if (!name.trim()) {
+      newErrors.name = "El nombre del proyecto es obligatorio";
+    }
+    
+    if (!description?.trim()) {
+      newErrors.description = "La descripción del proyecto es obligatoria";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name.trim()) {
-      toast({
-        title: "Required field",
-        description: "Project name is required.",
-        variant: "destructive",
-      });
+    if (!validateForm()) {
       return;
     }
     
     setLoading(true);
     try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ 
+          name, 
+          description 
+        })
+        .eq('id', project.id);
+      
+      if (error) throw error;
+      
+      // If adminId has changed and is not empty, update project admin
+      if (adminId && adminId !== project.adminId) {
+        // Here you would implement the logic to update the project admin
+        // This could involve removing old admin and adding new one
+      }
+      
       await onProjectUpdated();
       toast({
-        title: "Project updated",
-        description: "The project has been updated successfully.",
+        title: "Proyecto actualizado",
+        description: "El proyecto ha sido actualizado exitosamente.",
       });
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating project:", error);
       toast({
-        title: "Error updating",
-        description: "Could not update the project. Please try again.",
+        title: "Error al actualizar",
+        description: error?.message || "No se pudo actualizar el proyecto. Por favor, intenta de nuevo.",
         variant: "destructive",
       });
     } finally {
@@ -126,25 +160,36 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
         
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="project-name">Project Name</Label>
+            <Label htmlFor="project-name">
+              Project Name <span className="text-red-500">*</span>
+            </Label>
             <Input
               id="project-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter project name"
-              required
+              className={errors.name ? "border-red-500" : ""}
             />
+            {errors.name && (
+              <p className="text-sm text-red-500">{errors.name}</p>
+            )}
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="project-description">Description</Label>
+            <Label htmlFor="project-description">
+              Description <span className="text-red-500">*</span>
+            </Label>
             <Textarea
               id="project-description"
               value={description || ""}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Briefly describe the purpose of the project"
               rows={4}
+              className={errors.description ? "border-red-500" : ""}
             />
+            {errors.description && (
+              <p className="text-sm text-red-500">{errors.description}</p>
+            )}
           </div>
           
           <div className="space-y-2">
@@ -186,7 +231,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             </Button>
             <Button 
               type="submit" 
-              disabled={loading || !name.trim()}
+              disabled={loading}
             >
               {loading ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
