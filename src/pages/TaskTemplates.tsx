@@ -41,13 +41,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@/components/ui/tabs"
+} from "@/components/ui/tabs";
 import { Badge } from '@/components/ui/badge';
 import { TaskTemplate } from '@/types/supabase';
 
@@ -127,22 +127,34 @@ const TaskTemplatesPage = () => {
         throw error;
       }
       
-      // Map the data to our expected format
+      // Map the data to our expected format with proper null checks
       return data.map(template => {
-        // Ensure the source_form and target_form are properly structured
-        const sourceForm = template.source_form && typeof template.source_form === 'object' 
-          ? { id: template.source_form.id, title: template.source_form.title } 
-          : null;
+        let sourceForm = null;
+        if (template.source_form && typeof template.source_form === 'object' && 'id' in template.source_form && 'title' in template.source_form) {
+          sourceForm = { 
+            id: template.source_form.id, 
+            title: template.source_form.title 
+          };
+        }
         
-        const targetForm = template.target_form && typeof template.target_form === 'object' 
-          ? { id: template.target_form.id, title: template.target_form.title } 
-          : null;
+        let targetForm = null;
+        if (template.target_form && typeof template.target_form === 'object' && 'id' in template.target_form && 'title' in template.target_form) {
+          targetForm = { 
+            id: template.target_form.id, 
+            title: template.target_form.title 
+          };
+        }
+        
+        const assigneeName = template.default_assignee_profile && 
+                            typeof template.default_assignee_profile === 'object' && 
+                            (('name' in template.default_assignee_profile && template.default_assignee_profile.name) || 
+                             ('email' in template.default_assignee_profile && template.default_assignee_profile.email)) || 'N/A';
         
         return {
           ...template,
           source_form: sourceForm,
           target_form: targetForm,
-          default_assignee_name: template.default_assignee_profile?.name || template.default_assignee_profile?.email || 'N/A'
+          default_assignee_name: typeof assigneeName === 'string' ? assigneeName : 'N/A'
         } as ExtendedTaskTemplate;
       });
     },
@@ -183,7 +195,7 @@ const TaskTemplatesPage = () => {
         return [];
       }
 
-      // Fixed query to avoid foreign table issues
+      // Fixed query to avoid foreign table issues by using explicit column references
       const { data, error } = await supabase
         .from('project_users')
         .select(`
@@ -198,10 +210,15 @@ const TaskTemplatesPage = () => {
         throw error;
       }
       
-      // Extract and transform user data
+      // Extract and transform user data with proper null checks
       const users: User[] = [];
       for (const projectUser of data) {
-        if (projectUser.profiles && typeof projectUser.profiles === 'object') {
+        if (projectUser.profiles && 
+            typeof projectUser.profiles === 'object' && 
+            'id' in projectUser.profiles && 
+            'name' in projectUser.profiles && 
+            'email' in projectUser.profiles) {
+          
           users.push({
             id: projectUser.profiles.id,
             name: projectUser.profiles.name,
