@@ -9,6 +9,12 @@ import { Button } from '@/components/ui/button';
 import NavItems from './NavItems';
 import { supabase } from '@/integrations/supabase/client';
 
+const ALWAYS_SHOW_SIDEBAR_PATHS = [
+  '/task-templates',
+  '/task-templates/',
+  // Add any other paths that should always show sidebar here
+];
+
 interface SidebarProps {
   forceVisible?: boolean;
 }
@@ -23,24 +29,28 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
   const navigate = useNavigate();
   const { user, userProfile, isGlobalAdmin, isProjectAdmin, signOut } = useAuth();
   
-  // Effect to handle mobile/desktop state and close mobile menu on navigation
+  const isForcedFromSession = sessionStorage.getItem('forceSidebar') === 'true';
+  
+  const shouldForceVisible = forceVisible || isForcedFromSession || isAllowedPath(location.pathname);
+  
   useEffect(() => {
     setIsExpanded(!isMobile);
     
-    // Don't auto-close mobile menu on specific pages or if forceVisible is true
-    if (isMobile && !forceVisible) {
+    if (isMobile && !shouldForceVisible) {
       setIsMobileMenuOpen(false);
+    } else if (shouldForceVisible && isMobile) {
+      setIsMobileMenuOpen(true);
     }
-  }, [isMobile, location.pathname, forceVisible]);
+  }, [isMobile, location.pathname, shouldForceVisible]);
 
-  // Function to check if the current path needs sidebar to stay visible
-  const isAllowedPath = (path: string) => {
-    // Add paths that should always show sidebar here
-    const alwaysShowSidebarPaths = ['/task-templates'];
-    return alwaysShowSidebarPaths.includes(path);
-  };
+  function isAllowedPath(path: string) {
+    return ALWAYS_SHOW_SIDEBAR_PATHS.some(allowedPath => 
+      path === allowedPath || 
+      path.startsWith(`${allowedPath}/`) ||
+      path.endsWith(allowedPath)
+    );
+  }
 
-  // Effect to get the current project ID from storage or URL
   useEffect(() => {
     const getProjectIdFromStorage = () => {
       return sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
@@ -54,7 +64,6 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
     const urlProjectId = getProjectIdFromUrl();
     const storedProjectId = getProjectIdFromStorage();
     
-    // First try to get from URL, then from storage
     const projectId = urlProjectId || storedProjectId;
     
     if (projectId) {
@@ -63,7 +72,6 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
     }
   }, [location.pathname]);
 
-  // Fetch available projects for project admins or global admins
   useEffect(() => {
     const fetchProjects = async () => {
       if (!user || (!isProjectAdmin && !isGlobalAdmin)) {
@@ -74,13 +82,11 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
         let query;
         
         if (isGlobalAdmin) {
-          // Global admins can access all projects
           query = supabase
             .from('projects')
             .select('id, name')
             .order('name', { ascending: true });
         } else if (isProjectAdmin) {
-          // Project admins can only access their projects
           query = supabase
             .from('project_admins')
             .select('project_id, projects(id, name)')
@@ -102,13 +108,11 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
             if (isGlobalAdmin) {
               projectsData = data;
             } else {
-              // Transform project_admins data to get projects
               projectsData = data.map((item: any) => item.projects).filter(Boolean);
             }
             
             setProjects(projectsData);
             
-            // If we have projects but no current project set, set the first one
             if (projectsData.length > 0 && !currentProjectId) {
               const firstProjectId = isGlobalAdmin ? 
                 projectsData[0].id : 
@@ -147,24 +151,28 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
     }
   };
 
-  // If user is null, don't render the sidebar
   if (!user) {
     return null;
   }
 
-  // Always force sidebar to be visible in task-templates page and specific other pages
-  const forceVisibleSidebar = isAllowedPath(location.pathname);
+  const isPathForced = isAllowedPath(location.pathname);
+  
+  const isSidebarForced = isPathForced || shouldForceVisible || isForcedFromSession;
   
   const sidebarClasses = `${
     isMobile ? 'fixed z-20 top-0 bottom-0 left-0' : 'sticky top-0'
   } h-screen bg-white border-r ${
-    (isExpanded || isMobileMenuOpen || forceVisibleSidebar) ? 'w-64' : 'w-16'
+    (isExpanded || isMobileMenuOpen || isSidebarForced) ? 'w-64' : 'w-16'
   } transition-all duration-300 py-4 flex flex-col`;
 
-  const overlay = isMobile && (isMobileMenuOpen || forceVisibleSidebar) && (
+  const overlay = isMobile && (isMobileMenuOpen || isSidebarForced) && (
     <div
       className="fixed inset-0 bg-black/30 z-10"
-      onClick={() => setIsMobileMenuOpen(false)}
+      onClick={() => {
+        if (!isPathForced) {
+          setIsMobileMenuOpen(false);
+        }
+      }}
     />
   );
 
@@ -182,7 +190,7 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
     <>
       {overlay}
       
-      {isMobile && !forceVisible && (
+      {isMobile && !isSidebarForced && (
         <button
           onClick={toggleMobileMenu}
           className="fixed bottom-4 right-4 z-30 bg-purple-600 text-white p-3 rounded-full shadow-lg hover:bg-purple-700 transition-colors md:hidden"
@@ -193,11 +201,11 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
       
       <div
         className={`${sidebarClasses} ${
-          isMobile && !isMobileMenuOpen && !forceVisibleSidebar ? '-translate-x-full' : 'translate-x-0'
+          isMobile && !isMobileMenuOpen && !isSidebarForced ? '-translate-x-full' : 'translate-x-0'
         }`}
       >
         <div className="flex items-center px-4 py-2 justify-between">
-          {(isExpanded || isMobileMenuOpen || forceVisibleSidebar) ? (
+          {(isExpanded || isMobileMenuOpen || isSidebarForced) ? (
             <Link to="/" className="text-xl font-bold text-purple-700">Dynamo</Link>
           ) : (
             <Link to="/" className="text-xl font-bold text-purple-700">D</Link>
@@ -215,7 +223,7 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
 
         <div className="mt-4 flex flex-col flex-1 overflow-y-auto">
           <NavItems 
-            collapsed={!(isExpanded || isMobileMenuOpen || forceVisibleSidebar)} 
+            collapsed={!(isExpanded || isMobileMenuOpen || isSidebarForced)} 
             currentProjectId={currentProjectId}
             projects={projects}
             setCurrentProjectId={(id) => {
@@ -227,13 +235,13 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
 
         {user && (
           <div className="mt-auto px-3 pt-3 border-t">
-            <div className={`flex items-center p-2 rounded-md ${isExpanded || isMobileMenuOpen || forceVisibleSidebar ? 'justify-between' : 'justify-center'}`}>
+            <div className={`flex items-center p-2 rounded-md ${isExpanded || isMobileMenuOpen || isSidebarForced ? 'justify-between' : 'justify-center'}`}>
               <div className="flex items-center">
                 <div className="bg-gray-200 rounded-full p-2">
                   <User className="h-5 w-5 text-gray-600" />
                 </div>
                 
-                {(isExpanded || isMobileMenuOpen || forceVisibleSidebar) && (
+                {(isExpanded || isMobileMenuOpen || isSidebarForced) && (
                   <div className="ml-3 overflow-hidden">
                     <p className="text-sm font-semibold text-gray-700 truncate">{displayName}</p>
                     <p className="text-xs text-gray-500 truncate">{displayRole}</p>
@@ -241,7 +249,7 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
                 )}
               </div>
               
-              {(isExpanded || isMobileMenuOpen || forceVisibleSidebar) && (
+              {(isExpanded || isMobileMenuOpen || isSidebarForced) && (
                 <Button
                   variant="ghost"
                   size="icon"
