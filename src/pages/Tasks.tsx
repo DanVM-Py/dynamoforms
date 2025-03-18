@@ -1,632 +1,449 @@
-
-import { useEffect, useState } from "react";
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { PageContainer } from "@/components/layout/PageContainer";
-import { supabase } from "@/integrations/supabase/client";
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { 
-  CalendarDays, 
-  Check, 
-  ChevronRight, 
-  Clock, 
-  ClipboardList, 
-  FileText, 
-  Filter, 
-  Plus, 
-  Trash2,
-  AlertCircle
-} from "lucide-react";
-import { formatRelative, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/use-toast";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/contexts/AuthContext";
-import { Task } from "@/types/supabase";
-import { 
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue 
+  SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog"
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import { cn } from "@/lib/utils"
+import { format } from "date-fns"
+import { CalendarIcon, ChevronLeft, ChevronRight, Loader2, MapPin } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { DateRange } from "react-day-picker"
+import { Input as InputUi } from "@/components/ui/input"
 
-// Filter states
-interface TaskFilters {
-  status: string;
-  search: string;
-  priority: string;
-  sortBy: string;
-  sortOrder: 'asc' | 'desc';
+// Define Task type to match what we're getting from Supabase
+interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  status: 'pending' | 'in_progress' | 'completed';
+  assigned_to: string;
+  due_date: string | null;
+  form_id: string | null;
+  project_id: string | null;
+  priority: string | null;
+  form_response_id: string | null;
+  created_at: string;
+  updated_at: string;
+  source_form_id: string | null;
+  // These fields come from joins but aren't guaranteed
+  source_form?: { id: string; title: string };
+  assignee_name?: string;
 }
 
-const getTasks = async (filters: TaskFilters, projectId?: string) => {
-  let query = supabase
-    .from("tasks")
-    .select(`
-      *,
-      source_form:source_form_id(id, title)
-    `);
-  
-  // Apply status filter
-  if (filters.status && filters.status !== "all") {
-    query = query.eq("status", filters.status as "pending" | "in_progress" | "completed");
-  }
-  
-  // Apply project filter if provided
-  if (projectId) {
-    query = query.eq("project_id", projectId);
-  }
-  
-  // Apply priority filter if provided
-  if (filters.priority && filters.priority !== "all") {
-    query = query.eq("priority", filters.priority);
-  }
-  
-  // Determine sort field and order
-  let sortField = "created_at";
-  if (filters.sortBy === "due_date") sortField = "due_date";
-  if (filters.sortBy === "title") sortField = "title";
-  
-  query = query.order(sortField, { ascending: filters.sortOrder === 'asc' });
-  
-  const { data, error } = await query;
-  
-  if (error) throw error;
-  
-  // Fetch user info for assignees
-  const userIds = data.map(task => task.assigned_to);
-  const { data: users } = await supabase
-    .from("profiles")
-    .select("id, name, email")
-    .in("id", userIds);
-  
-  // Enhance tasks with assignee information and default values
-  const enhancedTasks = data.map(task => {
-    const assigneeUser = users?.find(u => u.id === task.assigned_to);
-    
-    const enhancedTask = {
-      ...task,
-      source_form: task.source_form && 'id' in task.source_form ? task.source_form : null,
-      assignee_name: assigneeUser?.name || assigneeUser?.email || "Unknown",
-      priority: task.priority || "medium"
-    };
-    
-    return enhancedTask;
-  });
-  
-  // Apply search filter on the client side
-  let filteredTasks = enhancedTasks;
-  if (filters.search) {
-    const searchLower = filters.search.toLowerCase();
-    filteredTasks = enhancedTasks.filter(task => 
-      task.title.toLowerCase().includes(searchLower) || 
-      (task.description && task.description.toLowerCase().includes(searchLower)) ||
-      (task.assignee_name && task.assignee_name.toLowerCase().includes(searchLower))
-    );
-  }
-  
-  return filteredTasks as Task[];
-};
-
-const Tasks = () => {
-  const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
+const TasksPage = () => {
+  const [currentFilter, setCurrentFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const { projectId } = useParams();
   const { toast } = useToast();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [date, setDate] = useState<DateRange | undefined>(undefined);
+  const [isSaving, setIsSaving] = useState(false);
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
-  
-  // Filter state
-  const [filters, setFilters] = useState<TaskFilters>({
-    status: "pending",
-    search: "",
-    priority: "all",
-    sortBy: "created_at",
-    sortOrder: "desc"
-  });
-  
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  
-  // Task data query
-  const { data: tasks, isLoading } = useQuery({
-    queryKey: ['tasks', projectId, filters, user?.id],
+
+  const taskSchema = z.object({
+    title: z.string().min(2, {
+      message: "El título debe tener al menos 2 caracteres.",
+    }),
+    description: z.string().optional(),
+    status: z.enum(["pending", "in_progress", "completed"]),
+    due_date: z.date().optional(),
+  })
+
+  const form = useForm<z.infer<typeof taskSchema>>({
+    resolver: zodResolver(taskSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      status: "pending",
+      due_date: undefined,
+    },
+    mode: "onChange"
+  })
+
+  const { data: statuses } = useQuery({
+    queryKey: ['statuses'],
     queryFn: async () => {
-      return getTasks(filters, projectId);
+      return ['pending', 'in_progress', 'completed'];
     },
-    enabled: !!user?.id,
-  });
-  
-  // Mutation for updating task status
-  const updateTaskStatusMutation = useMutation({
-    mutationFn: async ({ taskId, status }: { taskId: string; status: 'pending' | 'in_progress' | 'completed' }) => {
-      const { data, error } = await supabase
+  })
+
+  // Fetch tasks
+  const { data: tasks, isLoading, refetch } = useQuery({
+    queryKey: ['tasks', projectId, currentFilter, searchQuery],
+    queryFn: async () => {
+      if (!projectId) return [];
+
+      let query = supabase
         .from('tasks')
-        .update({ status })
-        .eq('id', taskId)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
+        .select(`
+          *,
+          profiles:assigned_to (name, email)
+        `)
+        .eq('project_id', projectId);
+
+      // Apply filters
+      if (currentFilter === 'pending') {
+        query = query.eq('status', 'pending');
+      } else if (currentFilter === 'in_progress') {
+        query = query.eq('status', 'in_progress');
+      } else if (currentFilter === 'completed') {
+        query = query.eq('status', 'completed');
+      }
+
+      if (searchQuery) {
+        query = query.ilike('title', `%${searchQuery}%`);
+      }
+
+      query = query.order('due_date', { ascending: true, nullsLast: true });
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error fetching tasks:", error);
+        throw error;
+      }
+
+      // Get source form information for tasks with source_form_id
+      const enhancedTasks = await Promise.all((data || []).map(async (task) => {
+        // Add assignee name from profiles join
+        const assigneeName = task.profiles?.name || task.profiles?.email || 'Unknown';
+
+        // Get source form info if available
+        let sourceForm = undefined;
+        if (task.source_form_id) {
+          const { data: formData } = await supabase
+            .from('forms')
+            .select('id, title')
+            .eq('id', task.source_form_id)
+            .single();
+            
+          if (formData) {
+            sourceForm = formData;
+          }
+        }
+
+        return {
+          ...task,
+          assignee_name: assigneeName,
+          source_form: sourceForm
+        } as Task;
+      }));
+
+      return enhancedTasks;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      toast({
-        title: "Tarea actualizada",
-        description: "El estado de la tarea ha sido actualizado correctamente.",
-      });
-    },
-    onError: (error) => {
-      console.error('Error updating task:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo actualizar el estado de la tarea.",
-        variant: "destructive",
-      });
-    },
+    enabled: !!projectId,
   });
-  
-  // Mutation for deleting a task
-  const deleteTaskMutation = useMutation({
-    mutationFn: async (taskId: string) => {
+
+  useEffect(() => {
+    if (date?.from && date?.to) {
+      form.setValue("due_date", date?.from)
+    }
+  }, [date?.from, date?.to, form])
+
+  const handleFilterChange = (filter: string) => {
+    setCurrentFilter(filter);
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+
+  const handleDialogOpen = (task: Task) => {
+    setSelectedTask(task);
+    form.setValue("title", task.title);
+    form.setValue("description", task.description || "");
+    form.setValue("status", task.status);
+    setIsDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setIsDialogOpen(false);
+    setSelectedTask(null);
+    form.reset();
+  };
+
+  const onSubmit = async (values: z.infer<typeof taskSchema>) => {
+    if (!selectedTask) return;
+
+    setIsSaving(true);
+    try {
       const { error } = await supabase
         .from('tasks')
-        .delete()
-        .eq('id', taskId);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        .update({
+          title: values.title,
+          description: values.description,
+          status: values.status,
+          due_date: values.due_date?.toISOString() || null,
+        })
+        .eq('id', selectedTask.id);
+
+      if (error) {
+        console.error("Error updating task:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update task.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       toast({
-        title: "Tarea eliminada",
-        description: "La tarea ha sido eliminada correctamente.",
+        title: "Success",
+        description: "Task updated successfully.",
       });
-    },
-    onError: (error) => {
-      console.error('Error deleting task:', error);
+      handleDialogClose();
+      queryClient.invalidateQueries({ queryKey: ['tasks', projectId, currentFilter, searchQuery] });
+    } catch (error) {
+      console.error("Error updating task:", error);
       toast({
         title: "Error",
-        description: "No se pudo eliminar la tarea.",
+        description: "Failed to update task.",
         variant: "destructive",
       });
-    },
-  });
-  
-  // Utility functions
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Sin fecha';
-    return formatRelative(parseISO(dateString), new Date(), { locale: es });
-  };
-  
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-800';
-      case 'medium':
-        return 'bg-amber-100 text-amber-800';
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+    } finally {
+      setIsSaving(false);
     }
-  };
-  
-  const getPriorityLabel = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'Alta';
-      case 'medium':
-        return 'Media';
-      case 'low':
-        return 'Baja';
-      default:
-        return 'Normal';
-    }
-  };
-  
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-gray-100 text-gray-800';
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-  
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'Pendiente';
-      case 'in_progress':
-        return 'En progreso';
-      case 'completed':
-        return 'Completada';
-      default:
-        return status;
-    }
-  };
-  
-  const isDueDateSoon = (dueDate: string | null) => {
-    if (!dueDate) return false;
-    
-    const today = new Date();
-    const due = new Date(dueDate);
-    const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    
-    return diffDays <= 2 && diffDays >= 0;
-  };
-  
-  const isOverdue = (dueDate: string | null) => {
-    if (!dueDate) return false;
-    
-    const today = new Date();
-    const due = new Date(dueDate);
-    
-    return due < today;
-  };
-  
-  // Status change handlers
-  const handleMarkAsCompleted = (taskId: string) => {
-    updateTaskStatusMutation.mutate({ taskId, status: 'completed' });
-  };
-  
-  const handleMarkAsInProgress = (taskId: string) => {
-    updateTaskStatusMutation.mutate({ taskId, status: 'in_progress' });
-  };
-  
-  const handleMarkAsPending = (taskId: string) => {
-    updateTaskStatusMutation.mutate({ taskId, status: 'pending' });
-  };
-  
-  // Filter handlers
-  const handleStatusChange = (status: string) => {
-    setFilters({ ...filters, status });
-  };
-  
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFilters({ ...filters, search: e.target.value });
-  };
-  
-  const handlePriorityChange = (priority: string) => {
-    setFilters({ ...filters, priority });
-  };
-  
-  const handleSortChange = (sortBy: string) => {
-    setFilters({ ...filters, sortBy });
-  };
-  
-  const handleSortOrderChange = (sortOrder: 'asc' | 'desc') => {
-    setFilters({ ...filters, sortOrder });
-  };
-  
-  const resetFilters = () => {
-    setFilters({
-      status: "pending",
-      search: "",
-      priority: "all",
-      sortBy: "created_at",
-      sortOrder: "desc"
-    });
-    setIsFiltersOpen(false);
   };
 
   return (
     <PageContainer>
-      <div className="mb-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Tareas</h1>
-          <div className="flex gap-2">
-            <Dialog open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filtros
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Filtrar Tareas</DialogTitle>
-                  <DialogDescription>
-                    Ajusta los filtros para encontrar tareas específicas.
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Buscar</Label>
-                    <Input 
-                      placeholder="Buscar por título, descripción o asignado"
-                      value={filters.search}
-                      onChange={handleSearchChange}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Prioridad</Label>
-                      <Select value={filters.priority} onValueChange={handlePriorityChange}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Todas las prioridades" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todas</SelectItem>
-                          <SelectItem value="high">Alta</SelectItem>
-                          <SelectItem value="medium">Media</SelectItem>
-                          <SelectItem value="low">Baja</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label>Estado</Label>
-                      <Select value={filters.status} onValueChange={handleStatusChange}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Todos los estados" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="pending">Pendientes</SelectItem>
-                          <SelectItem value="in_progress">En Progreso</SelectItem>
-                          <SelectItem value="completed">Completadas</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Ordenar por</Label>
-                      <Select value={filters.sortBy} onValueChange={handleSortChange}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Ordenar por" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="created_at">Fecha de creación</SelectItem>
-                          <SelectItem value="due_date">Fecha de vencimiento</SelectItem>
-                          <SelectItem value="title">Título</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label>Orden</Label>
-                      <Select value={filters.sortOrder} onValueChange={handleSortOrderChange as (value: string) => void}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Orden" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="asc">Ascendente</SelectItem>
-                          <SelectItem value="desc">Descendente</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-                
-                <DialogFooter>
-                  <Button variant="outline" onClick={resetFilters}>
-                    Restablecer
-                  </Button>
-                  <Button onClick={() => setIsFiltersOpen(false)}>
-                    Aplicar Filtros
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            
-            <Button 
-              className="bg-dynamo-600 hover:bg-dynamo-700"
-              disabled
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Nueva Tarea
-            </Button>
-          </div>
+      <div className="md:flex md:items-center md:justify-between space-y-4 md:space-y-0">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Tareas</h1>
+          <p className="text-gray-500 mt-1">Gestiona las tareas de este proyecto</p>
         </div>
-        <p className="text-gray-500 mt-1">
-          Gestione y realice un seguimiento de las tareas asignadas a usted
-        </p>
+        <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
+          <Input
+            type="text"
+            placeholder="Buscar tareas..."
+            value={searchQuery}
+            onChange={handleSearchChange}
+          />
+          <Button onClick={() => navigate(`/projects/${projectId}/create-task`)}>Crear Tarea</Button>
+        </div>
       </div>
-      
-      <Tabs defaultValue={filters.status} value={filters.status} onValueChange={handleStatusChange}>
-        <TabsList className="mb-6">
-          <TabsTrigger value="pending">Pendientes</TabsTrigger>
-          <TabsTrigger value="in_progress">En Progreso</TabsTrigger>
-          <TabsTrigger value="completed">Completadas</TabsTrigger>
-          <TabsTrigger value="all">Todas</TabsTrigger>
-        </TabsList>
-        
-        {filters.search && (
-          <div className="mb-4 flex items-center gap-2 text-sm">
-            <span>Mostrando resultados para: </span>
-            <Badge variant="secondary" className="font-normal">
-              {filters.search}
-            </Badge>
-            <Button variant="ghost" size="sm" onClick={() => setFilters({ ...filters, search: "" })}>
-              Limpiar búsqueda
-            </Button>
+
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>Lista de Tareas</CardTitle>
+          <CardDescription>Aquí puedes ver y gestionar las tareas.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="py-2 flex items-center space-x-2">
+            <Label>Filtrar por:</Label>
+            <Select value={currentFilter} onValueChange={handleFilterChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="pending">Pendientes</SelectItem>
+                <SelectItem value="in_progress">En Progreso</SelectItem>
+                <SelectItem value="completed">Completadas</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        )}
-        
-        <TabsContent value={filters.status} className="mt-0">
-          {isLoading ? (
-            <div className="text-center py-10">
-              <div className="animate-pulse text-gray-500">Cargando tareas...</div>
-            </div>
-          ) : tasks && tasks.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {tasks.map(task => (
-                <Card key={task.id} className="overflow-hidden">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between mb-2">
-                      <Badge className={getStatusColor(task.status)}>
-                        {getStatusLabel(task.status)}
-                      </Badge>
-                      <Badge variant="outline" className={getPriorityColor(task.priority)}>
-                        {getPriorityLabel(task.priority)}
-                      </Badge>
-                    </div>
-                    <CardTitle className="line-clamp-2 text-lg">{task.title}</CardTitle>
-                  </CardHeader>
-                  
-                  <CardContent className="pb-2">
-                    <div className="space-y-3">
-                      {task.description && (
-                        <p className="text-gray-600 text-sm line-clamp-2">
-                          {task.description}
-                        </p>
-                      )}
-                      
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Avatar className="h-6 w-6 mr-2">
-                          <AvatarFallback className="text-xs">
-                            {task.assignee_name?.substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span>Asignado a: {task.assignee_name}</span>
-                      </div>
-                      
-                      {task.due_date && (
-                        <div className="flex items-center text-sm">
-                          <CalendarDays className={`h-4 w-4 mr-2 ${isOverdue(task.due_date) ? 'text-red-500' : isDueDateSoon(task.due_date) ? 'text-amber-500' : 'text-gray-500'}`} />
-                          <span className={isOverdue(task.due_date) ? 'text-red-500 font-medium' : isDueDateSoon(task.due_date) ? 'text-amber-500 font-medium' : ''}>
-                            Vence: {formatDate(task.due_date)}
-                            {isOverdue(task.due_date) && (
-                              <span className="ml-2 text-red-500">
-                                <AlertCircle className="h-3 w-3 inline" /> Vencida
-                              </span>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Título</TableHead>
+                <TableHead>Asignado a</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Fecha de Vencimiento</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  </TableCell>
+                </TableRow>
+              ) : tasks && tasks.length > 0 ? (
+                tasks.map((task) => (
+                  <TableRow key={task.id}>
+                    <TableCell className="font-medium">{task.title}</TableCell>
+                    <TableCell>{task.assignee_name}</TableCell>
+                    <TableCell>{task.status}</TableCell>
+                    <TableCell>
+                      {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'Sin fecha'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="outline" size="sm" onClick={() => handleDialogOpen(task)}>
+                        Editar
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center">No hay tareas disponibles</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Tarea</DialogTitle>
+            <DialogDescription>
+              Modifica los detalles de la tarea.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Título</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Título de la tarea" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Descripción de la tarea" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estado</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un estado" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {statuses?.map((status) => (
+                          <SelectItem key={status} value={status}>{status}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="due_date"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col space-y-3">
+                    <FormLabel>Fecha de vencimiento</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <InputUi
+                            placeholder={field.value ? format(field.value, "PPP") : "Pick a date"}
+                            className={cn(
+                              "pl-3 font-medium",
+                              !date && "text-muted-foreground"
                             )}
-                          </span>
-                        </div>
-                      )}
-                      
-                      {task.source_form && (
-                        <div className="flex items-center text-sm">
-                          <FileText className="h-4 w-4 mr-2 text-gray-500" />
-                          <span className="truncate">Formulario: {task.source_form.title}</span>
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center text-sm">
-                        <Clock className="h-4 w-4 mr-2 text-gray-500" />
-                        <span>Creado: {formatDate(task.created_at)}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                  
-                  <CardFooter className="flex justify-between border-t pt-4">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Trash2 className="h-4 w-4 mr-2 text-red-500" />
-                          Eliminar
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Eliminar Tarea</DialogTitle>
-                          <DialogDescription>
-                            ¿Está seguro de que desea eliminar esta tarea? Esta acción no se puede deshacer.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter>
-                          <Button variant="outline">Cancelar</Button>
-                          <Button 
-                            variant="destructive" 
-                            onClick={() => deleteTaskMutation.mutate(task.id)}
-                            disabled={deleteTaskMutation.isPending}
-                          >
-                            {deleteTaskMutation.isPending ? 'Eliminando...' : 'Eliminar'}
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                    
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="default" size="sm" className="bg-dynamo-600 hover:bg-dynamo-700">
-                          {task.form_id ? 'Ver Formulario' : 'Cambiar Estado'}
-                          <ChevronRight className="h-4 w-4 ml-2" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {task.form_id && (
-                          <DropdownMenuItem 
-                            onClick={() => navigate(`/forms/${task.form_id}/view?taskId=${task.id}`)}
-                            className="cursor-pointer"
-                          >
-                            <FileText className="h-4 w-4 mr-2" />
-                            <span>Ver Formulario</span>
-                          </DropdownMenuItem>
-                        )}
-                        
-                        {task.status !== 'completed' && (
-                          <DropdownMenuItem 
-                            onClick={() => handleMarkAsCompleted(task.id)}
-                            className="cursor-pointer"
-                          >
-                            <Check className="h-4 w-4 mr-2 text-green-500" />
-                            <span>Marcar como Completada</span>
-                          </DropdownMenuItem>
-                        )}
-                        
-                        {task.status !== 'in_progress' && (
-                          <DropdownMenuItem 
-                            onClick={() => handleMarkAsInProgress(task.id)}
-                            className="cursor-pointer"
-                          >
-                            <ClipboardList className="h-4 w-4 mr-2 text-blue-500" />
-                            <span>Marcar En Progreso</span>
-                          </DropdownMenuItem>
-                        )}
-                        
-                        {task.status !== 'pending' && (
-                          <DropdownMenuItem 
-                            onClick={() => handleMarkAsPending(task.id)}
-                            className="cursor-pointer"
-                          >
-                            <Clock className="h-4 w-4 mr-2 text-gray-500" />
-                            <span>Marcar como Pendiente</span>
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card className="bg-gray-50 border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-10">
-                <div className="rounded-full bg-gray-100 p-3 mb-4">
-                  <ClipboardList className="h-6 w-6 text-gray-400" />
-                </div>
-                <h3 className="text-lg font-medium mb-2">No hay tareas {filters.status !== 'all' ? getStatusLabel(filters.status).toLowerCase() + 's' : ''}</h3>
-                <p className="text-gray-500 text-center mb-6 max-w-md">
-                  {filters.status === 'completed' 
-                    ? 'No ha completado ninguna tarea todavía.'
-                    : 'No tiene tareas asignadas en este momento.'}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+                          />
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          defaultMonth={field.value}
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) =>
+                            date < new Date()
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogClose asChild>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Guardar cambios
+                </Button>
+              </DialogClose>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   );
 };
 
-export default Tasks;
+export default TasksPage;

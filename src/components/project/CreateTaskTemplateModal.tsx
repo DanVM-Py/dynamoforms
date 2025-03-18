@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { 
   Dialog, 
@@ -319,9 +320,18 @@ export const CreateTaskTemplateModal = ({
   // Mutation for creating a task template
   const createTemplateMutation = useMutation({
     mutationFn: async (data: TaskTemplateFormValues) => {
+      // Make sure required fields are present
       const templateData = {
-        ...data,
         project_id: projectId,
+        title: data.title,
+        description: data.description || "",
+        source_form_id: data.source_form_id,
+        target_form_id: data.target_form_id,
+        assignment_type: data.assignment_type,
+        assignee_form_field: data.assignee_form_field || null,
+        default_assignee: data.default_assignee || null,
+        due_days: data.due_days || 7,
+        is_active: data.is_active,
         inheritance_mapping: data.inheritance_mapping || {}
       };
 
@@ -352,13 +362,7 @@ export const CreateTaskTemplateModal = ({
 
   // Submit handler
   const onSubmit = (values: TaskTemplateFormValues) => {
-    // Include inheritance mapping
-    const dataWithMapping = {
-      ...values,
-      inheritance_mapping: inheritanceMapping
-    };
-    
-    createTemplateMutation.mutate(dataWithMapping);
+    createTemplateMutation.mutate(values);
   };
 
   return (

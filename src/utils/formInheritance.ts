@@ -46,7 +46,7 @@ export const processFormInheritance = async (
     console.log(`Se encontraron ${templates.length} plantillas de tareas aplicables.`);
     
     // Process each template
-    for (const template of templates as TaskTemplate[]) {
+    for (const template of templates) {
       await createTaskFromTemplate(template, formId, formResponseId, responseData, projectId, submitterId);
     }
     
@@ -61,7 +61,7 @@ export const processFormInheritance = async (
  * Create a task based on a template
  */
 const createTaskFromTemplate = async (
-  template: TaskTemplate,
+  template: any,
   sourceFormId: string,
   formResponseId: string,
   responseData: any,

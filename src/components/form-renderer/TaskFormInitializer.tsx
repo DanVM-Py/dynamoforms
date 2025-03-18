@@ -76,11 +76,15 @@ export const TaskFormInitializer = ({ formId, taskId, onInitialData }: TaskFormI
           const mapping = template.inheritance_mapping;
           
           // For each mapping, copy the source field value to the target field
-          for (const [targetField, sourceField] of Object.entries(mapping)) {
-            if (sourceData[sourceField] !== undefined) {
-              initialData[targetField] = sourceData[sourceField];
-              console.log(`Mapped ${sourceField} to ${targetField}: ${sourceData[sourceField]}`);
-            }
+          if (typeof mapping === 'object' && mapping !== null) {
+            Object.entries(mapping).forEach(([targetField, sourceField]) => {
+              if (typeof sourceField === 'string' && 
+                  sourceData && 
+                  sourceData[sourceField] !== undefined) {
+                initialData[targetField] = sourceData[sourceField];
+                console.log(`Mapped ${sourceField} to ${targetField}: ${sourceData[sourceField]}`);
+              }
+            });
           }
           
           // Send the initial data to the parent component

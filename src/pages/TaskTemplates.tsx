@@ -381,18 +381,10 @@ const TaskTemplates = () => {
   const watchAssignmentType = form.watch('assignment_type');
 
   // Update form when the target and source forms change
-  useEffect(() => {
-    if (watchSourceFormId && watchTargetFormId) {
-      setInheritanceMapping({});
-      form.setValue('inheritance_mapping', {});
-    }
-  }, [watchSourceFormId, watchTargetFormId, form]);
+  
 
   // Handle field mapping changes
-  const handleMappingChange = (newMapping: Record<string, string>) => {
-    setInheritanceMapping(newMapping);
-    form.setValue('inheritance_mapping', newMapping);
-  };
+  
 
   // Mutation for creating a task template
   const createTemplateMutation = useMutation({
@@ -402,12 +394,16 @@ const TaskTemplates = () => {
       }
 
       const templateData = {
-        ...data,
         project_id: projectId,
         title: data.title,
+        description: data.description || "",
         source_form_id: data.source_form_id,
         target_form_id: data.target_form_id,
         assignment_type: data.assignment_type,
+        assignee_form_field: data.assignee_form_field || null,
+        default_assignee: data.default_assignee || null,
+        due_days: data.due_days || 7,
+        is_active: data.is_active,
         inheritance_mapping: data.inheritance_mapping || {}
       };
 
@@ -442,16 +438,22 @@ const TaskTemplates = () => {
   // Mutation for updating a task template
   const updateTemplateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string, data: FormTemplateValues }) => {
+      const templateData = {
+        title: data.title,
+        description: data.description || "",
+        source_form_id: data.source_form_id,
+        target_form_id: data.target_form_id,
+        assignment_type: data.assignment_type,
+        assignee_form_field: data.assignee_form_field || null,
+        default_assignee: data.default_assignee || null,
+        due_days: data.due_days || 7,
+        is_active: data.is_active,
+        inheritance_mapping: data.inheritance_mapping || {}
+      };
+
       const { error } = await supabase
         .from('task_templates')
-        .update({
-          ...data,
-          title: data.title,
-          source_form_id: data.source_form_id,
-          target_form_id: data.target_form_id,
-          assignment_type: data.assignment_type,
-          inheritance_mapping: data.inheritance_mapping || {}
-        })
+        .update(templateData)
         .eq('id', id);
 
       if (error) {
@@ -504,8 +506,23 @@ const TaskTemplates = () => {
     form.setValue("default_assignee", template.default_assignee || "");
     form.setValue("due_days", template.due_days || 7);
     form.setValue("is_active", template.is_active);
-    form.setValue("inheritance_mapping", template.inheritance_mapping || {});
-    setInheritanceMapping(template.inheritance_mapping || {});
+    
+    // Handle the inheritance_mapping which might be null or another type
+    const mapping = template.inheritance_mapping || {};
+    // Ensure we're working with a Record<string, string>
+    const typedMapping: Record<string, string> = {};
+    
+    if (typeof mapping === 'object' && mapping !== null) {
+      Object.entries(mapping).forEach(([key, value]) => {
+        if (typeof value === 'string') {
+          typedMapping[key] = value;
+        }
+      });
+    }
+    
+    form.setValue("inheritance_mapping", typedMapping);
+    setInheritanceMapping(typedMapping);
+    
     setCurrentTab('general');
     setIsEditDialogOpen(true);
   };
