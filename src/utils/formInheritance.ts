@@ -1,6 +1,5 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { TaskTemplate } from "@/types/supabase";
 
 /**
  * Process form inheritance to create tasks based on templates
@@ -148,7 +147,8 @@ const createTaskFromTemplate = async (
         project_id: projectId || template.project_id,
         metadata: {
           task_id: task.id,
-          form_id: template.target_form_id
+          form_id: template.target_form_id,
+          inheritance_mapping: template.inheritance_mapping || {}
         }
       });
     

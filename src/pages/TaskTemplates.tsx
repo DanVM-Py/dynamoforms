@@ -22,7 +22,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 import { Plus, Edit, Trash2, Loader2, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,10 +41,11 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from "@/components/ui/drawer"
-import { Separator } from "@/components/ui/separator"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+} from "@/components/ui/drawer";
+import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { isDevelopment } from "@/config/environment";
+import { CreateTaskTemplateModal } from "@/components/project/CreateTaskTemplateModal";
 
 // Define type for assignment type to match the database expected values
 type AssignmentType = "static" | "dynamic";
@@ -52,6 +53,7 @@ type AssignmentType = "static" | "dynamic";
 interface Form {
   id: string;
   title: string;
+  schema?: any;
 }
 
 interface User {
@@ -98,6 +100,7 @@ const TaskTemplates = () => {
   const [isTemplateInactive, setIsTemplateInactive] = useState(false);
   const [isTemplateAll, setIsTemplateAll] = useState(true);
   const [filter, setFilter] = useState<"active" | "inactive" | "all">("all");
+  const [createTemplateModalOpen, setCreateTemplateModalOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, userProfile } = useAuth();
@@ -165,7 +168,7 @@ const TaskTemplates = () => {
       
       const { data, error } = await supabase
         .from('forms')
-        .select('id, title')
+        .select('id, title, schema')
         .eq('project_id', projectId)
         .order('created_at', { ascending: false });
 
@@ -453,11 +456,13 @@ const TaskTemplates = () => {
     setIsTemplateAll(newFilter === "all");
   };
 
+  // Función mejorada para obtener usuarios del proyecto
   const getProjectUsers = async (projectId: string): Promise<User[]> => {
     try {
       const { data, error } = await supabase
         .from('project_users')
         .select(`
+          user_id,
           profiles:user_id (
             id,
             name,
@@ -476,22 +481,21 @@ const TaskTemplates = () => {
       if (!data) return users;
       
       for (const projectUser of data) {
-        // Verificar si profiles existe
-        if (!projectUser.profiles) continue;
-        
-        // Extraer el objeto profiles de forma segura
-        const profile = projectUser.profiles as { id: string; name: string; email: string } | null;
-        if (!profile) continue;
-        
-        // Verificar si todas las propiedades necesarias existen
-        if (!profile.id || !profile.name || !profile.email) continue;
-        
-        // Agregar el usuario a la lista
-        users.push({
-          id: profile.id,
-          name: profile.name,
-          email: profile.email
-        });
+        // Verificamos que projectUser.profiles exista y tenga las propiedades necesarias
+        if (projectUser.profiles && 
+            typeof projectUser.profiles === 'object' && 
+            'id' in projectUser.profiles && 
+            'name' in projectUser.profiles && 
+            'email' in projectUser.profiles) {
+          
+          const profile = projectUser.profiles as { id: string; name: string; email: string };
+          
+          users.push({
+            id: profile.id,
+            name: profile.name,
+            email: profile.email
+          });
+        }
       }
       
       return users;
@@ -499,6 +503,22 @@ const TaskTemplates = () => {
       console.error("Error fetching project users:", error);
       return [];
     }
+  };
+
+  // Función para obtener campos de email de un formulario
+  const getEmailFieldsFromForm = (formId: string): { key: string, label: string }[] => {
+    const form = formsMap.get(formId);
+    if (!form || !form.schema || !form.schema.components) {
+      return [];
+    }
+
+    return form.schema.components
+      .filter((component: any) => 
+        component.type === 'email' && component.key)
+      .map((component: any) => ({
+        key: component.key,
+        label: component.label || component.key
+      }));
   };
 
   if (isLoadingTaskTemplates) return <div className="flex items-center justify-center h-screen bg-gray-50"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando plantillas de tareas...</div>;
@@ -510,278 +530,108 @@ const TaskTemplates = () => {
   </Alert>;
 
   return (
-    <div>
-      <div className="container mx-auto py-10">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold">Plantillas de Tareas</h1>
-          <div className="flex space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => {
-                refetchTaskTemplates();
-                if (projectId) {
-                  queryClient.invalidateQueries({ queryKey: ['forms', projectId] });
-                }
-              }}
-            >
-              <RefreshCw className="h-4 w-4 mr-1" />
-              Actualizar
-            </Button>
-            <Button onClick={() => setOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Crear Plantilla
-            </Button>
-          </div>
+    <div className="container mx-auto py-10">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Plantillas de Tareas</h1>
+        <div className="flex space-x-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              refetchTaskTemplates();
+              if (projectId) {
+                queryClient.invalidateQueries({ queryKey: ['forms', projectId] });
+              }
+            }}
+          >
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Actualizar
+          </Button>
+          <Button onClick={() => setCreateTemplateModalOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Crear Plantilla
+          </Button>
         </div>
-
-        <div className="mb-4">
-          <Label>Filtrar por estado:</Label>
-          <div className="flex space-x-2 mt-2">
-            <Button
-              variant={isTemplateAll ? "default" : "outline"}
-              onClick={() => handleFilterChange("all")}
-            >
-              Todas
-            </Button>
-            <Button
-              variant={isTemplateActive ? "default" : "outline"}
-              onClick={() => handleFilterChange("active")}
-            >
-              Activas
-            </Button>
-            <Button
-              variant={isTemplateInactive ? "default" : "outline"}
-              onClick={() => handleFilterChange("inactive")}
-            >
-              Inactivas
-            </Button>
-          </div>
-        </div>
-
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[200px]">Título</TableHead>
-                <TableHead>Descripción</TableHead>
-                <TableHead>Formulario de Origen</TableHead>
-                <TableHead>Formulario de Destino</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {taskTemplates.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-6">
-                    No hay plantillas de tareas disponibles
-                  </TableCell>
-                </TableRow>
-              ) : (
-                taskTemplates.map((template) => (
-                  <TableRow key={template.id}>
-                    <TableCell className="font-medium">{template.title}</TableCell>
-                    <TableCell>{template.description}</TableCell>
-                    <TableCell>{template.sourceForm?.title || '—'}</TableCell>
-                    <TableCell>{template.targetForm?.title || '—'}</TableCell>
-                    <TableCell>{template.isActive ? <Badge variant="outline" className="bg-green-50">Activa</Badge> : <Badge variant="outline" className="bg-gray-100">Inactiva</Badge>}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleEdit(template)}
-                      >
-                        <Edit className="mr-2 h-4 w-4" />
-                        Editar
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {errorForms && (
-          <Alert variant="destructive" className="mt-4">
-            <AlertTitle>Error al cargar formularios</AlertTitle>
-            <AlertDescription>
-              {errorForms.message}
-            </AlertDescription>
-          </Alert>
-        )}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Crear Plantilla de Tarea</DialogTitle>
-            <DialogDescription>
-              Crea una nueva plantilla de tarea para automatizar tus procesos.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="title" className="text-right">
-                Título
-              </Label>
-              <Input
-                type="text"
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
-                Descripción
-              </Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="sourceFormId" className="text-right">
-                Formulario de Origen
-              </Label>
-              <Select onValueChange={setSourceFormId} value={sourceFormId}>
-                <SelectTrigger id="sourceFormId" className="col-span-3">
-                  <SelectValue placeholder="Selecciona un formulario" />
-                </SelectTrigger>
-                <SelectContent>
-                  {forms?.map((form) => (
-                    <SelectItem key={form.id} value={form.id}>
-                      {form.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="targetFormId" className="text-right">
-                Formulario de Destino
-              </Label>
-              <Select onValueChange={setTargetFormId} value={targetFormId}>
-                <SelectTrigger id="targetFormId" className="col-span-3">
-                  <SelectValue placeholder="Selecciona un formulario" />
-                </SelectTrigger>
-                <SelectContent>
-                  {forms?.map((form) => (
-                    <SelectItem key={form.id} value={form.id}>
-                      {form.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="projectId" className="text-right">
-                Proyecto
-              </Label>
-              <Select onValueChange={setProjectId} value={projectId}>
-                <SelectTrigger id="projectId" className="col-span-3">
-                  <SelectValue placeholder="Selecciona un proyecto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects?.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="assignmentType" className="text-right">
-                Tipo de Asignación
-              </Label>
-              <Select onValueChange={(value: AssignmentType) => setAssignmentType(value)} value={assignmentType}>
-                <SelectTrigger id="assignmentType" className="col-span-3">
-                  <SelectValue placeholder="Selecciona un tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="static">Usuario</SelectItem>
-                  <SelectItem value="dynamic">Campo de Formulario</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {assignmentType === "static" && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="defaultAssignee" className="text-right">
-                  Usuario Asignado
-                </Label>
-                <Select onValueChange={setDefaultAssignee} value={defaultAssignee}>
-                  <SelectTrigger id="defaultAssignee" className="col-span-3">
-                    <SelectValue placeholder="Selecciona un usuario" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projectUsers?.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name} ({user.email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {assignmentType === "dynamic" && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="assigneeFormField" className="text-right">
-                  Campo de Formulario
-                </Label>
-                <Input
-                  type="text"
-                  id="assigneeFormField"
-                  value={assigneeFormField}
-                  onChange={(e) => setAssigneeFormField(e.target.value)}
-                  className="col-span-3"
-                />
-              </div>
-            )}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="dueDays" className="text-right">
-                Días para Vencer
-              </Label>
-              <Input
-                type="number"
-                id="dueDays"
-                value={dueDays}
-                onChange={(e) => setDueDays(Number(e.target.value))}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="isActive" className="text-right">
-                Activa
-              </Label>
-              <Checkbox
-                id="isActive"
-                checked={isActive}
-                onCheckedChange={(checked) => setIsActive(!!checked)}
-                className="col-span-3"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={isSaving} onClick={handleCreateTaskTemplate}>
-              {isSaving ? (
-                <>
-                  Creando...
-                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                </>
-              ) : (
-                "Crear"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <div className="mb-4">
+        <Label>Filtrar por estado:</Label>
+        <div className="flex space-x-2 mt-2">
+          <Button
+            variant={isTemplateAll ? "default" : "outline"}
+            onClick={() => handleFilterChange("all")}
+          >
+            Todas
+          </Button>
+          <Button
+            variant={isTemplateActive ? "default" : "outline"}
+            onClick={() => handleFilterChange("active")}
+          >
+            Activas
+          </Button>
+          <Button
+            variant={isTemplateInactive ? "default" : "outline"}
+            onClick={() => handleFilterChange("inactive")}
+          >
+            Inactivas
+          </Button>
+        </div>
+      </div>
 
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[200px]">Título</TableHead>
+              <TableHead>Descripción</TableHead>
+              <TableHead>Formulario de Origen</TableHead>
+              <TableHead>Formulario de Destino</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {taskTemplates.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-6">
+                  No hay plantillas de tareas disponibles
+                </TableCell>
+              </TableRow>
+            ) : (
+              taskTemplates.map((template) => (
+                <TableRow key={template.id}>
+                  <TableCell className="font-medium">{template.title}</TableCell>
+                  <TableCell>{template.description}</TableCell>
+                  <TableCell>{template.sourceForm?.title || '—'}</TableCell>
+                  <TableCell>{template.targetForm?.title || '—'}</TableCell>
+                  <TableCell>{template.isActive ? <Badge variant="outline" className="bg-green-50">Activa</Badge> : <Badge variant="outline" className="bg-gray-100">Inactiva</Badge>}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleEdit(template)}
+                    >
+                      <Edit className="mr-2 h-4 w-4" />
+                      Editar
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {errorForms && (
+        <Alert variant="destructive" className="mt-4">
+          <AlertTitle>Error al cargar formularios</AlertTitle>
+          <AlertDescription>
+            {errorForms.message}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Dialogo de edición */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -815,6 +665,23 @@ const TaskTemplates = () => {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="projectId" className="text-right">
+                Proyecto
+              </Label>
+              <Select onValueChange={setProjectId} value={projectId}>
+                <SelectTrigger id="projectId" className="col-span-3">
+                  <SelectValue placeholder="Selecciona un proyecto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects?.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="sourceFormId" className="text-right">
                 Formulario de Origen
               </Label>
@@ -843,23 +710,6 @@ const TaskTemplates = () => {
                   {forms?.map((form) => (
                     <SelectItem key={form.id} value={form.id}>
                       {form.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="projectId" className="text-right">
-                Proyecto
-              </Label>
-              <Select onValueChange={setProjectId} value={projectId}>
-                <SelectTrigger id="projectId" className="col-span-3">
-                  <SelectValue placeholder="Selecciona un proyecto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects?.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -901,15 +751,24 @@ const TaskTemplates = () => {
             {assignmentType === "dynamic" && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="assigneeFormField" className="text-right">
-                  Campo de Formulario
+                  Campo de Email
                 </Label>
-                <Input
-                  type="text"
-                  id="assigneeFormField"
+                <Select 
+                  onValueChange={setAssigneeFormField} 
                   value={assigneeFormField}
-                  onChange={(e) => setAssigneeFormField(e.target.value)}
-                  className="col-span-3"
-                />
+                  disabled={!sourceFormId}
+                >
+                  <SelectTrigger id="assigneeFormField" className="col-span-3">
+                    <SelectValue placeholder={!sourceFormId ? "Selecciona un formulario origen primero" : "Selecciona campo email"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getEmailFieldsFromForm(sourceFormId).map((field) => (
+                      <SelectItem key={field.key} value={field.key}>
+                        {field.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             <div className="grid grid-cols-4 items-center gap-4">
@@ -964,6 +823,15 @@ const TaskTemplates = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      <CreateTaskTemplateModal
+        open={createTemplateModalOpen}
+        onOpenChange={setCreateTemplateModalOpen}
+        projectId={projectId}
+        onSuccess={() => {
+          refetchTaskTemplates();
+        }}
+      />
     </div>
   );
 };

@@ -188,6 +188,7 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
     <div className="space-y-4 mt-4">
       <div className="text-sm text-muted-foreground mb-4">
         <p>Selecciona cómo mapear campos del formulario origen al formulario destino.</p>
+        <p className="mt-2">Solo se muestran campos del mismo tipo para una correcta herencia de datos.</p>
       </div>
       
       <div className="space-y-4">
@@ -299,7 +300,11 @@ export const CreateTaskTemplateModal = ({
         .eq('status', 'active');
         
       if (error) throw error;
-      return data.map(pu => pu.profiles) || [];
+      
+      // Map and filter out any null profiles
+      return data
+        .map(pu => pu.profiles)
+        .filter(Boolean) || [];
     },
     enabled: !!projectId && open,
   });
@@ -325,6 +330,21 @@ export const CreateTaskTemplateModal = ({
   const handleMappingChange = (newMapping: Record<string, string>) => {
     setInheritanceMapping(newMapping);
     form.setValue('inheritance_mapping', newMapping);
+  };
+
+  // Get email fields from source form for dynamic assignment
+  const getEmailFields = () => {
+    if (!watchSourceFormId || !forms) return [];
+    
+    const sourceForm = forms.find(f => f.id === watchSourceFormId);
+    if (!sourceForm || !sourceForm.schema || !sourceForm.schema.components) return [];
+    
+    return sourceForm.schema.components
+      .filter((component: any) => component.type === 'email' && component.key)
+      .map((component: any) => ({
+        key: component.key,
+        label: component.label || component.key
+      }));
   };
 
   // Mutation for creating a task template
@@ -379,8 +399,11 @@ export const CreateTaskTemplateModal = ({
     createTemplateMutation.mutate(values);
   };
 
+  // Get email fields for dynamic assignment
+  const emailFields = getEmailFields();
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} className="overflow-visible">
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Crear Plantilla de Tarea</DialogTitle>
@@ -431,6 +454,26 @@ export const CreateTaskTemplateModal = ({
                           value={field.value || ""}
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="project_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Proyecto</FormLabel>
+                      <FormControl>
+                        <Input type="hidden" {...field} value={projectId} />
+                      </FormControl>
+                      <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground bg-muted/50">
+                        {projectId ? "Proyecto actual" : "Sin proyecto seleccionado"}
+                      </div>
+                      <FormDescription>
+                        La plantilla se creará para el proyecto actual
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -557,9 +600,30 @@ export const CreateTaskTemplateModal = ({
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Campo para Asignación</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Nombre del campo" {...field} value={field.value || ""} />
-                          </FormControl>
+                          <Select 
+                            onValueChange={field.onChange} 
+                            value={field.value || ""}
+                            disabled={emailFields.length === 0}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder={
+                                  !watchSourceFormId 
+                                    ? "Selecciona un formulario origen primero" 
+                                    : emailFields.length === 0 
+                                      ? "No hay campos de email disponibles" 
+                                      : "Selecciona un campo"
+                                } />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {emailFields.map(field => (
+                                <SelectItem key={field.key} value={field.key}>
+                                  {field.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <FormDescription>
                             Nombre del campo que contiene el email del asignado
                           </FormDescription>
