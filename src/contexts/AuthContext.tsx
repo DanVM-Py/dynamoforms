@@ -30,26 +30,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     console.log("AuthProvider initialized");
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log("Initial session:", session ? "exists" : "null");
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserProfile(session.user.id);
-      } else {
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log("Initial session:", session ? "exists" : "null");
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Error getting initial session:", error);
         setLoading(false);
       }
-    });
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, newSession) => {
+      async (event, newSession) => {
         console.log("Auth state changed:", event);
         setSession(newSession);
         setUser(newSession?.user ?? null);
         
         if (newSession?.user) {
-          fetchUserProfile(newSession.user.id);
+          await fetchUserProfile(newSession.user.id);
         } else {
           setUserProfile(null);
           setIsGlobalAdmin(false);

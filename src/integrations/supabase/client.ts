@@ -27,8 +27,7 @@ const getServiceUrl = (service = DEFAULT_SERVICE) => {
     // For other environments, we should connect to service-specific instances
     // This would typically be configured in environment variables or service discovery
     // For now, we'll use the main instance as a fallback
-    const serviceSpecificUrl = process.env[`SUPABASE_${service.toUpperCase()}_URL`];
-    return serviceSpecificUrl || config.supabaseUrl;
+    return config.supabaseUrl;
   } catch (error) {
     console.warn(`Failed to get URL for service ${service}, using default`, error);
     return config.supabaseUrl;
@@ -42,8 +41,7 @@ const getServiceKey = (service = DEFAULT_SERVICE) => {
       return config.supabaseAnonKey;
     }
     
-    const serviceSpecificKey = process.env[`SUPABASE_${service.toUpperCase()}_KEY`];
-    return serviceSpecificKey || config.supabaseAnonKey;
+    return config.supabaseAnonKey;
   } catch (error) {
     console.warn(`Failed to get API key for service ${service}, using default`, error);
     return config.supabaseAnonKey;
@@ -108,4 +106,3 @@ export const projectsClient = getServiceClient(SERVICES.PROJECTS);
 export const formsClient = getServiceClient(SERVICES.FORMS);
 export const tasksClient = getServiceClient(SERVICES.TASKS);
 export const notificationsClient = getServiceClient(SERVICES.NOTIFICATIONS);
-

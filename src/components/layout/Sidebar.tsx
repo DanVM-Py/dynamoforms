@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
@@ -65,6 +66,12 @@ export function Sidebar() {
       navigate("/auth");
     }
   };
+
+  // If user is null or undefined, don't render the sidebar
+  if (!user) {
+    console.log("User not authenticated, not rendering sidebar");
+    return null;
+  }
 
   const sidebarClasses = `${
     isMobile ? 'fixed z-20 top-0 bottom-0 left-0' : 'sticky top-0'

@@ -1,5 +1,5 @@
 
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -28,7 +28,11 @@ const Monitoring = lazy(() => import("./pages/Monitoring"));
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <Suspense fallback={<Loading />}><Index /></Suspense>,
+    element: (
+      <ProtectedRoute>
+        <Suspense fallback={<Loading />}><Index /></Suspense>
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/auth",

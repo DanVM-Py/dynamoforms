@@ -8,7 +8,7 @@ interface PageContainerProps {
   children: React.ReactNode;
   className?: string;
   hideSidebar?: boolean;
-  title?: string; // Add title prop to interface
+  title?: string;
 }
 
 export const PageContainer = ({ children, className, hideSidebar, title }: PageContainerProps) => {

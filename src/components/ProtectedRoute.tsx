@@ -11,7 +11,7 @@ interface ProtectedRouteProps {
   requireRegularUser?: boolean;
   requireApprover?: boolean;
   requireFormAccess?: boolean;
-  requiredRole?: string; // Added this prop
+  requiredRole?: string;
 }
 
 const ProtectedRoute = ({ 
@@ -21,7 +21,7 @@ const ProtectedRoute = ({
   requireRegularUser = false,
   requireApprover = false,
   requireFormAccess = false,
-  requiredRole // Handle the new prop
+  requiredRole
 }: ProtectedRouteProps) => {
   const { user, userProfile, loading, isGlobalAdmin, isProjectAdmin, isApprover } = useAuth();
 
@@ -39,6 +39,7 @@ const ProtectedRoute = ({
 
   // If not authenticated, redirect to auth page
   if (!user) {
+    console.log("User not authenticated, redirecting to auth page");
     return <Navigate to="/auth" replace />;
   }
 
