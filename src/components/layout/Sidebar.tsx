@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
@@ -29,9 +30,33 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
   const navigate = useNavigate();
   const { user, userProfile, isGlobalAdmin, isProjectAdmin, signOut } = useAuth();
   
+  // Determine if sidebar should be forced based on session storage and URL
+  const isTaskTemplatesPath = 
+    location.pathname === '/task-templates' ||
+    location.pathname.startsWith('/task-templates/') ||
+    location.pathname.includes('task-templates');
+    
   const isForcedFromSession = sessionStorage.getItem('forceSidebar') === 'true';
+  const isForcedFromPath = isTaskTemplatesPath || ALWAYS_SHOW_SIDEBAR_PATHS.some(path => 
+    location.pathname === path || 
+    location.pathname.startsWith(`${path}/`) ||
+    location.pathname.includes(path)
+  );
   
-  const shouldForceVisible = forceVisible || isForcedFromSession || isAllowedPath(location.pathname);
+  // Combine all conditions that would force sidebar visibility
+  const shouldForceVisible = forceVisible || isForcedFromSession || isForcedFromPath;
+  
+  // Debug log
+  useEffect(() => {
+    console.log('Sidebar visibility check:', {
+      forceVisible,
+      isForcedFromSession,
+      isForcedFromPath,
+      isTaskTemplatesPath,
+      path: location.pathname,
+      shouldForceVisible
+    });
+  }, [forceVisible, isForcedFromSession, isForcedFromPath, isTaskTemplatesPath, location.pathname, shouldForceVisible]);
   
   useEffect(() => {
     setIsExpanded(!isMobile);
@@ -39,15 +64,17 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
     if (isMobile && !shouldForceVisible) {
       setIsMobileMenuOpen(false);
     } else if (shouldForceVisible && isMobile) {
+      // Always open mobile menu if sidebar should be forced
       setIsMobileMenuOpen(true);
     }
   }, [isMobile, location.pathname, shouldForceVisible]);
 
+  // Helper function to check if the current path matches any of the allowed paths
   function isAllowedPath(path: string) {
     return ALWAYS_SHOW_SIDEBAR_PATHS.some(allowedPath => 
       path === allowedPath || 
       path.startsWith(`${allowedPath}/`) ||
-      path.endsWith(allowedPath)
+      path.includes(allowedPath)
     );
   }
 

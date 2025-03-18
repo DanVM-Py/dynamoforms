@@ -37,6 +37,22 @@ const ProtectedRoute = ({
     return () => clearTimeout(timer);
   }, []);
   
+  // Check if this is a task-templates path - we want to log this for debugging
+  const isTaskTemplatesPath = 
+    location.pathname === '/task-templates' ||
+    location.pathname.startsWith('/task-templates/') ||
+    location.pathname.includes('task-templates');
+    
+  useEffect(() => {
+    if (isTaskTemplatesPath) {
+      console.log("ProtectedRoute: task-templates path detected", {
+        path: location.pathname,
+        user: !!user,
+        loading
+      });
+    }
+  }, [isTaskTemplatesPath, location.pathname, user, loading]);
+  
   // Show loading state while checking authentication, but only for a limited time
   if (loading && showLoading) {
     return (

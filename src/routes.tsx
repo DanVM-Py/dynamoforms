@@ -24,7 +24,6 @@ const ProjectRoles = lazy(() => import("./pages/ProjectRoles"));
 const ProjectUsers = lazy(() => import("./pages/ProjectUsers"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Tasks = lazy(() => import("./pages/Tasks"));
-// Important: Task Templates always needs sidebar visibility
 const TaskTemplates = lazy(() => import("./pages/TaskTemplates"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Index = lazy(() => import("./pages/Index"));
@@ -117,7 +116,6 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
   },
-  // Task Templates route - will always show sidebar
   {
     path: "/task-templates",
     element: (

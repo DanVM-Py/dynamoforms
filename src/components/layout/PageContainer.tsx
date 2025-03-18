@@ -24,24 +24,31 @@ export const PageContainer = ({ children, className, hideSidebar = false, title 
   const isAuthenticated = !!user && !loading;
   const location = useLocation();
   
-  // Check if current path is in the list of paths that should always show sidebar
-  const shouldForceSidebar = ALWAYS_SHOW_SIDEBAR_PATHS.some(path => 
-    location.pathname === path || 
-    location.pathname.startsWith(`${path}/`) ||
-    location.pathname.endsWith(path)
-  );
+  // Check if current path directly matches or is a sub-path of task-templates
+  const isTaskTemplatesPath = 
+    location.pathname === '/task-templates' ||
+    location.pathname.startsWith('/task-templates/') ||
+    location.pathname.includes('task-templates');
   
-  // Store the forced sidebar state in session storage to persist through navigations
+  // Force sidebar for task template paths regardless of the hideSidebar prop
+  const shouldForceSidebar = isTaskTemplatesPath || 
+    ALWAYS_SHOW_SIDEBAR_PATHS.some(path => 
+      location.pathname === path || 
+      location.pathname.startsWith(`${path}/`)
+    );
+  
+  // Always store the current state in session storage for persistence
   useEffect(() => {
     if (shouldForceSidebar) {
       sessionStorage.setItem('forceSidebar', 'true');
-    } else if (ALWAYS_SHOW_SIDEBAR_PATHS.every(path => !location.pathname.includes(path))) {
-      // Only remove the flag if we're not on any path that should force the sidebar
+      console.log('Force sidebar set to true for path:', location.pathname);
+    } else if (!ALWAYS_SHOW_SIDEBAR_PATHS.some(path => location.pathname.includes(path))) {
+      // Only remove if we're not on any path that should force the sidebar
       sessionStorage.removeItem('forceSidebar');
     }
   }, [shouldForceSidebar, location.pathname]);
   
-  // Determine if sidebar should be shown
+  // This ensures the sidebar is shown when it should be forced
   const shouldShowSidebar = isAuthenticated && (!hideSidebar || shouldForceSidebar);
   
   // Log container rendering for debugging
@@ -51,10 +58,11 @@ export const PageContainer = ({ children, className, hideSidebar = false, title 
       loading,
       authenticated: isAuthenticated,
       path: location.pathname, 
+      isTaskTemplatesPath,
       forceSidebar: shouldForceSidebar,
       showSidebar: shouldShowSidebar
     });
-  }, [user, loading, isAuthenticated, location.pathname, shouldForceSidebar, shouldShowSidebar]);
+  }, [user, loading, isAuthenticated, location.pathname, isTaskTemplatesPath, shouldForceSidebar, shouldShowSidebar]);
   
   return (
     <div className="flex min-h-screen bg-gray-50">
