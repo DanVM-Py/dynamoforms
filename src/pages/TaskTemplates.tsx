@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -63,12 +64,14 @@ interface TaskTemplate {
   id: string;
   title: string;
   description: string;
-  sourceForm: Form | null;
-  targetForm: Form | null;
+  sourceFormId: string;
+  sourceForm?: Form | null;
+  targetFormId: string;
+  targetForm?: Form | null;
   isActive: boolean;
   projectId: string;
   inheritanceMapping: any;
-  assignmentType: AssignmentType; // Updated type
+  assignmentType: AssignmentType;
   defaultAssignee: string;
   dueDays: number;
   assigneeFormField: string;
@@ -85,7 +88,7 @@ const TaskTemplates = () => {
   const [isActive, setIsActive] = useState(true);
   const [projectId, setProjectId] = useState("");
   const [inheritanceMapping, setInheritanceMapping] = useState("");
-  const [assignmentType, setAssignmentType] = useState<AssignmentType>("static"); // Updated type
+  const [assignmentType, setAssignmentType] = useState<AssignmentType>("static");
   const [defaultAssignee, setDefaultAssignee] = useState("");
   const [dueDays, setDueDays] = useState(7);
   const [assigneeFormField, setAssigneeFormField] = useState("");
@@ -98,6 +101,13 @@ const TaskTemplates = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, userProfile } = useAuth();
+
+  // Establecer el projectId inicial desde el userProfile
+  useEffect(() => {
+    if (userProfile?.project_id) {
+      setProjectId(userProfile.project_id);
+    }
+  }, [userProfile]);
 
   const {
     data: taskTemplatesData,
@@ -113,8 +123,8 @@ const TaskTemplates = () => {
           id,
           title,
           description,
-          source_form ( id, title ),
-          target_form ( id, title ),
+          source_form_id,
+          target_form_id,
           is_active,
           project_id,
           inheritance_mapping,
@@ -140,20 +150,23 @@ const TaskTemplates = () => {
 
       return data;
     },
+    enabled: true, // Always fetch templates
   });
 
+  // Buscar los detalles de los formularios de origen y destino por separado
   const {
     data: forms,
     isLoading: isLoadingForms,
     error: errorForms,
-    refetch: refetchForms
   } = useQuery({
-    queryKey: ['forms'],
+    queryKey: ['forms', projectId],
     queryFn: async () => {
+      if (!projectId) return [];
+      
       const { data, error } = await supabase
         .from('forms')
         .select('id, title')
-        .eq('project_id', userProfile?.project_id)
+        .eq('project_id', projectId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -163,13 +176,13 @@ const TaskTemplates = () => {
 
       return data;
     },
+    enabled: !!projectId, // Solo ejecutar cuando projectId esté disponible
   });
 
   const {
     data: projects,
     isLoading: isLoadingProjects,
     error: errorProjects,
-    refetch: refetchProjects
   } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
@@ -191,7 +204,6 @@ const TaskTemplates = () => {
     data: projectUsers,
     isLoading: isLoadingProjectUsers,
     error: errorProjectUsers,
-    refetch: refetchProjectUsers
   } = useQuery({
     queryKey: ['projectUsers', projectId],
     queryFn: async () => {
@@ -202,72 +214,45 @@ const TaskTemplates = () => {
     enabled: !!projectId,
   });
 
+  // Usamos un Map para almacenar los formularios por ID para referencia rápida
+  const formsMap = React.useMemo(() => {
+    const map = new Map<string, Form>();
+    if (forms) {
+      forms.forEach(form => {
+        map.set(form.id, form);
+      });
+    }
+    return map;
+  }, [forms]);
+
   const transformTaskTemplates = (data: any[]): TaskTemplate[] => {
     if (!data || !Array.isArray(data)) return [];
     
     return data.map(template => {
-      let sourceForm = null;
-      if (template.source_form) {
-        // First ensure source_form is not null
-        const sourceFormObj = template.source_form;
-        
-        // Then separately check the properties
-        if (sourceFormObj && 
-            typeof sourceFormObj === 'object' && 
-            'id' in sourceFormObj && 
-            'title' in sourceFormObj) {
-          // Final null check on actual properties
-          const id = sourceFormObj.id;
-          const title = sourceFormObj.title;
-          
-          if (id !== null && title !== null) {
-            sourceForm = { 
-              id: String(id), 
-              title: String(title) 
-            };
-          }
-        }
-      }
+      // Obtener formularios de nuestro map
+      const sourceForm = formsMap.get(template.source_form_id) || null;
+      const targetForm = formsMap.get(template.target_form_id) || null;
       
-      let targetForm = null;
-      if (template.target_form) {
-        // First ensure target_form is not null
-        const targetFormObj = template.target_form;
-        
-        // Then separately check the properties
-        if (targetFormObj && 
-            typeof targetFormObj === 'object' && 
-            'id' in targetFormObj && 
-            'title' in targetFormObj) {
-          // Final null check on actual properties
-          const id = targetFormObj.id;
-          const title = targetFormObj.title;
-          
-          if (id !== null && title !== null) {
-            targetForm = { 
-              id: String(id), 
-              title: String(title) 
-            };
-          }
-        }
-      }
-      
-      // Convert the assignment_type to the proper type
-      const assignmentType = template.assignment_type === "dynamic" ? "dynamic" : "static";
+      // Asegurarse de que assignmentType es del tipo correcto
+      const assignmentType: AssignmentType = template.assignment_type === "dynamic" 
+        ? "dynamic" 
+        : "static";
       
       return {
         id: template.id,
         title: template.title,
         description: template.description,
+        sourceFormId: template.source_form_id,
         sourceForm,
+        targetFormId: template.target_form_id,
         targetForm,
         isActive: template.is_active,
         projectId: template.project_id,
         inheritanceMapping: template.inheritance_mapping,
-        assignmentType, // Properly typed now
-        defaultAssignee: template.default_assignee,
-        dueDays: template.due_days,
-        assigneeFormField: template.assignee_form_field
+        assignmentType,
+        defaultAssignee: template.default_assignee || "",
+        dueDays: template.due_days || 7,
+        assigneeFormField: template.assignee_form_field || ""
       };
     });
   };
@@ -275,7 +260,7 @@ const TaskTemplates = () => {
   const taskTemplates = React.useMemo(() => {
     if (!taskTemplatesData) return [];
     return transformTaskTemplates(taskTemplatesData);
-  }, [taskTemplatesData]);
+  }, [taskTemplatesData, formsMap]);
 
   const createTaskTemplateMutation = useMutation({
     mutationFn: async () => {
@@ -434,8 +419,8 @@ const TaskTemplates = () => {
     setSelectedTemplate(template);
     setTitle(template.title);
     setDescription(template.description);
-    setSourceFormId(template.sourceForm?.id || "");
-    setTargetFormId(template.targetForm?.id || "");
+    setSourceFormId(template.sourceFormId);
+    setTargetFormId(template.targetFormId);
     setIsActive(template.isActive);
     setProjectId(template.projectId);
     setInheritanceMapping(template.inheritanceMapping);
@@ -452,7 +437,7 @@ const TaskTemplates = () => {
     setSourceFormId("");
     setTargetFormId("");
     setIsActive(true);
-    setProjectId("");
+    setProjectId(userProfile?.project_id || "");
     setInheritanceMapping("");
     setAssignmentType("static");
     setDefaultAssignee("");
@@ -473,7 +458,7 @@ const TaskTemplates = () => {
       const { data, error } = await supabase
         .from('project_users')
         .select(`
-          profiles (
+          profiles:user_id (
             id,
             name,
             email
@@ -491,29 +476,22 @@ const TaskTemplates = () => {
       if (!data) return users;
       
       for (const projectUser of data) {
-        // Skip if profiles is null
+        // Verificar si profiles existe
         if (!projectUser.profiles) continue;
         
-        // Create a local variable and verify it's not null
-        const profilesObj = projectUser.profiles;
-        if (!profilesObj) continue;
+        // Extraer el objeto profiles de forma segura
+        const profile = projectUser.profiles as { id: string; name: string; email: string } | null;
+        if (!profile) continue;
         
-        // Check if it's an object with the required properties
-        if (typeof profilesObj !== 'object') continue;
+        // Verificar si todas las propiedades necesarias existen
+        if (!profile.id || !profile.name || !profile.email) continue;
         
-        // Safely extract each property with null checking
-        const id = profilesObj && 'id' in profilesObj ? profilesObj.id : null;
-        const name = profilesObj && 'name' in profilesObj ? profilesObj.name : null;
-        const email = profilesObj && 'email' in profilesObj ? profilesObj.email : null;
-        
-        // Only add to users if all properties are non-null
-        if (id !== null && name !== null && email !== null) {
-          users.push({
-            id: String(id),
-            name: String(name),
-            email: String(email)
-          });
-        }
+        // Agregar el usuario a la lista
+        users.push({
+          id: profile.id,
+          name: profile.name,
+          email: profile.email
+        });
       }
       
       return users;
@@ -527,7 +505,7 @@ const TaskTemplates = () => {
   if (errorTaskTemplates) return <Alert variant="destructive">
     <AlertTitle>Error</AlertTitle>
     <AlertDescription>
-      Hubo un error al cargar las plantillas de tareas.
+      Hubo un error al cargar las plantillas de tareas. {errorTaskTemplates.message}
     </AlertDescription>
   </Alert>;
 
@@ -536,10 +514,25 @@ const TaskTemplates = () => {
       <div className="container mx-auto py-10">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">Plantillas de Tareas</h1>
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Crear Plantilla
-          </Button>
+          <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                refetchTaskTemplates();
+                if (projectId) {
+                  queryClient.invalidateQueries({ queryKey: ['forms', projectId] });
+                }
+              }}
+            >
+              <RefreshCw className="h-4 w-4 mr-1" />
+              Actualizar
+            </Button>
+            <Button onClick={() => setOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Crear Plantilla
+            </Button>
+          </div>
         </div>
 
         <div className="mb-4">
@@ -572,31 +565,52 @@ const TaskTemplates = () => {
               <TableRow>
                 <TableHead className="w-[200px]">Título</TableHead>
                 <TableHead>Descripción</TableHead>
+                <TableHead>Formulario de Origen</TableHead>
+                <TableHead>Formulario de Destino</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {taskTemplates.map((template) => (
-                <TableRow key={template.id}>
-                  <TableCell className="font-medium">{template.title}</TableCell>
-                  <TableCell>{template.description}</TableCell>
-                  <TableCell>{template.isActive ? <Badge variant="outline">Activa</Badge> : <Badge>Inactiva</Badge>}</TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleEdit(template)}
-                    >
-                      <Edit className="mr-2 h-4 w-4" />
-                      Editar
-                    </Button>
+              {taskTemplates.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-6">
+                    No hay plantillas de tareas disponibles
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                taskTemplates.map((template) => (
+                  <TableRow key={template.id}>
+                    <TableCell className="font-medium">{template.title}</TableCell>
+                    <TableCell>{template.description}</TableCell>
+                    <TableCell>{template.sourceForm?.title || '—'}</TableCell>
+                    <TableCell>{template.targetForm?.title || '—'}</TableCell>
+                    <TableCell>{template.isActive ? <Badge variant="outline" className="bg-green-50">Activa</Badge> : <Badge variant="outline" className="bg-gray-100">Inactiva</Badge>}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleEdit(template)}
+                      >
+                        <Edit className="mr-2 h-4 w-4" />
+                        Editar
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
+
+        {errorForms && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertTitle>Error al cargar formularios</AlertTitle>
+            <AlertDescription>
+              {errorForms.message}
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -635,7 +649,7 @@ const TaskTemplates = () => {
               <Label htmlFor="sourceFormId" className="text-right">
                 Formulario de Origen
               </Label>
-              <Select onValueChange={setSourceFormId}>
+              <Select onValueChange={setSourceFormId} value={sourceFormId}>
                 <SelectTrigger id="sourceFormId" className="col-span-3">
                   <SelectValue placeholder="Selecciona un formulario" />
                 </SelectTrigger>
@@ -652,7 +666,7 @@ const TaskTemplates = () => {
               <Label htmlFor="targetFormId" className="text-right">
                 Formulario de Destino
               </Label>
-              <Select onValueChange={setTargetFormId}>
+              <Select onValueChange={setTargetFormId} value={targetFormId}>
                 <SelectTrigger id="targetFormId" className="col-span-3">
                   <SelectValue placeholder="Selecciona un formulario" />
                 </SelectTrigger>
@@ -669,7 +683,7 @@ const TaskTemplates = () => {
               <Label htmlFor="projectId" className="text-right">
                 Proyecto
               </Label>
-              <Select onValueChange={setProjectId}>
+              <Select onValueChange={setProjectId} value={projectId}>
                 <SelectTrigger id="projectId" className="col-span-3">
                   <SelectValue placeholder="Selecciona un proyecto" />
                 </SelectTrigger>
@@ -686,7 +700,7 @@ const TaskTemplates = () => {
               <Label htmlFor="assignmentType" className="text-right">
                 Tipo de Asignación
               </Label>
-              <Select onValueChange={(value: AssignmentType) => setAssignmentType(value)}>
+              <Select onValueChange={(value: AssignmentType) => setAssignmentType(value)} value={assignmentType}>
                 <SelectTrigger id="assignmentType" className="col-span-3">
                   <SelectValue placeholder="Selecciona un tipo" />
                 </SelectTrigger>
@@ -701,7 +715,7 @@ const TaskTemplates = () => {
                 <Label htmlFor="defaultAssignee" className="text-right">
                   Usuario Asignado
                 </Label>
-                <Select onValueChange={setDefaultAssignee}>
+                <Select onValueChange={setDefaultAssignee} value={defaultAssignee}>
                   <SelectTrigger id="defaultAssignee" className="col-span-3">
                     <SelectValue placeholder="Selecciona un usuario" />
                   </SelectTrigger>
@@ -804,7 +818,7 @@ const TaskTemplates = () => {
               <Label htmlFor="sourceFormId" className="text-right">
                 Formulario de Origen
               </Label>
-              <Select onValueChange={setSourceFormId}>
+              <Select onValueChange={setSourceFormId} value={sourceFormId}>
                 <SelectTrigger id="sourceFormId" className="col-span-3">
                   <SelectValue placeholder="Selecciona un formulario" />
                 </SelectTrigger>
@@ -821,7 +835,7 @@ const TaskTemplates = () => {
               <Label htmlFor="targetFormId" className="text-right">
                 Formulario de Destino
               </Label>
-              <Select onValueChange={setTargetFormId}>
+              <Select onValueChange={setTargetFormId} value={targetFormId}>
                 <SelectTrigger id="targetFormId" className="col-span-3">
                   <SelectValue placeholder="Selecciona un formulario" />
                 </SelectTrigger>
@@ -838,7 +852,7 @@ const TaskTemplates = () => {
               <Label htmlFor="projectId" className="text-right">
                 Proyecto
               </Label>
-              <Select onValueChange={setProjectId}>
+              <Select onValueChange={setProjectId} value={projectId}>
                 <SelectTrigger id="projectId" className="col-span-3">
                   <SelectValue placeholder="Selecciona un proyecto" />
                 </SelectTrigger>
@@ -855,7 +869,7 @@ const TaskTemplates = () => {
               <Label htmlFor="assignmentType" className="text-right">
                 Tipo de Asignación
               </Label>
-              <Select onValueChange={(value: AssignmentType) => setAssignmentType(value)}>
+              <Select onValueChange={(value: AssignmentType) => setAssignmentType(value)} value={assignmentType}>
                 <SelectTrigger id="assignmentType" className="col-span-3">
                   <SelectValue placeholder="Selecciona un tipo" />
                 </SelectTrigger>
@@ -870,7 +884,7 @@ const TaskTemplates = () => {
                 <Label htmlFor="defaultAssignee" className="text-right">
                   Usuario Asignado
                 </Label>
-                <Select onValueChange={setDefaultAssignee}>
+                <Select onValueChange={setDefaultAssignee} value={defaultAssignee}>
                   <SelectTrigger id="defaultAssignee" className="col-span-3">
                     <SelectValue placeholder="Selecciona un usuario" />
                   </SelectTrigger>
@@ -955,4 +969,3 @@ const TaskTemplates = () => {
 };
 
 export default TaskTemplates;
-
