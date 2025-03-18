@@ -46,6 +46,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { isDevelopment } from "@/config/environment";
 import { CreateTaskTemplateModal } from "@/components/project/CreateTaskTemplateModal";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type AssignmentType = "static" | "dynamic";
 
@@ -74,6 +75,7 @@ interface TaskTemplate {
   inheritanceMapping: any;
   assignmentType: AssignmentType;
   defaultAssignee: string;
+  minDays: number;
   dueDays: number;
   assigneeFormField: string;
 }
@@ -88,9 +90,10 @@ const TaskTemplates = () => {
   const [targetFormId, setTargetFormId] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [projectId, setProjectId] = useState("");
-  const [inheritanceMapping, setInheritanceMapping] = useState("");
+  const [inheritanceMapping, setInheritanceMapping] = useState<Record<string, string>>({});
   const [assignmentType, setAssignmentType] = useState<AssignmentType>("static");
   const [defaultAssignee, setDefaultAssignee] = useState("");
+  const [minDays, setMinDays] = useState(0);
   const [dueDays, setDueDays] = useState(7);
   const [assigneeFormField, setAssigneeFormField] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -100,6 +103,9 @@ const TaskTemplates = () => {
   const [isTemplateAll, setIsTemplateAll] = useState(true);
   const [filter, setFilter] = useState<"active" | "inactive" | "all">("all");
   const [createTemplateModalOpen, setCreateTemplateModalOpen] = useState(false);
+  const [currentEditTab, setCurrentEditTab] = useState("general");
+  const [sourceFormSchema, setSourceFormSchema] = useState<any>(null);
+  const [targetFormSchema, setTargetFormSchema] = useState<any>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, userProfile } = useAuth();
@@ -124,7 +130,7 @@ const TaskTemplates = () => {
     error: errorTaskTemplates,
     refetch: refetchTaskTemplates
   } = useQuery({
-    queryKey: ['taskTemplates', filter],
+    queryKey: ['taskTemplates', filter, projectId],
     queryFn: async () => {
       let query = supabase
         .from('task_templates')
@@ -139,16 +145,24 @@ const TaskTemplates = () => {
           inheritance_mapping,
           assignment_type,
           default_assignee,
+          min_days,
           due_days,
           assignee_form_field
-        `)
-        .order('created_at', { ascending: false });
-
+        `);
+        
+      // First apply project filter if available
+      if (projectId) {
+        query = query.eq('project_id', projectId);
+      }
+      
+      // Then apply active/inactive filter
       if (filter === "active") {
         query = query.eq('is_active', true);
       } else if (filter === "inactive") {
         query = query.eq('is_active', false);
       }
+      
+      query = query.order('created_at', { ascending: false });
 
       const { data, error } = await query;
 
@@ -253,9 +267,10 @@ const TaskTemplates = () => {
         targetForm,
         isActive: template.is_active,
         projectId: template.project_id,
-        inheritanceMapping: template.inheritance_mapping,
+        inheritanceMapping: template.inheritance_mapping || {},
         assignmentType,
         defaultAssignee: template.default_assignee || "",
+        minDays: template.min_days || 0,
         dueDays: template.due_days || 7,
         assigneeFormField: template.assignee_form_field || ""
       };
@@ -266,6 +281,47 @@ const TaskTemplates = () => {
     if (!taskTemplatesData) return [];
     return transformTaskTemplates(taskTemplatesData);
   }, [taskTemplatesData, formsMap]);
+
+  // Load form schemas when form IDs change during editing
+  useEffect(() => {
+    const loadFormSchema = async (formId: string, setSchema: (schema: any) => void) => {
+      if (!formId) {
+        setSchema(null);
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from("forms")
+          .select("schema")
+          .eq("id", formId)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Error loading form schema:", error);
+          return;
+        }
+
+        if (data && data.schema) {
+          setSchema(data.schema);
+        }
+      } catch (error) {
+        console.error("Error loading form schema:", error);
+      }
+    };
+
+    if (sourceFormId) {
+      loadFormSchema(sourceFormId, setSourceFormSchema);
+    } else {
+      setSourceFormSchema(null);
+    }
+
+    if (targetFormId) {
+      loadFormSchema(targetFormId, setTargetFormSchema);
+    } else {
+      setTargetFormSchema(null);
+    }
+  }, [sourceFormId, targetFormId]);
 
   const createTaskTemplateMutation = useMutation({
     mutationFn: async () => {
@@ -283,6 +339,7 @@ const TaskTemplates = () => {
           inheritance_mapping: inheritanceMapping,
           assignment_type: assignmentType,
           default_assignee: defaultAssignee,
+          min_days: minDays,
           due_days: dueDays,
           assignee_form_field: assigneeFormField
         })
@@ -321,6 +378,10 @@ const TaskTemplates = () => {
     mutationFn: async () => {
       setIsSaving(true);
 
+      if (minDays > dueDays) {
+        throw new Error("El mínimo de días debe ser menor o igual al máximo de días");
+      }
+
       const { data, error } = await supabase
         .from('task_templates')
         .update({
@@ -332,9 +393,10 @@ const TaskTemplates = () => {
           project_id: projectId,
           inheritance_mapping: inheritanceMapping,
           assignment_type: assignmentType,
-          default_assignee: defaultAssignee,
+          default_assignee: assignmentType === "static" ? defaultAssignee : null,
+          min_days: minDays,
           due_days: dueDays,
-          assignee_form_field: assigneeFormField
+          assignee_form_field: assignmentType === "dynamic" ? assigneeFormField : null
         })
         .eq('id', selectedTemplate?.id)
         .select();
@@ -359,7 +421,7 @@ const TaskTemplates = () => {
       console.error("Error updating task template:", error);
       toast({
         title: "Error",
-        description: "Hubo un error al actualizar la plantilla de tarea. Inténtalo de nuevo.",
+        description: typeof error === 'object' && error.message ? error.message : "Hubo un error al actualizar la plantilla de tarea. Inténtalo de nuevo.",
         variant: "destructive",
       });
     },
@@ -428,11 +490,13 @@ const TaskTemplates = () => {
     setTargetFormId(template.targetFormId);
     setIsActive(template.isActive);
     setProjectId(template.projectId);
-    setInheritanceMapping(template.inheritanceMapping);
+    setInheritanceMapping(template.inheritanceMapping || {});
     setAssignmentType(template.assignmentType);
     setDefaultAssignee(template.defaultAssignee);
-    setDueDays(template.dueDays);
+    setMinDays(template.minDays || 0);
+    setDueDays(template.dueDays || 7);
     setAssigneeFormField(template.assigneeFormField);
+    setCurrentEditTab("general");
     setEditOpen(true);
   };
 
@@ -443,12 +507,15 @@ const TaskTemplates = () => {
     setTargetFormId("");
     setIsActive(true);
     setProjectId(userProfile?.project_id || "");
-    setInheritanceMapping("");
+    setInheritanceMapping({});
     setAssignmentType("static");
     setDefaultAssignee("");
+    setMinDays(0);
     setDueDays(7);
     setAssigneeFormField("");
     setSelectedTemplate(null);
+    setSourceFormSchema(null);
+    setTargetFormSchema(null);
   };
 
   const handleFilterChange = (newFilter: "active" | "inactive" | "all") => {
@@ -513,6 +580,69 @@ const TaskTemplates = () => {
         label: component.label || component.key
       }));
   };
+
+  // Define field type compatibility
+  const areFieldTypesCompatible = (sourceType: string, targetType: string) => {
+    // Define groups of compatible field types
+    const textTypes = ['textfield', 'textarea', 'text'];
+    const numberTypes = ['number', 'currency'];
+    const dateTypes = ['datetime', 'date'];
+    const selectionTypes = ['select', 'radio', 'checkbox'];
+    
+    // Check if both types are in the same compatibility group
+    if (textTypes.includes(sourceType) && textTypes.includes(targetType)) return true;
+    if (numberTypes.includes(sourceType) && numberTypes.includes(targetType)) return true;
+    if (dateTypes.includes(sourceType) && dateTypes.includes(targetType)) return true;
+    if (selectionTypes.includes(sourceType) && selectionTypes.includes(targetType)) return true;
+    
+    // Exact match for other types
+    return sourceType === targetType;
+  };
+
+  // Helper functions for inheritance mapping
+  const getSourceFormFields = () => {
+    if (!sourceFormSchema || !sourceFormSchema.components) return [];
+    
+    return sourceFormSchema.components
+      .filter((component: any) => component.key && component.type !== 'button')
+      .map((component: any) => ({
+        key: component.key,
+        label: component.label || component.key,
+        type: component.type
+      }));
+  };
+
+  const getTargetFormFields = () => {
+    if (!targetFormSchema || !targetFormSchema.components) return [];
+    
+    return targetFormSchema.components
+      .filter((component: any) => component.key && component.type !== 'button')
+      .map((component: any) => ({
+        key: component.key,
+        label: component.label || component.key,
+        type: component.type
+      }));
+  };
+
+  // Handle field selection for inheritance mapping
+  const handleFieldMapping = (sourceKey: string, targetKey: string) => {
+    const newMapping = { ...inheritanceMapping };
+    if (sourceKey) {
+      newMapping[sourceKey] = targetKey;
+    } else {
+      // Find the source key for this target and remove it
+      const sourceKeyToRemove = Object.entries(inheritanceMapping)
+        .find(([_, value]) => value === targetKey)?.[0];
+      
+      if (sourceKeyToRemove) {
+        delete newMapping[sourceKeyToRemove];
+      }
+    }
+    
+    setInheritanceMapping(newMapping);
+  };
+
+  const canAccessAdvancedTabs = !!sourceFormId && !!targetFormId;
 
   if (isLoadingTaskTemplates) return <div className="flex items-center justify-center h-screen bg-gray-50"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando plantillas de tareas...</div>;
   if (errorTaskTemplates) return <Alert variant="destructive">
@@ -579,6 +709,7 @@ const TaskTemplates = () => {
               <TableHead>Descripción</TableHead>
               <TableHead>Formulario de Origen</TableHead>
               <TableHead>Formulario de Destino</TableHead>
+              <TableHead>Periodo de ejecución</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -586,7 +717,7 @@ const TaskTemplates = () => {
           <TableBody>
             {taskTemplates.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-6">
+                <TableCell colSpan={7} className="text-center py-6">
                   No hay plantillas de tareas disponibles
                 </TableCell>
               </TableRow>
@@ -597,6 +728,11 @@ const TaskTemplates = () => {
                   <TableCell>{template.description}</TableCell>
                   <TableCell>{template.sourceForm?.title || '—'}</TableCell>
                   <TableCell>{template.targetForm?.title || '—'}</TableCell>
+                  <TableCell>
+                    {template.minDays === 0 ? 
+                      `Hasta ${template.dueDays} día${template.dueDays !== 1 ? 's' : ''}` : 
+                      `${template.minDays} - ${template.dueDays} día${template.dueDays !== 1 ? 's' : ''}`}
+                  </TableCell>
                   <TableCell>{template.isActive ? <Badge variant="outline" className="bg-green-50">Activa</Badge> : <Badge variant="outline" className="bg-gray-100">Inactiva</Badge>}</TableCell>
                   <TableCell className="text-right">
                     <Button
@@ -625,168 +761,262 @@ const TaskTemplates = () => {
       )}
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[650px]">
           <DialogHeader>
             <DialogTitle>Editar Plantilla de Tarea</DialogTitle>
             <DialogDescription>
               Edita la plantilla de tarea para automatizar tus procesos.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="title" className="text-right">
-                Título
-              </Label>
-              <Input
-                type="text"
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
-                Descripción
-              </Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="projectId" className="text-right">
-                Proyecto
-              </Label>
-              <Select onValueChange={setProjectId} value={projectId}>
-                <SelectTrigger id="projectId" className="col-span-3">
-                  <SelectValue placeholder="Selecciona un proyecto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects?.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="sourceFormId" className="text-right">
-                Formulario de Origen
-              </Label>
-              <Select onValueChange={setSourceFormId} value={sourceFormId}>
-                <SelectTrigger id="sourceFormId" className="col-span-3">
-                  <SelectValue placeholder="Selecciona un formulario" />
-                </SelectTrigger>
-                <SelectContent>
-                  {forms?.map((form) => (
-                    <SelectItem key={form.id} value={form.id}>
-                      {form.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="targetFormId" className="text-right">
-                Formulario de Destino
-              </Label>
-              <Select onValueChange={setTargetFormId} value={targetFormId}>
-                <SelectTrigger id="targetFormId" className="col-span-3">
-                  <SelectValue placeholder="Selecciona un formulario" />
-                </SelectTrigger>
-                <SelectContent>
-                  {forms?.map((form) => (
-                    <SelectItem key={form.id} value={form.id}>
-                      {form.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="assignmentType" className="text-right">
-                Tipo de Asignación
-              </Label>
-              <Select onValueChange={(value: AssignmentType) => setAssignmentType(value)} value={assignmentType}>
-                <SelectTrigger id="assignmentType" className="col-span-3">
-                  <SelectValue placeholder="Selecciona un tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="static">Usuario</SelectItem>
-                  <SelectItem value="dynamic">Campo de Formulario</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {assignmentType === "static" && (
+          
+          <Tabs value={currentEditTab} onValueChange={setCurrentEditTab}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="general">General</TabsTrigger>
+              <TabsTrigger value="assignment" disabled={!canAccessAdvancedTabs}>
+                Asignación
+              </TabsTrigger>
+              <TabsTrigger value="inheritance" disabled={!canAccessAdvancedTabs}>
+                Herencia
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="general" className="space-y-4 pt-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="defaultAssignee" className="text-right">
-                  Usuario Asignado
+                <Label htmlFor="title" className="text-right">
+                  Título
                 </Label>
-                <Select onValueChange={setDefaultAssignee} value={defaultAssignee}>
-                  <SelectTrigger id="defaultAssignee" className="col-span-3">
-                    <SelectValue placeholder="Selecciona un usuario" />
+                <Input
+                  type="text"
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="description" className="text-right">
+                  Descripción
+                </Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="projectId" className="text-right">
+                  Proyecto
+                </Label>
+                <Select onValueChange={setProjectId} value={projectId}>
+                  <SelectTrigger id="projectId" className="col-span-3">
+                    <SelectValue placeholder="Selecciona un proyecto" />
                   </SelectTrigger>
                   <SelectContent>
-                    {projectUsers?.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name} ({user.email})
+                    {projects?.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            )}
-            {assignmentType === "dynamic" && (
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="assigneeFormField" className="text-right">
-                  Campo de Email
+                <Label htmlFor="sourceFormId" className="text-right">
+                  Formulario de Origen
                 </Label>
-                <Select 
-                  onValueChange={setAssigneeFormField} 
-                  value={assigneeFormField}
-                  disabled={!sourceFormId}
-                >
-                  <SelectTrigger id="assigneeFormField" className="col-span-3">
-                    <SelectValue placeholder={!sourceFormId ? "Selecciona un formulario origen primero" : "Selecciona campo email"} />
+                <Select onValueChange={setSourceFormId} value={sourceFormId}>
+                  <SelectTrigger id="sourceFormId" className="col-span-3">
+                    <SelectValue placeholder="Selecciona un formulario" />
                   </SelectTrigger>
                   <SelectContent>
-                    {getEmailFieldsFromForm(sourceFormId).map((field) => (
-                      <SelectItem key={field.key} value={field.key}>
-                        {field.label}
+                    {forms?.map((form) => (
+                      <SelectItem key={form.id} value={form.id}>
+                        {form.title}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            )}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="dueDays" className="text-right">
-                Días para Vencer
-              </Label>
-              <Input
-                type="number"
-                id="dueDays"
-                value={dueDays}
-                onChange={(e) => setDueDays(Number(e.target.value))}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="isActive" className="text-right">
-                Activa
-              </Label>
-              <Checkbox
-                id="isActive"
-                checked={isActive}
-                onCheckedChange={(checked) => setIsActive(!!checked)}
-                className="col-span-3"
-              />
-            </div>
-          </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="targetFormId" className="text-right">
+                  Formulario de Destino
+                </Label>
+                <Select onValueChange={setTargetFormId} value={targetFormId}>
+                  <SelectTrigger id="targetFormId" className="col-span-3">
+                    <SelectValue placeholder="Selecciona un formulario" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {forms?.map((form) => (
+                      <SelectItem key={form.id} value={form.id}>
+                        {form.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">
+                  Periodo de Ejecución
+                </Label>
+                <div className="col-span-3 grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="minDays">Mínimo (días)</Label>
+                    <Input
+                      type="number"
+                      id="minDays"
+                      value={minDays}
+                      onChange={(e) => setMinDays(Number(e.target.value))}
+                      minValue={0}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="dueDays">Máximo (días)</Label>
+                    <Input
+                      type="number"
+                      id="dueDays"
+                      value={dueDays}
+                      onChange={(e) => setDueDays(Number(e.target.value))}
+                      minValue={1}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="isActive" className="text-right">
+                  Activa
+                </Label>
+                <div className="col-span-3">
+                  <Switch
+                    id="isActive"
+                    checked={isActive}
+                    onCheckedChange={setIsActive}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="assignment" className="space-y-4 pt-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="assignmentType" className="text-right">
+                  Tipo de Asignación
+                </Label>
+                <Select onValueChange={(value: AssignmentType) => setAssignmentType(value)} value={assignmentType}>
+                  <SelectTrigger id="assignmentType" className="col-span-3">
+                    <SelectValue placeholder="Selecciona un tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="static">Usuario</SelectItem>
+                    <SelectItem value="dynamic">Campo de Formulario</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {assignmentType === "static" && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="defaultAssignee" className="text-right">
+                    Usuario Asignado
+                  </Label>
+                  <Select onValueChange={setDefaultAssignee} value={defaultAssignee}>
+                    <SelectTrigger id="defaultAssignee" className="col-span-3">
+                      <SelectValue placeholder="Selecciona un usuario" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projectUsers?.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name} ({user.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {assignmentType === "dynamic" && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="assigneeFormField" className="text-right">
+                    Campo de Email
+                  </Label>
+                  <Select 
+                    onValueChange={setAssigneeFormField} 
+                    value={assigneeFormField}
+                    disabled={!sourceFormId}
+                  >
+                    <SelectTrigger id="assigneeFormField" className="col-span-3">
+                      <SelectValue placeholder={!sourceFormId ? "Selecciona un formulario origen primero" : "Selecciona campo email"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getEmailFieldsFromForm(sourceFormId).map((field) => (
+                        <SelectItem key={field.key} value={field.key}>
+                          {field.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="inheritance" className="space-y-4 pt-4">
+              <div className="text-sm mb-4">
+                <div className="font-medium">Mapeo de Campos</div>
+                <p className="text-gray-500">
+                  Selecciona qué campos del formulario de origen se copiarán a cada campo del formulario de destino.
+                </p>
+              </div>
+              
+              {canAccessAdvancedTabs && getTargetFormFields().length > 0 ? (
+                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+                  {getTargetFormFields().map((targetField) => {
+                    // Find if this target field has a source field mapped to it
+                    const mappedSourceKey = Object.entries(inheritanceMapping)
+                      .find(([_, value]) => value === targetField.key)?.[0] || "";
+                      
+                    return (
+                      <div key={targetField.key} className="grid grid-cols-2 gap-4 p-3 border rounded-md">
+                        <div>
+                          <Label className="font-medium">{targetField.label}</Label>
+                          <div className="text-xs text-gray-500">Campo destino ({targetField.type})</div>
+                        </div>
+                        <div>
+                          <Select
+                            value={mappedSourceKey}
+                            onValueChange={(sourceKey) => handleFieldMapping(sourceKey, targetField.key)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Selecciona un campo origen" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">No heredar</SelectItem>
+                              {getSourceFormFields()
+                                .filter(sourceField => areFieldTypesCompatible(sourceField.type, targetField.type))
+                                .map((sourceField) => (
+                                  <SelectItem key={sourceField.key} value={sourceField.key}>
+                                    {sourceField.label} ({sourceField.type})
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center p-6 border rounded-md">
+                  {!canAccessAdvancedTabs ? (
+                    <div>
+                      <p className="text-gray-500">Selecciona formularios de origen y destino primero</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin mb-2" />
+                      <span>Cargando esquemas de formularios...</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+          
           <DialogFooter>
             <Button variant="destructive" disabled={isDeleting} onClick={handleDeleteTaskTemplate}>
               {isDeleting ? (

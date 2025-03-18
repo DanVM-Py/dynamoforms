@@ -461,6 +461,7 @@ export type Database = {
           id: string
           inheritance_mapping: Json | null
           is_active: boolean
+          min_days: number | null
           project_id: string | null
           source_form_id: string
           target_form_id: string
@@ -476,6 +477,7 @@ export type Database = {
           id?: string
           inheritance_mapping?: Json | null
           is_active?: boolean
+          min_days?: number | null
           project_id?: string | null
           source_form_id: string
           target_form_id: string
@@ -491,6 +493,7 @@ export type Database = {
           id?: string
           inheritance_mapping?: Json | null
           is_active?: boolean
+          min_days?: number | null
           project_id?: string | null
           source_form_id?: string
           target_form_id?: string

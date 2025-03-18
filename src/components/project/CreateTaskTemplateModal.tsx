@@ -61,11 +61,17 @@ const formSchema = z.object({
   assignment_type: z.enum(["static", "dynamic"]),
   default_assignee: z.string().optional(),
   assignee_form_field: z.string().optional(),
+  min_days: z.coerce.number().int().min(0, {
+    message: "El mínimo de días debe ser un número mayor o igual a 0.",
+  }),
   due_days: z.coerce.number().int().min(1, {
-    message: "Ingrese un número de días válido.",
+    message: "El máximo de días debe ser un número entero positivo.",
   }),
   is_active: z.boolean().default(true),
   inheritance_mapping: z.record(z.string(), z.string()).optional(),
+}).refine(data => data.min_days <= data.due_days, {
+  message: "El mínimo de días debe ser menor o igual al máximo de días",
+  path: ["min_days"]
 });
 
 interface CreateTaskTemplateModalProps {
@@ -100,6 +106,7 @@ export function CreateTaskTemplateModal({
       assignment_type: "static",
       default_assignee: "",
       assignee_form_field: "",
+      min_days: 0,
       due_days: 7,
       is_active: true,
       inheritance_mapping: {},
@@ -166,7 +173,7 @@ export function CreateTaskTemplateModal({
         .from("project_users")
         .select(`
           user_id,
-          profiles:profiles!user_id(id, name, email)
+          profiles:profiles!inner(id, name, email)
         `)
         .eq("project_id", projectId);
 
@@ -224,6 +231,7 @@ export function CreateTaskTemplateModal({
           inheritance_mapping: values.inheritance_mapping || {},
           assignment_type: values.assignment_type,
           default_assignee: values.assignment_type === "static" ? values.default_assignee : null,
+          min_days: values.min_days,
           due_days: values.due_days,
           assignee_form_field: values.assignment_type === "dynamic" ? values.assignee_form_field : null,
         })
@@ -298,17 +306,21 @@ export function CreateTaskTemplateModal({
 
     if (sourceFormId) {
       loadFormSchema(sourceFormId, setSourceFormSchema);
+    } else {
+      setSourceFormSchema(null);
     }
 
     if (targetFormId) {
       loadFormSchema(targetFormId, setTargetFormSchema);
+    } else {
+      setTargetFormSchema(null);
     }
   }, [sourceFormId, targetFormId]);
 
   // Reset form when modal is opened
   useEffect(() => {
     if (open) {
-      // Reset form values but don't try to add project_id which isn't in the schema
+      // Reset form values
       form.reset({
         title: "",
         description: "",
@@ -317,6 +329,7 @@ export function CreateTaskTemplateModal({
         assignment_type: "static",
         assignee_form_field: "",
         default_assignee: "",
+        min_days: 0,
         due_days: 7,
         is_active: true,
         inheritance_mapping: {}
@@ -324,6 +337,8 @@ export function CreateTaskTemplateModal({
       
       setInheritanceMapping({});
       setCurrentTab('general');
+      setSourceFormSchema(null);
+      setTargetFormSchema(null);
       
       // If we have a project ID, refetch the forms
       if (projectId) {
@@ -357,6 +372,30 @@ export function CreateTaskTemplateModal({
       }));
   };
 
+  // Define field type compatibility
+  const areFieldTypesCompatible = (sourceType: string, targetType: string) => {
+    // Define groups of compatible field types
+    const textTypes = ['textfield', 'textarea', 'text'];
+    const numberTypes = ['number', 'currency'];
+    const dateTypes = ['datetime', 'date'];
+    const selectionTypes = ['select', 'radio', 'checkbox'];
+    
+    // Check if both types are in the same compatibility group
+    if (textTypes.includes(sourceType) && textTypes.includes(targetType)) return true;
+    if (numberTypes.includes(sourceType) && numberTypes.includes(targetType)) return true;
+    if (dateTypes.includes(sourceType) && dateTypes.includes(targetType)) return true;
+    if (selectionTypes.includes(sourceType) && selectionTypes.includes(targetType)) return true;
+    
+    // Exact match for other types
+    return sourceType === targetType;
+  };
+
+  // Find compatible target fields for a given source field
+  const getCompatibleTargetFields = (sourceField: { key: string, type: string, label: string }) => {
+    return getTargetFormFields()
+      .filter(targetField => areFieldTypesCompatible(sourceField.type, targetField.type));
+  };
+
   // Handle field selection for inheritance mapping
   const handleFieldMapping = (sourceKey: string, targetKey: string) => {
     const newMapping = { ...inheritanceMapping, [sourceKey]: targetKey };
@@ -385,6 +424,9 @@ export function CreateTaskTemplateModal({
       }));
   };
 
+  // Enable advanced tabs only when both source and target forms are selected
+  const canAccessAdvancedTabs = !!sourceFormId && !!targetFormId;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
@@ -402,13 +444,13 @@ export function CreateTaskTemplateModal({
                 <TabsTrigger value="general">General</TabsTrigger>
                 <TabsTrigger 
                   value="assignment" 
-                  disabled={!form.getValues("source_form_id") || !form.getValues("target_form_id")}
+                  disabled={!canAccessAdvancedTabs}
                 >
                   Asignación
                 </TabsTrigger>
                 <TabsTrigger 
                   value="inheritance" 
-                  disabled={!form.getValues("source_form_id") || !form.getValues("target_form_id")}
+                  disabled={!canAccessAdvancedTabs}
                 >
                   Herencia
                 </TabsTrigger>
@@ -519,23 +561,42 @@ export function CreateTaskTemplateModal({
                   )}
                 />
                 
-                {/* Due Days field */}
-                <FormField
-                  control={form.control}
-                  name="due_days"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Días para vencer</FormLabel>
-                      <FormControl>
-                        <Input type="number" min="1" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        Número de días a partir de la creación para que venza la tarea.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* Min Days and Due Days fields */}
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="min_days"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Días mínimos</FormLabel>
+                        <FormControl>
+                          <Input type="number" minValue={0} {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Tiempo mínimo antes de que la tarea pueda ser completada
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="due_days"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Días máximos</FormLabel>
+                        <FormControl>
+                          <Input type="number" minValue={1} {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Tiempo máximo antes de que la tarea venza
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 
                 {/* Active field */}
                 <FormField
@@ -665,44 +726,38 @@ export function CreateTaskTemplateModal({
               </TabsContent>
               
               <TabsContent value="inheritance" className="space-y-4 pt-4">
-                <div className="text-sm text-gray-500 mb-4">
-                  Selecciona qué campos del formulario de origen se copiarán al formulario de destino.
+                <div className="text-sm mb-4">
+                  <div className="font-medium">Mapeo de Campos</div>
+                  <p className="text-gray-500">
+                    Selecciona qué campos del formulario de origen se copiarán a cada campo del formulario de destino.
+                  </p>
                 </div>
                 
-                {getSourceFormFields().length > 0 && getTargetFormFields().length > 0 ? (
-                  <div className="space-y-4">
-                    {getSourceFormFields().map((sourceField) => (
-                      <div key={sourceField.key} className="flex items-center space-x-4">
-                        <div className="w-1/3">
-                          <Label>{sourceField.label}</Label>
-                          <div className="text-xs text-gray-500">({sourceField.type})</div>
+                {canAccessAdvancedTabs && getTargetFormFields().length > 0 ? (
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                    {getTargetFormFields().map((targetField) => (
+                      <div key={targetField.key} className="grid grid-cols-2 gap-4 p-3 border rounded-md">
+                        <div>
+                          <Label className="font-medium">{targetField.label}</Label>
+                          <div className="text-xs text-gray-500">Campo destino ({targetField.type})</div>
                         </div>
-                        <div className="w-2/3">
+                        <div>
                           <Select
-                            value={inheritanceMapping[sourceField.key] || ""}
-                            onValueChange={(value) => handleFieldMapping(sourceField.key, value)}
+                            value={Object.entries(inheritanceMapping).find(([_, value]) => value === targetField.key)?.[0] || ""}
+                            onValueChange={(sourceKey) => handleFieldMapping(sourceKey, targetField.key)}
                           >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecciona un campo" />
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Selecciona un campo origen" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="">No heredar</SelectItem>
-                              {getTargetFormFields()
-                                .filter(targetField => 
-                                  // Filter to show only fields of the same type
-                                  targetField.type === sourceField.type ||
-                                  // Or allow text types to be compatible with each other
-                                  (
-                                    (sourceField.type === 'textfield' || sourceField.type === 'textarea') &&
-                                    (targetField.type === 'textfield' || targetField.type === 'textarea')
-                                  )
-                                )
-                                .map((targetField) => (
-                                  <SelectItem key={targetField.key} value={targetField.key}>
-                                    {targetField.label} ({targetField.type})
+                              {getSourceFormFields()
+                                .filter(sourceField => areFieldTypesCompatible(sourceField.type, targetField.type))
+                                .map((sourceField) => (
+                                  <SelectItem key={sourceField.key} value={sourceField.key}>
+                                    {sourceField.label} ({sourceField.type})
                                   </SelectItem>
-                                ))
-                              }
+                                ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -710,14 +765,16 @@ export function CreateTaskTemplateModal({
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center p-4 border rounded-md">
-                    {!sourceFormSchema || !targetFormSchema ? (
+                  <div className="text-center p-6 border rounded-md">
+                    {!canAccessAdvancedTabs ? (
+                      <div>
+                        <p className="text-gray-500">Selecciona formularios de origen y destino primero</p>
+                      </div>
+                    ) : (
                       <div className="flex flex-col items-center justify-center">
                         <Loader2 className="h-6 w-6 animate-spin mb-2" />
                         <span>Cargando esquemas de formularios...</span>
                       </div>
-                    ) : (
-                      <span>No hay campos disponibles para la herencia.</span>
                     )}
                   </div>
                 )}

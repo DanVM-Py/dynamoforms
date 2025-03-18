@@ -82,14 +82,21 @@ const createTaskFromTemplate = async (
       
       if (userEmail) {
         // Look up user by email
-        const { data: userProfile } = await supabase
+        const { data: userProfile, error } = await supabase
           .from('profiles')
           .select('id')
           .eq('email', userEmail)
           .maybeSingle(); // Use maybeSingle instead of single to avoid errors
         
+        if (error) {
+          console.error("Error buscando usuario por email:", error);
+        }
+        
         if (userProfile) {
           assigneeId = userProfile.id;
+          console.log(`Usuario asignado por email: ${userEmail}, ID: ${assigneeId}`);
+        } else {
+          console.warn(`No se encontró usuario con email: ${userEmail}`);
         }
       }
     }
@@ -97,6 +104,7 @@ const createTaskFromTemplate = async (
     // If no assignee could be determined, use the submitter as fallback
     if (!assigneeId && submitterId) {
       assigneeId = submitterId;
+      console.log(`Usando remitente como asignado: ${assigneeId}`);
     }
     
     // If still no assignee, log an error
@@ -105,12 +113,22 @@ const createTaskFromTemplate = async (
       return;
     }
     
-    // Calculate due date
+    // Calculate due date based on due_days
     let dueDate = null;
     if (template.due_days) {
       const date = new Date();
       date.setDate(date.getDate() + template.due_days);
       dueDate = date.toISOString();
+      console.log(`Fecha de vencimiento calculada: ${dueDate}`);
+    }
+    
+    // Calculate min date based on min_days
+    let minDate = null;
+    if (template.min_days) {
+      const date = new Date();
+      date.setDate(date.getDate() + template.min_days);
+      minDate = date.toISOString();
+      console.log(`Fecha mínima calculada: ${minDate}`);
     }
     
     // Resolve project ID (use passed projectId first, fallback to template's project_id)
@@ -122,6 +140,12 @@ const createTaskFromTemplate = async (
     }
     
     console.log(`Proyecto final para la tarea: ${finalProjectId}`);
+    
+    // Create metadata for min completion date
+    const metadata = {
+      inheritance_mapping: template.inheritance_mapping || {},
+      min_completion_date: minDate
+    };
     
     // Create task
     const { data: task, error } = await supabase
@@ -136,7 +160,8 @@ const createTaskFromTemplate = async (
         form_response_id: formResponseId,
         project_id: finalProjectId,
         source_form_id: sourceFormId,
-        priority: 'medium'
+        priority: 'medium',
+        metadata: metadata
       })
       .select()
       .maybeSingle(); // Use maybeSingle instead of single to avoid errors
@@ -149,7 +174,7 @@ const createTaskFromTemplate = async (
     console.log(`Tarea creada con éxito: ${task?.id} en proyecto ${finalProjectId}`);
     
     // Create notification for the assignee
-    await supabase
+    const { error: notificationError } = await supabase
       .from('notifications')
       .insert({
         user_id: assigneeId,
@@ -161,9 +186,17 @@ const createTaskFromTemplate = async (
         metadata: {
           task_id: task?.id,
           form_id: template.target_form_id,
+          min_days: template.min_days || 0,
+          due_days: template.due_days || 7,
           inheritance_mapping: template.inheritance_mapping || {}
         }
       });
+      
+    if (notificationError) {
+      console.error("Error al crear notificación:", notificationError);
+    } else {
+      console.log("Notificación creada con éxito para el usuario", assigneeId);
+    }
     
     return task;
   } catch (error) {
