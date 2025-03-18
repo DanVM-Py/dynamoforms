@@ -149,34 +149,39 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
     try {
       console.log(`[CreateTaskTemplateModal] Fetching users for project: ${projectId}`);
       
-      // Fetch project users with their profile information
-      const { data, error } = await supabase
+      // Use a different approach - first get all project_users
+      const { data: projectUsersData, error: projectUsersError } = await supabase
         .from('project_users')
-        .select(`
-          user_id,
-          profiles(id, name, email)
-        `)
+        .select('user_id')
         .eq('project_id', projectId)
         .eq('status', 'active');
 
-      if (error) {
-        console.error("[CreateTaskTemplateModal] Error fetching project users:", error);
+      if (projectUsersError) {
+        console.error("[CreateTaskTemplateModal] Error fetching project users:", projectUsersError);
         return [];
       }
       
-      const users: User[] = [];
-      
-      if (!data) return users;
-      
-      for (const projectUser of data) {
-        if (projectUser.profiles) {
-          users.push({
-            id: projectUser.profiles.id,
-            name: projectUser.profiles.name || 'Usuario sin nombre',
-            email: projectUser.profiles.email || 'correo@desconocido.com'
-          });
-        }
+      if (!projectUsersData || projectUsersData.length === 0) {
+        return [];
       }
+      
+      // Then fetch profile information for those users
+      const userIds = projectUsersData.map(pu => pu.user_id);
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .in('id', userIds);
+        
+      if (profilesError) {
+        console.error("[CreateTaskTemplateModal] Error fetching user profiles:", profilesError);
+        return [];
+      }
+      
+      const users: User[] = profilesData?.map(profile => ({
+        id: profile.id,
+        name: profile.name || 'Usuario sin nombre',
+        email: profile.email || 'correo@desconocido.com'
+      })) || [];
       
       console.log(`[CreateTaskTemplateModal] Found ${users.length} users for project ${projectId}`);
       return users;
