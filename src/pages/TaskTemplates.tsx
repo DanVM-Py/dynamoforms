@@ -23,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Plus, Edit, Trash2, Loader2, RefreshCw } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -104,8 +104,16 @@ const TaskTemplates = () => {
   const { user, userProfile } = useAuth();
 
   useEffect(() => {
-    if (userProfile?.project_id) {
+    const storedProjectId = sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
+    
+    if (storedProjectId) {
+      console.log("Using project ID from session storage:", storedProjectId);
+      setProjectId(storedProjectId);
+    } else if (userProfile?.project_id) {
+      console.log("Falling back to project ID from user profile:", userProfile.project_id);
       setProjectId(userProfile.project_id);
+    } else {
+      console.warn("No project ID found in session storage or user profile");
     }
   }, [userProfile]);
 
@@ -452,6 +460,7 @@ const TaskTemplates = () => {
   const getProjectUsers = async (projectId: string): Promise<User[]> => {
     try {
       console.log(`Fetching users for project: ${projectId}`);
+      
       const { data, error } = await supabase
         .from('project_users')
         .select(`
@@ -470,7 +479,7 @@ const TaskTemplates = () => {
       if (!data) return users;
       
       for (const projectUser of data) {
-        if (projectUser.profiles) {
+        if (projectUser.profiles && typeof projectUser.profiles === 'object') {
           const profile = projectUser.profiles as { id: string; name: string; email: string };
           
           users.push({
@@ -814,8 +823,6 @@ const TaskTemplates = () => {
           refetchTaskTemplates();
         }}
       />
-    </div>
-  );
-};
+      
 
-export default TaskTemplates;
+

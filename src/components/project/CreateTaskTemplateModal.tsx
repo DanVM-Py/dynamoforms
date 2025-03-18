@@ -3,27 +3,70 @@ import { useState, useEffect } from "react";
 import { 
   Dialog, 
   DialogContent, 
+  DialogDescription, 
   DialogHeader, 
-  DialogTitle, 
-  DialogDescription,
-  DialogFooter 
+  DialogTitle,
+  DialogFooter,
+  DialogClose
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; 
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useForm } from "react-hook-form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useToast } from "@/components/ui/use-toast";
-import { Loader2, ArrowRight, Info, RefreshCw } from "lucide-react";
+import { useForm } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "@/components/ui/use-toast";
+import { Switch } from "@/components/ui/switch";
+import { Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useNavigate } from "react-router-dom";
+
+// Define the type for the assignment type
+type AssignmentType = "static" | "dynamic";
+
+// Define the type for inheritance mapping
+type InheritanceMapping = Record<string, string>;
+
+// Define the schema for the form
+const formSchema = z.object({
+  title: z.string().min(2, {
+    message: "El título debe tener al menos 2 caracteres.",
+  }),
+  description: z.string().optional(),
+  source_form_id: z.string().min(1, {
+    message: "Seleccione un formulario de origen.",
+  }),
+  target_form_id: z.string().min(1, {
+    message: "Seleccione un formulario de destino.",
+  }),
+  assignment_type: z.enum(["static", "dynamic"]),
+  default_assignee: z.string().optional(),
+  assignee_form_field: z.string().optional(),
+  due_days: z.coerce.number().int().min(1, {
+    message: "Ingrese un número de días válido.",
+  }),
+  is_active: z.boolean().default(true),
+  inheritance_mapping: z.record(z.string(), z.string()).optional(),
+});
 
 interface CreateTaskTemplateModalProps {
   open: boolean;
@@ -32,307 +75,237 @@ interface CreateTaskTemplateModalProps {
   onSuccess?: () => void;
 }
 
-const taskTemplateSchema = z.object({
-  title: z.string().min(2, { message: "El título debe tener al menos 2 caracteres" }),
-  description: z.string().optional(),
-  source_form_id: z.string().uuid({ message: "Selecciona un formulario de origen válido" }),
-  target_form_id: z.string().uuid({ message: "Selecciona un formulario de destino válido" }),
-  assignment_type: z.enum(["static", "dynamic"]),
-  assignee_form_field: z.string().optional(),
-  default_assignee: z.string().uuid().optional(),
-  due_days: z.number().min(0).optional(),
-  is_active: z.boolean().default(true),
-  inheritance_mapping: z.record(z.string()).optional(),
-});
-
-type TaskTemplateFormValues = z.infer<typeof taskTemplateSchema>;
-
-interface FormComponent {
-  key: string;
-  label?: string;
-  type: string;
-}
-
-interface FormSchema {
-  components?: FormComponent[];
-}
-
-interface FieldMappingProps {
-  sourceFormId: string;
-  targetFormId: string;
-  initialMapping?: Record<string, string>;
-  onChange: (mapping: Record<string, string>) => void;
-}
-
-const FieldMapping: React.FC<FieldMappingProps> = ({ 
-  sourceFormId, 
-  targetFormId, 
-  initialMapping = {}, 
-  onChange 
-}) => {
-  const [mapping, setMapping] = useState<Record<string, string>>(initialMapping);
-  const [sourceSchema, setSourceSchema] = useState<FormSchema | null>(null);
-  const [targetSchema, setTargetSchema] = useState<FormSchema | null>(null);
-  const [compatibleFields, setCompatibleFields] = useState<Record<string, string[]>>({});
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchFormSchemas = async () => {
-      setLoading(true);
-      try {
-        if (!sourceFormId || !targetFormId) {
-          return;
-        }
-
-        const { data: sourceForm, error: sourceError } = await supabase
-          .from('forms')
-          .select('schema')
-          .eq('id', sourceFormId)
-          .single();
-
-        if (sourceError) throw sourceError;
-
-        const { data: targetForm, error: targetError } = await supabase
-          .from('forms')
-          .select('schema')
-          .eq('id', targetFormId)
-          .single();
-
-        if (targetError) throw targetError;
-
-        const safeSourceSchema = sourceForm.schema as FormSchema || { components: [] };
-        const safeTargetSchema = targetForm.schema as FormSchema || { components: [] };
-
-        setSourceSchema(safeSourceSchema);
-        setTargetSchema(safeTargetSchema);
-
-        const compatibilityMap = calculateCompatibleFields(safeSourceSchema, safeTargetSchema);
-        setCompatibleFields(compatibilityMap);
-      } catch (error) {
-        console.error("Error fetching form schemas:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchFormSchemas();
-  }, [sourceFormId, targetFormId]);
-
-  const calculateCompatibleFields = (sourceSchema: FormSchema, targetSchema: FormSchema) => {
-    const result: Record<string, string[]> = {};
-
-    if (!sourceSchema?.components || !targetSchema?.components) {
-      return result;
-    }
-
-    targetSchema.components.forEach((targetComp) => {
-      if (!targetComp.key) return;
-
-      const targetType = targetComp.type;
-      const compatibleSourceFields: string[] = [];
-
-      sourceSchema.components.forEach((sourceComp) => {
-        if (!sourceComp.key) return;
-
-        if (sourceComp.type === targetType) {
-          compatibleSourceFields.push(sourceComp.key);
-        }
-      });
-
-      if (compatibleSourceFields.length > 0) {
-        result[targetComp.key] = compatibleSourceFields;
-      }
-    });
-
-    return result;
-  };
-
-  const handleFieldChange = (targetField: string, sourceField: string) => {
-    const newMapping = { ...mapping };
-    
-    if (sourceField === "") {
-      delete newMapping[targetField];
-    } else {
-      newMapping[targetField] = sourceField;
-    }
-    
-    setMapping(newMapping);
-    onChange(newMapping);
-  };
-
-  const getFieldLabel = (schema: FormSchema | null, fieldKey: string) => {
-    if (!schema?.components) return fieldKey;
-    
-    const field = schema.components.find((c) => c.key === fieldKey);
-    return field?.label || fieldKey;
-  };
-
-  if (loading) {
-    return <div className="py-4 text-center text-muted-foreground">Cargando esquemas de formularios...</div>;
-  }
-
-  if (!sourceSchema?.components || !targetSchema?.components) {
-    return <div className="text-muted-foreground py-4">
-      No se pudieron cargar los esquemas de los formularios.
-    </div>;
-  }
-
-  if (Object.keys(compatibleFields).length === 0) {
-    return <div className="text-amber-500 py-4 flex items-center">
-      <Info className="h-4 w-4 mr-2" />
-      No se encontraron campos compatibles entre los formularios.
-    </div>;
-  }
-
-  return (
-    <div className="space-y-4 mt-4">
-      <div className="text-sm text-muted-foreground mb-4">
-        <p>Selecciona cómo mapear campos del formulario origen al formulario destino.</p>
-        <p className="mt-2">Solo se muestran campos del mismo tipo para una correcta herencia de datos.</p>
-      </div>
-      
-      <div className="space-y-4">
-        {Object.entries(compatibleFields).map(([targetField, sourceFields]) => (
-          <div key={targetField} className="grid grid-cols-3 items-center gap-4">
-            <div>
-              <Label>{getFieldLabel(targetSchema, targetField)}</Label>
-              <p className="text-xs text-muted-foreground">{targetField}</p>
-            </div>
-            <div className="flex justify-center">
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div>
-              <Select
-                value={mapping[targetField] || ""}
-                onValueChange={(value) => handleFieldChange(targetField, value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="No heredar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No heredar</SelectItem>
-                  {sourceFields.map((sourceField) => (
-                    <SelectItem key={sourceField} value={sourceField}>
-                      {getFieldLabel(sourceSchema, sourceField)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-export const CreateTaskTemplateModal = ({ 
-  open, 
-  onOpenChange, 
+export function CreateTaskTemplateModal({
+  open,
+  onOpenChange,
   projectId,
-  onSuccess
-}: CreateTaskTemplateModalProps) => {
-  const { toast } = useToast();
-  const { user } = useAuth();
+  onSuccess,
+}: CreateTaskTemplateModalProps) {
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentTab, setCurrentTab] = useState("general");
+  const [inheritanceMapping, setInheritanceMapping] = useState<InheritanceMapping>({});
+  const [sourceFormSchema, setSourceFormSchema] = useState<any>(null);
+  const [targetFormSchema, setTargetFormSchema] = useState<any>(null);
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [currentTab, setCurrentTab] = useState('general');
-  const [inheritanceMapping, setInheritanceMapping] = useState<Record<string, string>>({});
-  
-  useEffect(() => {
-    console.log("CreateTaskTemplateModal - projectId:", projectId);
-  }, [projectId]);
-  
-  const form = useForm<TaskTemplateFormValues>({
-    resolver: zodResolver(taskTemplateSchema),
+
+  // Initialize the form with default values
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
       description: "",
       source_form_id: "",
       target_form_id: "",
       assignment_type: "static",
-      assignee_form_field: "",
       default_assignee: "",
+      assignee_form_field: "",
       due_days: 7,
       is_active: true,
-      inheritance_mapping: {}
+      inheritance_mapping: {},
     },
   });
 
-  const watchSourceFormId = form.watch('source_form_id');
-  const watchTargetFormId = form.watch('target_form_id');
-  const watchAssignmentType = form.watch('assignment_type');
+  // Log project ID for debugging
+  useEffect(() => {
+    console.log("CreateTaskTemplateModal - projectId:", projectId);
+  }, [projectId]);
 
-  const { data: forms, isLoading: isLoadingForms, refetch: refetchForms, error: formsError } = useQuery({
-    queryKey: ['forms', projectId],
+  // Fetch forms from the selected project
+  const {
+    data: forms,
+    isLoading: isLoadingForms,
+    error: errorForms,
+    refetch: refetchForms
+  } = useQuery({
+    queryKey: ["forms", projectId],
     queryFn: async () => {
+      console.log("Fetching forms for project:", projectId);
       if (!projectId) {
-        console.warn("Project ID is missing for forms query");
+        console.warn("No project ID provided, cannot fetch forms");
         return [];
       }
 
-      console.log(`Fetching forms for project: ${projectId}`);
       const { data, error } = await supabase
-        .from('forms')
-        .select('*')
-        .eq('project_id', projectId)
-        .order('title', { ascending: true });
-        
+        .from("forms")
+        .select("id, title, schema")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
+
       if (error) {
         console.error("Error fetching forms:", error);
+        toast({
+          title: "Error",
+          description: "Error al cargar los formularios",
+          variant: "destructive",
+        });
         throw error;
       }
-      
+
       console.log(`Found ${data?.length || 0} forms for project ${projectId}`);
       return data || [];
     },
-    enabled: !!projectId && open,
+    enabled: !!projectId,
   });
 
-  useEffect(() => {
-    if (formsError) {
-      console.error("Forms query error:", formsError);
-    }
-  }, [formsError]);
-
-  const { data: projectUsers, isLoading: isLoadingUsers, error: usersError } = useQuery({
-    queryKey: ['projectUsers', projectId],
+  // Fetch users from the selected project
+  const {
+    data: projectUsers,
+    isLoading: isLoadingUsers,
+    error: errorUsers,
+  } = useQuery({
+    queryKey: ["projectUsers", projectId],
     queryFn: async () => {
+      console.log("Fetching users for project:", projectId);
       if (!projectId) {
-        console.warn("Project ID is missing for projectUsers query");
+        console.warn("No project ID provided, cannot fetch users");
         return [];
       }
 
-      console.log(`Fetching users for project: ${projectId}`);
       const { data, error } = await supabase
-        .from('project_users')
+        .from("project_users")
         .select(`
           user_id,
-          profiles:user_id (id, name, email)
+          profiles:profiles!user_id(id, name, email)
         `)
-        .eq('project_id', projectId)
-        .eq('status', 'active');
-        
+        .eq("project_id", projectId);
+
       if (error) {
         console.error("Error fetching project users:", error);
+        toast({
+          title: "Error",
+          description: "Error al cargar los usuarios",
+          variant: "destructive",
+        });
         throw error;
       }
+
+      const users = [];
       
-      const users = data
-        .filter(pu => pu.profiles !== null)
-        .map(pu => pu.profiles) || [];
-        
+      if (data) {
+        for (const projectUser of data) {
+          if (projectUser.profiles && typeof projectUser.profiles === 'object') {
+            users.push({
+              id: projectUser.profiles.id,
+              name: projectUser.profiles.name,
+              email: projectUser.profiles.email,
+            });
+          }
+        }
+      }
+
       console.log(`Found ${users.length} users for project ${projectId}`);
       return users;
     },
-    enabled: !!projectId && open,
+    enabled: !!projectId,
   });
 
-  useEffect(() => {
-    if (usersError) {
-      console.error("Users query error:", usersError);
-    }
-  }, [usersError]);
+  // Create task template mutation
+  const createTaskTemplateMutation = useMutation({
+    mutationFn: async (values: z.infer<typeof formSchema>) => {
+      setIsSaving(true);
+      console.log("Creating task template for project:", projectId);
 
+      // Ensure we have a project ID
+      if (!projectId) {
+        throw new Error("No project ID provided");
+      }
+
+      // Create the task template
+      const { data, error } = await supabase
+        .from("task_templates")
+        .insert({
+          title: values.title,
+          description: values.description,
+          source_form_id: values.source_form_id,
+          target_form_id: values.target_form_id,
+          is_active: values.is_active,
+          project_id: projectId, // Use the projectId prop directly
+          inheritance_mapping: values.inheritance_mapping || {},
+          assignment_type: values.assignment_type,
+          default_assignee: values.assignment_type === "static" ? values.default_assignee : null,
+          due_days: values.due_days,
+          assignee_form_field: values.assignment_type === "dynamic" ? values.assignee_form_field : null,
+        })
+        .select();
+
+      if (error) {
+        console.error("Error creating task template:", error);
+        throw error;
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      // Invalidate queries to refetch data
+      queryClient.invalidateQueries({ queryKey: ["taskTemplates"] });
+      
+      toast({
+        title: "Plantilla creada",
+        description: "La plantilla de tarea se ha creado correctamente.",
+      });
+      
+      // Close the modal and reset the form
+      onOpenChange(false);
+      
+      // Call the onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
+    },
+    onError: (error: any) => {
+      console.error("Error creating task template:", error);
+      toast({
+        title: "Error",
+        description: "Hubo un error al crear la plantilla de tarea. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setIsSaving(false);
+    },
+  });
+
+  // Watch for changes in form values
+  const sourceFormId = form.watch("source_form_id");
+  const targetFormId = form.watch("target_form_id");
+  const assignmentType = form.watch("assignment_type");
+
+  // Load form schemas when form IDs change
+  useEffect(() => {
+    const loadFormSchema = async (formId: string, setSchema: (schema: any) => void) => {
+      if (!formId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from("forms")
+          .select("schema")
+          .eq("id", formId)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Error loading form schema:", error);
+          return;
+        }
+
+        if (data && data.schema) {
+          setSchema(data.schema);
+        }
+      } catch (error) {
+        console.error("Error loading form schema:", error);
+      }
+    };
+
+    if (sourceFormId) {
+      loadFormSchema(sourceFormId, setSourceFormSchema);
+    }
+
+    if (targetFormId) {
+      loadFormSchema(targetFormId, setTargetFormSchema);
+    }
+  }, [sourceFormId, targetFormId]);
+
+  // Reset form when modal is opened
   useEffect(() => {
     if (open) {
       // Reset form values but don't try to add project_id which isn't in the schema
@@ -352,127 +325,97 @@ export const CreateTaskTemplateModal = ({
       setInheritanceMapping({});
       setCurrentTab('general');
       
+      // If we have a project ID, refetch the forms
       if (projectId) {
-        queryClient.invalidateQueries({ queryKey: ['forms', projectId] });
-        queryClient.invalidateQueries({ queryKey: ['projectUsers', projectId] });
+        refetchForms();
       }
     }
-  }, [open, projectId, form, queryClient]);
+  }, [open, form, projectId, refetchForms]);
 
-  const handleMappingChange = (newMapping: Record<string, string>) => {
-    setInheritanceMapping(newMapping);
-    form.setValue('inheritance_mapping', newMapping);
+  // Helper functions for inheritance mapping
+  const getSourceFormFields = () => {
+    if (!sourceFormSchema || !sourceFormSchema.components) return [];
+    
+    return sourceFormSchema.components
+      .filter((component: any) => component.key && component.type !== 'button')
+      .map((component: any) => ({
+        key: component.key,
+        label: component.label || component.key,
+        type: component.type
+      }));
   };
 
+  const getTargetFormFields = () => {
+    if (!targetFormSchema || !targetFormSchema.components) return [];
+    
+    return targetFormSchema.components
+      .filter((component: any) => component.key && component.type !== 'button')
+      .map((component: any) => ({
+        key: component.key,
+        label: component.label || component.key,
+        type: component.type
+      }));
+  };
+
+  // Handle field selection for inheritance mapping
+  const handleFieldMapping = (sourceKey: string, targetKey: string) => {
+    const newMapping = { ...inheritanceMapping, [sourceKey]: targetKey };
+    setInheritanceMapping(newMapping);
+    form.setValue("inheritance_mapping", newMapping);
+  };
+
+  // Handle form submission
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    // Include the inheritance mapping in the form values
+    values.inheritance_mapping = inheritanceMapping;
+    
+    // Submit the form
+    await createTaskTemplateMutation.mutateAsync(values);
+  };
+
+  // Get email fields from the source form for dynamic assignment
   const getEmailFields = () => {
-    if (!watchSourceFormId || !forms) return [];
+    if (!sourceFormSchema || !sourceFormSchema.components) return [];
     
-    const sourceForm = forms.find(f => f.id === watchSourceFormId);
-    if (!sourceForm || !sourceForm.schema) return [];
-    
-    const schema = sourceForm.schema as FormSchema;
-    if (!schema.components) return [];
-    
-    return schema.components
-      .filter((component) => component.type === 'email' && component.key)
-      .map((component) => ({
+    return sourceFormSchema.components
+      .filter((component: any) => component.type === 'email' && component.key)
+      .map((component: any) => ({
         key: component.key,
         label: component.label || component.key
       }));
   };
 
-  const createTemplateMutation = useMutation({
-    mutationFn: async (data: TaskTemplateFormValues) => {
-      if (!projectId) {
-        throw new Error("Project ID is required");
-      }
-      
-      const templateData = {
-        project_id: projectId,
-        title: data.title,
-        description: data.description || "",
-        source_form_id: data.source_form_id,
-        target_form_id: data.target_form_id,
-        assignment_type: data.assignment_type,
-        assignee_form_field: data.assignee_form_field || null,
-        default_assignee: data.default_assignee || null,
-        due_days: data.due_days || 7,
-        is_active: data.is_active,
-        inheritance_mapping: data.inheritance_mapping || {}
-      };
-
-      const { error } = await supabase
-        .from('task_templates')
-        .insert(templateData);
-
-      if (error) throw error;
-      return true;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['taskTemplates', projectId] });
-      toast({
-        title: "Plantilla creada",
-        description: "La plantilla de tarea se ha creado correctamente.",
-      });
-      onOpenChange(false);
-      if (onSuccess) onSuccess();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Hubo un error al crear la plantilla.",
-        variant: "destructive"
-      });
-    },
-  });
-
-  const onSubmit = (values: TaskTemplateFormValues) => {
-    createTemplateMutation.mutate(values);
-  };
-
-  const emailFields = getEmailFields();
-
-  const handleRefreshForms = () => {
-    if (!projectId) {
-      toast({
-        title: "Error",
-        description: "No project selected. Can't fetch forms.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    refetchForms();
-    toast({
-      title: "Actualizando",
-      description: `Refrescando lista de formularios para proyecto ${projectId}...`,
-    });
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Crear Plantilla de Tarea</DialogTitle>
           <DialogDescription>
-            Configura una plantilla para generar tareas automáticamente cuando se complete un formulario.
+            Crea una plantilla para automatizar la creación de tareas cuando se completen formularios.
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="general">Información General</TabsTrigger>
-            <TabsTrigger 
-              value="mapping" 
-              disabled={!watchSourceFormId || !watchTargetFormId}
-            >
-              Mapeo de Campos
-            </TabsTrigger>
-          </TabsList>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-              <TabsContent value="general" className="space-y-4 mt-2">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <Tabs value={currentTab} onValueChange={setCurrentTab}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="general">General</TabsTrigger>
+                <TabsTrigger 
+                  value="assignment" 
+                  disabled={!form.getValues("source_form_id") || !form.getValues("target_form_id")}
+                >
+                  Asignación
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="inheritance" 
+                  disabled={!form.getValues("source_form_id") || !form.getValues("target_form_id")}
+                >
+                  Herencia
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="general" className="space-y-4 pt-4">
+                {/* Title field */}
                 <FormField
                   control={form.control}
                   name="title"
@@ -486,7 +429,8 @@ export const CreateTaskTemplateModal = ({
                     </FormItem>
                   )}
                 />
-
+                
+                {/* Description field */}
                 <FormField
                   control={form.control}
                   name="description"
@@ -494,305 +438,314 @@ export const CreateTaskTemplateModal = ({
                     <FormItem>
                       <FormLabel>Descripción</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="Descripción de la plantilla"
-                          className="resize-none"
-                          {...field}
-                          value={field.value || ""}
-                        />
+                        <Textarea placeholder="Descripción de la plantilla" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
-                <div className="bg-muted/30 rounded-md p-4 mb-6">
-                  <div className="flex justify-between items-center mb-2">
-                    <div>
-                      <FormLabel>Proyecto</FormLabel>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      ID: {projectId || "No definido"}
-                    </div>
-                  </div>
-                  <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground bg-muted/50">
-                    {projectId ? "Proyecto actual" : "Sin proyecto seleccionado"}
-                  </div>
-                  <FormDescription>
-                    La plantilla se creará para el proyecto actual
-                  </FormDescription>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="source_form_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex justify-between items-center">
-                          <FormLabel>Formulario de Origen</FormLabel>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            type="button"
-                            onClick={handleRefreshForms}
-                            title="Refrescar formularios"
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                        </div>
+                
+                {/* Source Form field */}
+                <FormField
+                  control={form.control}
+                  name="source_form_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Formulario de Origen</FormLabel>
+                      <FormControl>
                         <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecciona" />
-                            </SelectTrigger>
-                          </FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona un formulario" />
+                          </SelectTrigger>
                           <SelectContent>
-                            {forms && forms.length > 0 ? (
-                              forms.map(form => (
+                            {isLoadingForms ? (
+                              <div className="flex items-center justify-center p-2">
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                <span>Cargando...</span>
+                              </div>
+                            ) : forms && forms.length > 0 ? (
+                              forms.map((form) => (
                                 <SelectItem key={form.id} value={form.id}>
                                   {form.title}
                                 </SelectItem>
                               ))
                             ) : (
-                              <SelectItem value="no-forms" disabled>
+                              <div className="p-2 text-center text-sm text-gray-500">
                                 No hay formularios disponibles
-                              </SelectItem>
+                              </div>
                             )}
                           </SelectContent>
                         </Select>
-                        <FormDescription>
-                          Formulario que al ser completado generará la tarea
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="target_form_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Formulario de Destino</FormLabel>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {/* Target Form field */}
+                <FormField
+                  control={form.control}
+                  name="target_form_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Formulario de Destino</FormLabel>
+                      <FormControl>
                         <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecciona" />
-                            </SelectTrigger>
-                          </FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona un formulario" />
+                          </SelectTrigger>
                           <SelectContent>
-                            {forms && forms.length > 0 ? (
-                              forms.map(form => (
+                            {isLoadingForms ? (
+                              <div className="flex items-center justify-center p-2">
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                <span>Cargando...</span>
+                              </div>
+                            ) : forms && forms.length > 0 ? (
+                              forms.map((form) => (
                                 <SelectItem key={form.id} value={form.id}>
                                   {form.title}
                                 </SelectItem>
                               ))
                             ) : (
-                              <SelectItem value="no-forms" disabled>
+                              <div className="p-2 text-center text-sm text-gray-500">
                                 No hay formularios disponibles
-                              </SelectItem>
+                              </div>
                             )}
                           </SelectContent>
                         </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {/* Due Days field */}
+                <FormField
+                  control={form.control}
+                  name="due_days"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Días para vencer</FormLabel>
+                      <FormControl>
+                        <Input type="number" min="1" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Número de días a partir de la creación para que venza la tarea.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {/* Active field */}
+                <FormField
+                  control={form.control}
+                  name="is_active"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Activa</FormLabel>
                         <FormDescription>
-                          Formulario que debe ser completado como parte de la tarea
+                          Si está activa, se crearán tareas automáticamente.
                         </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="assignment_type"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tipo de Asignación</FormLabel>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+              
+              <TabsContent value="assignment" className="space-y-4 pt-4">
+                {/* Assignment Type field */}
+                <FormField
+                  control={form.control}
+                  name="assignment_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de Asignación</FormLabel>
+                      <FormControl>
                         <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecciona" />
-                            </SelectTrigger>
-                          </FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona un tipo" />
+                          </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="static">Estática</SelectItem>
-                            <SelectItem value="dynamic">Dinámica</SelectItem>
+                            <SelectItem value="static">Usuario Fijo</SelectItem>
+                            <SelectItem value="dynamic">Campo de Email</SelectItem>
                           </SelectContent>
                         </Select>
-                        <FormDescription>
-                          {watchAssignmentType === 'static' 
-                            ? 'Asignación a un usuario específico' 
-                            : 'Asignación basada en un valor del formulario'}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {watchAssignmentType === "static" ? (
-                    <FormField
-                      control={form.control}
-                      name="default_assignee"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Asignar a</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecciona" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {projectUsers?.map((user: any) => (
-                                <SelectItem key={user.id} value={user.id}>
-                                  {user.name || user.email}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>
-                            Usuario al que se asignará la tarea
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  ) : (
-                    <FormField
-                      control={form.control}
-                      name="assignee_form_field"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Campo para Asignación</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            value={field.value || ""}
-                            disabled={emailFields.length === 0}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder={
-                                  !watchSourceFormId 
-                                    ? "Selecciona un formulario origen primero" 
-                                    : emailFields.length === 0 
-                                      ? "No hay campos de email disponibles" 
-                                      : "Selecciona un campo"
-                                } />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {emailFields.map(field => (
-                                <SelectItem key={field.key} value={field.key}>
-                                  {field.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>
-                            Nombre del campo que contiene el email del asignado
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                      </FormControl>
+                      <FormDescription>
+                        Elige si la tarea se asignará a un usuario específico o al usuario cuyo email está en un campo del formulario.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                />
+                
+                {/* Default Assignee field (for static assignment) */}
+                {assignmentType === "static" && (
                   <FormField
                     control={form.control}
-                    name="due_days"
+                    name="default_assignee"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Días para completar</FormLabel>
+                        <FormLabel>Usuario Asignado</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
-                            min="0"
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} 
-                            value={field.value === undefined ? 7 : field.value}
-                          />
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona un usuario" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {isLoadingUsers ? (
+                                <div className="flex items-center justify-center p-2">
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  <span>Cargando...</span>
+                                </div>
+                              ) : projectUsers && projectUsers.length > 0 ? (
+                                projectUsers.map((user) => (
+                                  <SelectItem key={user.id} value={user.id}>
+                                    {user.name} ({user.email})
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="p-2 text-center text-sm text-gray-500">
+                                  No hay usuarios disponibles
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                
+                {/* Assignee Form Field (for dynamic assignment) */}
+                {assignmentType === "dynamic" && (
+                  <FormField
+                    control={form.control}
+                    name="assignee_form_field"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Campo de Email</FormLabel>
+                        <FormControl>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona un campo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {getEmailFields().length > 0 ? (
+                                getEmailFields().map((emailField) => (
+                                  <SelectItem key={emailField.key} value={emailField.key}>
+                                    {emailField.label}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="p-2 text-center text-sm text-gray-500">
+                                  No hay campos de email disponibles
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
                         </FormControl>
                         <FormDescription>
-                          Número de días para completar la tarea
+                          El campo del formulario de origen que contiene el email del usuario al que se asignará la tarea.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  
-                  <FormField
-                    control={form.control}
-                    name="is_active"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel>Activo</FormLabel>
-                          <FormDescription>
-                            Activar la plantilla de tarea
-                          </FormDescription>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="inheritance" className="space-y-4 pt-4">
+                <div className="text-sm text-gray-500 mb-4">
+                  Selecciona qué campos del formulario de origen se copiarán al formulario de destino.
+                </div>
+                
+                {getSourceFormFields().length > 0 && getTargetFormFields().length > 0 ? (
+                  <div className="space-y-4">
+                    {getSourceFormFields().map((sourceField) => (
+                      <div key={sourceField.key} className="flex items-center space-x-4">
+                        <div className="w-1/3">
+                          <Label>{sourceField.label}</Label>
+                          <div className="text-xs text-gray-500">({sourceField.type})</div>
                         </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
+                        <div className="w-2/3">
+                          <Select
+                            value={inheritanceMapping[sourceField.key] || ""}
+                            onValueChange={(value) => handleFieldMapping(sourceField.key, value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona un campo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">No heredar</SelectItem>
+                              {getTargetFormFields()
+                                .filter(targetField => 
+                                  // Filter to show only fields of the same type
+                                  targetField.type === sourceField.type ||
+                                  // Or allow text types to be compatible with each other
+                                  (
+                                    (sourceField.type === 'textfield' || sourceField.type === 'textarea') &&
+                                    (targetField.type === 'textfield' || targetField.type === 'textarea')
+                                  )
+                                )
+                                .map((targetField) => (
+                                  <SelectItem key={targetField.key} value={targetField.key}>
+                                    {targetField.label} ({targetField.type})
+                                  </SelectItem>
+                                ))
+                              }
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center p-4 border rounded-md">
+                    {!sourceFormSchema || !targetFormSchema ? (
+                      <div className="flex flex-col items-center justify-center">
+                        <Loader2 className="h-6 w-6 animate-spin mb-2" />
+                        <span>Cargando esquemas de formularios...</span>
+                      </div>
+                    ) : (
+                      <span>No hay campos disponibles para la herencia.</span>
                     )}
-                  />
-                </div>
+                  </div>
+                )}
               </TabsContent>
-
-              <TabsContent value="mapping" className="space-y-4 mt-2">
-                <div className="bg-muted p-4 rounded-lg">
-                  <h3 className="text-lg font-medium mb-2">Mapeo de Campos</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Configura cómo los campos del formulario origen poblarán automáticamente el formulario destino.
-                  </p>
-
-                  {watchSourceFormId && watchTargetFormId ? (
-                    <FieldMapping 
-                      sourceFormId={watchSourceFormId} 
-                      targetFormId={watchTargetFormId} 
-                      initialMapping={inheritanceMapping}
-                      onChange={handleMappingChange}
-                    />
-                  ) : (
-                    <div className="text-amber-500 flex items-center">
-                      <Info className="h-4 w-4 mr-2" />
-                      Selecciona los formularios de origen y destino primero.
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-
-              <DialogFooter className="pt-4 border-t">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => onOpenChange(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit"
-                  disabled={createTemplateMutation.isPending || isLoadingForms || isLoadingUsers}
-                >
-                  {createTemplateMutation.isPending && (
+            </Tabs>
+            
+            <DialogFooter>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => onOpenChange(false)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? (
+                  <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Crear Plantilla
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </Tabs>
+                    Guardando...
+                  </>
+                ) : (
+                  "Guardar"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
-};
+}
