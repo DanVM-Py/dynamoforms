@@ -152,7 +152,7 @@ export const DeploymentDiagnostic = () => {
                         </div>
                         
                         {buildInfo.environment !== environment && (
-                          <Alert variant="warning" className="mt-2">
+                          <Alert variant="default" className="bg-amber-50 border-amber-200 mt-2">
                             <AlertTriangle className="h-4 w-4" />
                             <AlertTitle>Advertencia</AlertTitle>
                             <AlertDescription>
@@ -299,7 +299,7 @@ export const DeploymentDiagnostic = () => {
                     
                     {/* Check if we're using the right environment for this hostname */}
                     {(window.location.hostname.includes('localhost') && environment !== 'development') && (
-                      <Alert variant="warning" className="mt-4">
+                      <Alert variant="default" className="bg-amber-50 border-amber-200 mt-4">
                         <AlertTriangle className="h-4 w-4" />
                         <AlertTitle>Advertencia de entorno</AlertTitle>
                         <AlertDescription>
@@ -325,7 +325,7 @@ export const DeploymentDiagnostic = () => {
                     <h3 className="text-lg font-medium mb-2">Recomendaciones</h3>
                     
                     {buildInfo?.environment !== environment ? (
-                      <Alert variant="warning" className="mt-2">
+                      <Alert variant="default" className="bg-amber-50 border-amber-200 mt-2">
                         <Info className="h-4 w-4" />
                         <AlertTitle>Acción requerida</AlertTitle>
                         <AlertDescription className="space-y-2">
