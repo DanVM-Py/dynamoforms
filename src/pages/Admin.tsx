@@ -3,10 +3,8 @@ import React from 'react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DeploymentDiagnostic } from '@/components/environment/DeploymentDiagnostic';
-import { BuildInfoDisplay } from '@/components/environment/BuildInfoDisplay';
 import { EnvironmentBadge } from '@/components/environment/EnvironmentBadge';
-import { environment, getEnvironmentName } from '@/config/environment';
+import { isDevelopment } from '@/config/environment';
 
 const Admin = () => {
   return (
@@ -18,28 +16,19 @@ const Admin = () => {
         </h2>
       </div>
 
-      <Tabs defaultValue="deployment" className="space-y-4">
+      <Tabs defaultValue="database" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="deployment">Despliegue</TabsTrigger>
-          <TabsTrigger value="build-info">Información de Build</TabsTrigger>
           <TabsTrigger value="database">Base de Datos</TabsTrigger>
           <TabsTrigger value="users">Usuarios</TabsTrigger>
+          {isDevelopment && <TabsTrigger value="debug">Herramientas de Desarrollo</TabsTrigger>}
         </TabsList>
-        
-        <TabsContent value="deployment" className="space-y-4">
-          <DeploymentDiagnostic />
-        </TabsContent>
-        
-        <TabsContent value="build-info" className="space-y-4">
-          <BuildInfoDisplay />
-        </TabsContent>
         
         <TabsContent value="database" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Gestión de Base de Datos</CardTitle>
               <CardDescription>
-                Estadísticas y operaciones de la base de datos de {getEnvironmentName()}
+                Estadísticas y operaciones de la base de datos
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -53,7 +42,7 @@ const Admin = () => {
             <CardHeader>
               <CardTitle>Administración de Usuarios</CardTitle>
               <CardDescription>
-                Gestionar usuarios de la plataforma en {getEnvironmentName()}
+                Gestionar usuarios de la plataforma
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -61,6 +50,31 @@ const Admin = () => {
             </CardContent>
           </Card>
         </TabsContent>
+        
+        {isDevelopment && (
+          <TabsContent value="debug" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Herramientas de Desarrollo</CardTitle>
+                <CardDescription>
+                  Opciones solo disponibles en ambiente de desarrollo
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <h3 className="font-medium text-blue-800 mb-2">Información de Despliegue</h3>
+                  <p className="text-sm text-blue-700">
+                    El sistema de despliegue ha sido simplificado. Ahora se utiliza el sistema predeterminado de Lovable:
+                  </p>
+                  <ul className="list-disc pl-5 mt-2 text-sm text-blue-700">
+                    <li>Para desarrollo local, ejecuta la aplicación normalmente</li>
+                    <li>Para publicar a producción, utiliza el botón "Publish" de Lovable</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </PageContainer>
   );

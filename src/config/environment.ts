@@ -6,39 +6,20 @@
  * a consistent way to access environment information throughout the application.
  */
 
-// Extend Window interface to include ENV property
-declare global {
-  interface Window {
-    ENV?: string;
-  }
-}
-
 // Define all possible environment types
-export type Environment = 'development' | 'qa' | 'production';
+export type Environment = 'development' | 'production';
 
 // Helper to determine the current environment
 export const getCurrentEnvironment = (): Environment => {
-  // Check for environment variables first (useful for deployment contexts)
-  const envFromWindow = window.ENV as Environment | undefined;
-
-  if (envFromWindow) {
-    return envFromWindow;
-  }
-  
-  // Use URL-based detection as fallback
-  const hostname = window.location.hostname;
-  
-  if (hostname.includes('qa') || hostname.includes('test')) {
-    return 'qa';
-  } else if (
-    hostname.includes('localhost') || 
-    hostname.includes('127.0.0.1') || 
-    hostname.includes('dev')
-  ) {
-    return 'development';
-  } else {
+  // In production deployment, Lovable sets the environment
+  if (window.location.hostname.includes('lovable.app') || 
+      window.location.hostname.includes('app.') ||
+      !window.location.hostname.includes('localhost')) {
     return 'production';
   }
+  
+  // Development environment (localhost)
+  return 'development';
 };
 
 // Configuration interface
@@ -71,19 +52,6 @@ const configurations: Record<Environment, EnvironmentConfig> = {
       authTokenKey: 'dynamo-app-auth-token-dev'
     }
   },
-  qa: {
-    apiUrl: "", // To be filled with QA environment URL
-    supabaseUrl: "", // To be filled with QA Supabase URL
-    supabaseAnonKey: "", // To be filled with QA Supabase Anon Key
-    featureFlags: {
-      debuggingEnabled: true,
-      notificationsEnabled: true,
-      aiAutomationEnabled: true
-    },
-    storage: {
-      authTokenKey: 'dynamo-app-auth-token-qa'
-    }
-  },
   production: {
     apiUrl: "https://dgnjoqgfccxdlteiptfv.supabase.co",
     supabaseUrl: "https://dgnjoqgfccxdlteiptfv.supabase.co",
@@ -111,22 +79,10 @@ export const isProduction = environment === 'production';
 // Check if we're in a development environment
 export const isDevelopment = environment === 'development';
 
-// Check if we're in a QA environment
-export const isQA = environment === 'qa';
-
 // Helper to determine if debugging is enabled
 export const isDebuggingEnabled = config.featureFlags.debuggingEnabled;
 
 // Helper to get the environment name for display purposes
 export const getEnvironmentName = (): string => {
-  switch (environment) {
-    case 'development':
-      return 'Development';
-    case 'qa':
-      return 'Quality Assurance';
-    case 'production':
-      return 'Production';
-    default:
-      return 'Unknown';
-  }
+  return environment === 'development' ? 'Development' : 'Production';
 };
