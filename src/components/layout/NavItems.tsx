@@ -1,4 +1,3 @@
-
 import {
   FileText,
   FolderKanban,
@@ -13,12 +12,13 @@ import {
   Users,
   ChevronDown,
   ChevronRight,
+  User
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface NavItemsProps {
@@ -139,9 +139,9 @@ const NavItems = ({
         color: "text-gray-600",
       },
       {
-        title: "Administración",
+        title: "Usuarios Globales",
         href: "/admin",
-        icon: UserCog,
+        icon: User,
         requiredRoles: ["global_admin"],
         section: 'administration',
         color: "text-gray-600",
@@ -172,8 +172,8 @@ const NavItems = ({
   const filteredNavItems = allNavItems.filter((item) => {
     if (!item.requiredRoles) return true;
     if (item.requiredRoles.includes("global_admin") && isGlobalAdmin) return true;
-    if (item.requiredRoles.includes("project_admin") && isProjectAdmin) return true;
-    if (item.requiredRoles.includes("approver") && isApprover) return true;
+    if (item.requiredRoles.includes("project_admin") && (isProjectAdmin || isGlobalAdmin)) return true;
+    if (item.requiredRoles.includes("approver") && (isApprover || isGlobalAdmin)) return true;
     return false;
   });
 
@@ -216,16 +216,22 @@ const NavItems = ({
     }
   ];
 
-  const filteredNavSections = navSections.filter(section => {
-    if (!section.requiredRoles) return true;
-    if (section.requiredRoles.includes("global_admin") && isGlobalAdmin) return true;
-    if (section.requiredRoles.includes("project_admin") && isProjectAdmin) return true;
-    return false;
-  }).filter(section => section.items.length > 0);
+  const filteredNavSections = navSections
+    .filter(section => {
+      // Keep sections with no role requirements
+      if (!section.requiredRoles) return true;
+      
+      // Filter based on roles
+      if (section.requiredRoles.includes("global_admin") && isGlobalAdmin) return true;
+      if (section.requiredRoles.includes("project_admin") && (isProjectAdmin || isGlobalAdmin)) return true;
+      
+      return false;
+    })
+    .filter(section => section.items.length > 0);
 
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.href || 
-      (item.href === "/systems/monitoring" && location.pathname === "/monitoring");
+      (item.href.includes("/systems/monitoring") && location.pathname.includes("/monitoring"));
     
     return (
       <Button

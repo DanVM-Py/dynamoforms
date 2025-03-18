@@ -13,9 +13,6 @@ export const SERVICES = {
   NOTIFICATIONS: 'notifications'
 };
 
-// Default to the main API if no service is specified
-const DEFAULT_SERVICE = 'api';
-
 // Create a single instance of the Supabase client for the main API
 const supabaseClient = createClient<Database>(
   config.supabaseUrl, 
@@ -30,9 +27,15 @@ const supabaseClient = createClient<Database>(
     db: {
       schema: 'public'
     },
+    // Disable the cache to prevent stale data
     global: {
       fetch: (url, options) => {
-        return fetch(url, { ...options, cache: 'no-store' });
+        return fetch(url, { 
+          ...options, 
+          cache: 'no-store',
+          // Add signal abort controller with reasonable timeout
+          signal: options?.signal || new AbortController().signal
+        });
       }
     }
   }

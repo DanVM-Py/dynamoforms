@@ -31,6 +31,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       if (!skipLoading) setLoading(true);
       
+      console.log("Fetching user profile for ID:", userId);
+      
       // Try to fetch the user profile
       const { data, error } = await supabase
         .from("profiles")
@@ -40,13 +42,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
       if (error) {
         console.error("Error fetching user profile:", error);
+        return;
       }
       
       if (data) {
+        console.log("User profile found:", data);
         setUserProfile(data);
         setIsGlobalAdmin(data.role === "global_admin");
         setIsApprover(data.role === "approver");
       } else {
+        console.log("No user profile found");
         setUserProfile(null);
       }
       
@@ -60,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Error fetching project admin status:", projectAdminError);
       } else {
         const isAdmin = projectAdminData && projectAdminData.length > 0;
+        console.log("User is project admin:", isAdmin);
         setIsProjectAdmin(isAdmin);
       }
     } catch (error) {
@@ -77,6 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Get current session
         const { data: { session } } = await supabase.auth.getSession();
+        console.log("Auth state initialized:", !!session);
+        
         setSession(session);
         setUser(session?.user ?? null);
         

@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Sidebar } from './Sidebar';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,14 +11,9 @@ interface PageContainerProps {
   title?: string;
 }
 
-export const PageContainer = ({ children, className, hideSidebar, title }: PageContainerProps) => {
+export const PageContainer = ({ children, className, hideSidebar = false, title }: PageContainerProps) => {
   const { user, loading } = useAuth();
   const isAuthenticated = !!user && !loading;
-  
-  // Force sidebar visibility check
-  useEffect(() => {
-    console.log("PageContainer rendering, authenticated:", isAuthenticated, "hideSidebar:", hideSidebar);
-  }, [isAuthenticated, hideSidebar]);
   
   return (
     <div className="flex min-h-screen bg-gray-50">
