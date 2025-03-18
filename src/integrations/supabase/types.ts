@@ -536,7 +536,9 @@ export type Database = {
           form_id: string | null
           form_response_id: string | null
           id: string
+          priority: string | null
           project_id: string | null
+          source_form_id: string | null
           status: Database["public"]["Enums"]["task_status"]
           title: string
           updated_at: string
@@ -549,7 +551,9 @@ export type Database = {
           form_id?: string | null
           form_response_id?: string | null
           id?: string
+          priority?: string | null
           project_id?: string | null
+          source_form_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           title: string
           updated_at?: string
@@ -562,7 +566,9 @@ export type Database = {
           form_id?: string | null
           form_response_id?: string | null
           id?: string
+          priority?: string | null
           project_id?: string | null
+          source_form_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           title?: string
           updated_at?: string
@@ -594,6 +600,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_source_form_id_fkey"
+            columns: ["source_form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
             referencedColumns: ["id"]
           },
         ]

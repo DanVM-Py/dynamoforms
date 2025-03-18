@@ -118,6 +118,7 @@ async function handleCreateChainedTask(
           project_id: template.project_id,
           source_form_id: sourceFormId,
           due_date: dueDate,
+          priority: "medium" // Default priority
         })
         .select()
         .single();
@@ -129,6 +130,27 @@ async function handleCreateChainedTask(
 
       console.log(`Created task: ${task.id}`);
       createdTasks.push(task);
+      
+      // Create notification for the assignee
+      try {
+        await supabase
+          .from("notifications")
+          .insert({
+            user_id: assignedUserId,
+            title: 'Nueva tarea asignada',
+            message: `Se te ha asignado una nueva tarea: ${template.title}`,
+            type: 'task_assigned',
+            read: false,
+            project_id: template.project_id,
+            metadata: {
+              task_id: task.id,
+              form_id: template.target_form_id
+            }
+          });
+      } catch (notifError) {
+        console.error("Error creating notification:", notifError);
+        // Continue even if notification fails
+      }
     }
 
     return { message: `Created ${createdTasks.length} tasks`, tasks: createdTasks };

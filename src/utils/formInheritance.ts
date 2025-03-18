@@ -123,7 +123,8 @@ const createTaskFromTemplate = async (
         form_id: template.target_form_id,
         form_response_id: formResponseId,
         project_id: projectId || template.project_id,
-        source_form_id: sourceFormId
+        source_form_id: sourceFormId,
+        priority: 'medium'
       })
       .select()
       .single();
