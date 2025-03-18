@@ -1,10 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { 
   Dialog, 
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
+  DialogDescription,
   DialogFooter 
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Profile {
   id: string;
@@ -43,6 +44,7 @@ export interface EditProjectModalProps {
 
 export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated }: EditProjectModalProps) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [name, setName] = useState(project?.name || "");
   const [description, setDescription] = useState(project?.description || "");
   const [adminId, setAdminId] = useState(project?.adminId || "");
@@ -52,6 +54,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
   const [errors, setErrors] = useState<{
     name?: string;
     description?: string;
+    adminId?: string;
   }>({});
 
   useEffect(() => {
@@ -94,6 +97,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
     const newErrors: {
       name?: string;
       description?: string;
+      adminId?: string;
     } = {};
     
     if (!name.trim()) {
@@ -102,6 +106,10 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
     
     if (!description?.trim()) {
       newErrors.description = "La descripción del proyecto es obligatoria";
+    }
+    
+    if (adminId === "") {
+      newErrors.adminId = "Debes seleccionar un administrador para el proyecto";
     }
     
     setErrors(newErrors);
@@ -117,6 +125,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
     
     setLoading(true);
     try {
+      // Update project details
       const { error } = await supabase
         .from('projects')
         .update({ 
@@ -129,15 +138,48 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
       
       // If adminId has changed and is not empty, update project admin
       if (adminId && adminId !== project.adminId) {
-        // Here you would implement the logic to update the project admin
-        // If implementing this logic, use created_by instead of assigned_by
+        // First check if there's an existing admin
+        const { data: existingAdmin, error: fetchError } = await supabase
+          .from('project_admins')
+          .select('*')
+          .eq('project_id', project.id)
+          .single();
+        
+        if (fetchError && fetchError.code !== 'PGRST116') {
+          throw fetchError;
+        }
+        
+        // If there's an existing admin, update it
+        if (existingAdmin) {
+          const { error: updateError } = await supabase
+            .from('project_admins')
+            .update({ user_id: adminId })
+            .eq('id', existingAdmin.id);
+            
+          if (updateError) throw updateError;
+        } else {
+          // Otherwise, insert a new admin
+          const { error: insertError } = await supabase
+            .from('project_admins')
+            .insert({
+              project_id: project.id,
+              user_id: adminId,
+              created_by: user?.id
+            });
+            
+          if (insertError) throw insertError;
+        }
       }
       
+      // Complete the update process
       await onProjectUpdated();
+      
       toast({
         title: "Proyecto actualizado",
         description: "El proyecto ha sido actualizado exitosamente.",
       });
+      
+      // Safely close the modal after everything is done
       onOpenChange(false);
     } catch (error: any) {
       console.error("Error updating project:", error);
@@ -151,23 +193,33 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
     }
   };
 
+  // Safe close handler to ensure we're not in loading state when closing
+  const handleClose = () => {
+    if (!loading) {
+      onOpenChange(false);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Edit Project</DialogTitle>
+          <DialogTitle>Editar Proyecto</DialogTitle>
+          <DialogDescription>
+            Actualiza los detalles del proyecto. Asegúrate de guardar los cambios.
+          </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="project-name">
-              Project Name <span className="text-red-500">*</span>
+              Nombre del Proyecto <span className="text-red-500">*</span>
             </Label>
             <Input
               id="project-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter project name"
+              placeholder="Ingresa el nombre del proyecto"
               className={errors.name ? "border-red-500" : ""}
             />
             {errors.name && (
@@ -177,13 +229,13 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
           
           <div className="space-y-2">
             <Label htmlFor="project-description">
-              Description <span className="text-red-500">*</span>
+              Descripción <span className="text-red-500">*</span>
             </Label>
             <Textarea
               id="project-description"
               value={description || ""}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Briefly describe the purpose of the project"
+              placeholder="Describe brevemente el propósito del proyecto"
               rows={4}
               className={errors.description ? "border-red-500" : ""}
             />
@@ -193,13 +245,18 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="project-admin">Project Administrator</Label>
+            <Label htmlFor="project-admin">
+              Administrador del Proyecto <span className="text-red-500">*</span>
+            </Label>
             <Select 
               value={adminId} 
               onValueChange={(value) => setAdminId(value)}
             >
-              <SelectTrigger id="project-admin" className={loadingUsers ? "opacity-70" : ""}>
-                <SelectValue placeholder="Select an administrator" />
+              <SelectTrigger 
+                id="project-admin" 
+                className={`${loadingUsers ? "opacity-70" : ""} ${errors.adminId ? "border-red-500" : ""}`}
+              >
+                <SelectValue placeholder="Selecciona un administrador" />
               </SelectTrigger>
               <SelectContent>
                 {users
@@ -212,10 +269,13 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
                 }
               </SelectContent>
             </Select>
+            {errors.adminId && (
+              <p className="text-sm text-red-500">{errors.adminId}</p>
+            )}
             {loadingUsers && (
               <div className="text-sm text-muted-foreground flex items-center">
                 <Loader2 className="w-3 h-3 mr-2 animate-spin" /> 
-                Loading users...
+                Cargando usuarios...
               </div>
             )}
           </div>
@@ -224,19 +284,19 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             <Button 
               type="button" 
               variant="outline" 
-              onClick={() => onOpenChange(false)}
+              onClick={handleClose}
               disabled={loading}
             >
-              Cancel
+              Cancelar
             </Button>
             <Button 
               type="submit" 
               disabled={loading}
             >
               {loading ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...</>
               ) : (
-                'Save changes'
+                'Guardar cambios'
               )}
             </Button>
           </DialogFooter>
