@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -130,31 +129,45 @@ const TaskTemplatesPage = () => {
       // Map the data to our expected format with proper null checks
       return data.map(template => {
         let sourceForm = null;
-        if (template.source_form && typeof template.source_form === 'object' && 'id' in template.source_form && 'title' in template.source_form) {
+        if (template.source_form && 
+            typeof template.source_form === 'object' && 
+            template.source_form !== null &&
+            'id' in template.source_form && 
+            'title' in template.source_form) {
           sourceForm = { 
-            id: template.source_form.id, 
-            title: template.source_form.title 
+            id: String(template.source_form.id), 
+            title: String(template.source_form.title) 
           };
         }
         
         let targetForm = null;
-        if (template.target_form && typeof template.target_form === 'object' && 'id' in template.target_form && 'title' in template.target_form) {
+        if (template.target_form && 
+            typeof template.target_form === 'object' && 
+            template.target_form !== null &&
+            'id' in template.target_form && 
+            'title' in template.target_form) {
           targetForm = { 
-            id: template.target_form.id, 
-            title: template.target_form.title 
+            id: String(template.target_form.id), 
+            title: String(template.target_form.title) 
           };
         }
         
-        const assigneeName = template.default_assignee_profile && 
-                            typeof template.default_assignee_profile === 'object' && 
-                            (('name' in template.default_assignee_profile && template.default_assignee_profile.name) || 
-                             ('email' in template.default_assignee_profile && template.default_assignee_profile.email)) || 'N/A';
+        let assigneeName = 'N/A';
+        if (template.default_assignee_profile && 
+            typeof template.default_assignee_profile === 'object' && 
+            template.default_assignee_profile !== null) {
+          if ('name' in template.default_assignee_profile && template.default_assignee_profile.name) {
+            assigneeName = String(template.default_assignee_profile.name);
+          } else if ('email' in template.default_assignee_profile && template.default_assignee_profile.email) {
+            assigneeName = String(template.default_assignee_profile.email);
+          }
+        }
         
         return {
           ...template,
           source_form: sourceForm,
           target_form: targetForm,
-          default_assignee_name: typeof assigneeName === 'string' ? assigneeName : 'N/A'
+          default_assignee_name: assigneeName
         } as ExtendedTaskTemplate;
       });
     },
@@ -215,14 +228,15 @@ const TaskTemplatesPage = () => {
       for (const projectUser of data) {
         if (projectUser.profiles && 
             typeof projectUser.profiles === 'object' && 
+            projectUser.profiles !== null &&
             'id' in projectUser.profiles && 
             'name' in projectUser.profiles && 
             'email' in projectUser.profiles) {
           
           users.push({
-            id: projectUser.profiles.id,
-            name: projectUser.profiles.name,
-            email: projectUser.profiles.email
+            id: String(projectUser.profiles.id),
+            name: String(projectUser.profiles.name),
+            email: String(projectUser.profiles.email)
           });
         }
       }
@@ -612,3 +626,4 @@ const TaskTemplatesPage = () => {
 };
 
 export default TaskTemplatesPage;
+
