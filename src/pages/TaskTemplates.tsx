@@ -1,18 +1,17 @@
-
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { PageContainer } from "@/components/layout/PageContainer";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -22,40 +21,34 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Trash2, Eye, Edit, Plus, Check, X, ArrowRight, Info } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { CreateTaskTemplateModal } from '@/components/project/CreateTaskTemplateModal';
+} from "@/components/ui/table"
+import { Plus, Edit, Trash2, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { Badge } from '@/components/ui/badge';
-import { TaskTemplate } from '@/types/supabase';
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer"
+import { Separator } from "@/components/ui/separator"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { ReloadIcon } from "@radix-ui/react-icons"
+import { isDevelopment } from "@/config/environment";
 
 interface Form {
   id: string;
   title: string;
-  description: string | null;
-  project_id: string;
 }
 
 interface User {
@@ -64,594 +57,903 @@ interface User {
   email: string;
 }
 
-// Fixed interface to match what we get from Supabase
-interface ExtendedTaskTemplate {
+interface TaskTemplate {
   id: string;
   title: string;
-  description: string | null;
-  source_form_id: string;
-  target_form_id: string;
-  assignment_type: 'static' | 'dynamic';
-  assignee_form_field: string | null;
-  default_assignee: string | null;
-  due_days: number | null;
-  is_active: boolean;
-  inheritance_mapping: Record<string, string> | null;
-  project_id: string;
-  created_at: string;
-  source_form?: { id: string; title: string } | null;
-  target_form?: { id: string; title: string } | null;
-  default_assignee_profile?: { id: string; name: string; email: string } | null;
-  default_assignee_name?: string;
+  description: string;
+  sourceForm: Form | null;
+  targetForm: Form | null;
+  isActive: boolean;
+  projectId: string;
+  inheritanceMapping: any;
+  assignmentType: string;
+  defaultAssignee: string;
+  dueDays: number;
+  assigneeFormField: string;
 }
 
-const TaskTemplatesPage = () => {
-  const { projectId } = useParams<{ projectId: string }>();
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<ExtendedTaskTemplate | null>(null);
-  const [detailTab, setDetailTab] = useState('general');
-  const [inheritanceMapping, setInheritanceMapping] = useState<Record<string, string>>({});
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+const TaskTemplates = () => {
+  const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | null>(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [sourceFormId, setSourceFormId] = useState("");
+  const [targetFormId, setTargetFormId] = useState("");
+  const [isActive, setIsActive] = useState(true);
+  const [projectId, setProjectId] = useState("");
+  const [inheritanceMapping, setInheritanceMapping] = useState("");
+  const [assignmentType, setAssignmentType] = useState("user");
+  const [defaultAssignee, setDefaultAssignee] = useState("");
+  const [dueDays, setDueDays] = useState(7);
+  const [assigneeFormField, setAssigneeFormField] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isTemplateActive, setIsTemplateActive] = useState(true);
+  const [isTemplateInactive, setIsTemplateInactive] = useState(false);
+  const [isTemplateAll, setIsTemplateAll] = useState(true);
+  const [filter, setFilter] = useState<"active" | "inactive" | "all">("all");
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user, userProfile } = useAuth();
 
-  useEffect(() => {
-    if (!projectId) {
-      console.warn("Project ID is missing.");
-    }
-  }, [projectId]);
-
-  // Fetch task templates
-  const { data: templates, isLoading } = useQuery({
-    queryKey: ['taskTemplates', projectId],
+  const {
+    data: taskTemplatesData,
+    isLoading: isLoadingTaskTemplates,
+    error: errorTaskTemplates,
+    refetch: refetchTaskTemplates
+  } = useQuery({
+    queryKey: ['taskTemplates', filter],
     queryFn: async () => {
-      if (!projectId) {
-        console.warn("Project ID is missing.");
-        return [];
-      }
-
-      // Fixed the query to handle foreign tables correctly
-      const { data, error } = await supabase
+      let query = supabase
         .from('task_templates')
         .select(`
-          *,
-          source_form:source_form_id (id, title),
-          target_form:target_form_id (id, title),
-          default_assignee_profile:default_assignee (id, name, email)
+          id,
+          title,
+          description,
+          source_form ( id, title ),
+          target_form ( id, title ),
+          is_active,
+          project_id,
+          inheritance_mapping,
+          assignment_type,
+          default_assignee,
+          due_days,
+          assignee_form_field
         `)
-        .eq('project_id', projectId);
-      
+        .order('created_at', { ascending: false });
+
+      if (filter === "active") {
+        query = query.eq('is_active', true);
+      } else if (filter === "inactive") {
+        query = query.eq('is_active', false);
+      }
+
+      const { data, error } = await query;
+
       if (error) {
         console.error("Error fetching task templates:", error);
         throw error;
       }
-      
-      // Map the data to our expected format with proper null checks
-      return data.map(template => {
-        let sourceForm = null;
-        if (template.source_form && 
-            typeof template.source_form === 'object') {
-          // Create a temporary variable to avoid repeated null checks
-          const tempSourceForm = template.source_form;
-          if (tempSourceForm !== null &&
-              'id' in tempSourceForm && 
-              'title' in tempSourceForm && 
-              tempSourceForm.id !== null && 
-              tempSourceForm.title !== null) {
-            sourceForm = { 
-              id: String(tempSourceForm.id), 
-              title: String(tempSourceForm.title) 
-            };
-          }
-        }
-        
-        let targetForm = null;
-        if (template.target_form && 
-            typeof template.target_form === 'object') {
-          // Create a temporary variable to avoid repeated null checks
-          const tempTargetForm = template.target_form;
-          if (tempTargetForm !== null &&
-              'id' in tempTargetForm && 
-              'title' in tempTargetForm && 
-              tempTargetForm.id !== null && 
-              tempTargetForm.title !== null) {
-            targetForm = { 
-              id: String(tempTargetForm.id), 
-              title: String(tempTargetForm.title) 
-            };
-          }
-        }
-        
-        let assigneeName = 'N/A';
-        if (template.default_assignee_profile && 
-            typeof template.default_assignee_profile === 'object' && 
-            template.default_assignee_profile !== null) {
-          if ('name' in template.default_assignee_profile && template.default_assignee_profile.name) {
-            assigneeName = String(template.default_assignee_profile.name);
-          } else if ('email' in template.default_assignee_profile && template.default_assignee_profile.email) {
-            assigneeName = String(template.default_assignee_profile.email);
-          }
-        }
-        
-        return {
-          ...template,
-          source_form: sourceForm,
-          target_form: targetForm,
-          default_assignee_name: assigneeName
-        } as ExtendedTaskTemplate;
-      });
+
+      return data;
     },
-    enabled: !!projectId,
   });
 
-  // Fetch project forms for selection
-  const { data: forms } = useQuery({
-    queryKey: ['forms', projectId],
+  const {
+    data: forms,
+    isLoading: isLoadingForms,
+    error: errorForms,
+    refetch: refetchForms
+  } = useQuery({
+    queryKey: ['forms'],
     queryFn: async () => {
-      if (!projectId) {
-        console.warn("Project ID is missing.");
-        return [];
-      }
-
       const { data, error } = await supabase
         .from('forms')
-        .select('id, title, description, project_id')
-        .eq('project_id', projectId)
-        .order('title', { ascending: true });
-        
+        .select('id, title')
+        .eq('project_id', userProfile?.project_id)
+        .order('created_at', { ascending: false });
+
       if (error) {
         console.error("Error fetching forms:", error);
         throw error;
       }
-      
-      return data as Form[];
+
+      return data;
+    },
+  });
+
+  const {
+    data: projects,
+    isLoading: isLoadingProjects,
+    error: errorProjects,
+    refetch: refetchProjects
+  } = useQuery({
+    queryKey: ['projects'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("Error fetching projects:", error);
+        throw error;
+      }
+
+      return data;
+    },
+  });
+
+  const {
+    data: projectUsers,
+    isLoading: isLoadingProjectUsers,
+    error: errorProjectUsers,
+    refetch: refetchProjectUsers
+  } = useQuery({
+    queryKey: ['projectUsers', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+
+      return getProjectUsers(projectId);
     },
     enabled: !!projectId,
   });
 
-  // Fetch project users for assignee selection
-  const { data: projectUsers } = useQuery({
-    queryKey: ['projectUsers', projectId],
-    queryFn: async () => {
-      if (!projectId) {
-        console.warn("Project ID is missing.");
-        return [];
+  const transformTaskTemplates = (data: any[]): TaskTemplate[] => {
+    if (!data || !Array.isArray(data)) return [];
+    
+    return data.map(template => {
+      let sourceForm = null;
+      if (template.source_form) {
+        // First ensure source_form is not null
+        const sourceFormObj = template.source_form;
+        
+        // Then separately check the properties
+        if (sourceFormObj && 
+            typeof sourceFormObj === 'object' && 
+            'id' in sourceFormObj && 
+            'title' in sourceFormObj) {
+          // Final null check on actual properties
+          const id = sourceFormObj.id;
+          const title = sourceFormObj.title;
+          
+          if (id !== null && title !== null) {
+            sourceForm = { 
+              id: String(id), 
+              title: String(title) 
+            };
+          }
+        }
+      }
+      
+      let targetForm = null;
+      if (template.target_form) {
+        // First ensure target_form is not null
+        const targetFormObj = template.target_form;
+        
+        // Then separately check the properties
+        if (targetFormObj && 
+            typeof targetFormObj === 'object' && 
+            'id' in targetFormObj && 
+            'title' in targetFormObj) {
+          // Final null check on actual properties
+          const id = targetFormObj.id;
+          const title = targetFormObj.title;
+          
+          if (id !== null && title !== null) {
+            targetForm = { 
+              id: String(id), 
+              title: String(title) 
+            };
+          }
+        }
+      }
+      
+      return {
+        id: template.id,
+        title: template.title,
+        description: template.description,
+        sourceForm,
+        targetForm,
+        isActive: template.is_active,
+        projectId: template.project_id,
+        inheritanceMapping: template.inheritance_mapping,
+        assignmentType: template.assignment_type,
+        defaultAssignee: template.default_assignee,
+        dueDays: template.due_days,
+        assigneeFormField: template.assignee_form_field
+      };
+    });
+  };
+
+  const taskTemplates = React.useMemo(() => {
+    if (!taskTemplatesData) return [];
+    return transformTaskTemplates(taskTemplatesData);
+  }, [taskTemplatesData]);
+
+  const createTaskTemplateMutation = useMutation(
+    async () => {
+      setIsSaving(true);
+
+      const { data, error } = await supabase
+        .from('task_templates')
+        .insert([
+          {
+            title,
+            description,
+            source_form_id: sourceFormId,
+            target_form_id: targetFormId,
+            is_active: isActive,
+            project_id: projectId,
+            inheritance_mapping: inheritanceMapping,
+            assignment_type: assignmentType,
+            default_assignee: defaultAssignee,
+            due_days: dueDays,
+            assignee_form_field: assigneeFormField
+          },
+        ])
+        .select();
+
+      if (error) {
+        console.error("Error creating task template:", error);
+        throw error;
       }
 
-      // Fixed query to avoid foreign table issues by using explicit column references
+      return data;
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['taskTemplates'] });
+        toast({
+          title: "Tarea creada",
+          description: "La plantilla de tarea se ha creado correctamente.",
+        });
+        setOpen(false);
+        clearForm();
+      },
+      onError: (error: any) => {
+        console.error("Error creating task template:", error);
+        toast({
+          title: "Error",
+          description: "Hubo un error al crear la plantilla de tarea. Inténtalo de nuevo.",
+          variant: "destructive",
+        });
+      },
+      onSettled: () => {
+        setIsSaving(false);
+      },
+    }
+  );
+
+  const updateTaskTemplateMutation = useMutation(
+    async () => {
+      setIsSaving(true);
+
+      const { data, error } = await supabase
+        .from('task_templates')
+        .update({
+          title,
+          description,
+          source_form_id: sourceFormId,
+          target_form_id: targetFormId,
+          is_active: isActive,
+          project_id: projectId,
+          inheritance_mapping: inheritanceMapping,
+          assignment_type: assignmentType,
+          default_assignee: defaultAssignee,
+          due_days: dueDays,
+          assignee_form_field: assigneeFormField
+        })
+        .eq('id', selectedTemplate?.id)
+        .select();
+
+      if (error) {
+        console.error("Error updating task template:", error);
+        throw error;
+      }
+
+      return data;
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['taskTemplates'] });
+        toast({
+          title: "Tarea actualizada",
+          description: "La plantilla de tarea se ha actualizado correctamente.",
+        });
+        setEditOpen(false);
+        clearForm();
+      },
+      onError: (error: any) => {
+        console.error("Error updating task template:", error);
+        toast({
+          title: "Error",
+          description: "Hubo un error al actualizar la plantilla de tarea. Inténtalo de nuevo.",
+          variant: "destructive",
+        });
+      },
+      onSettled: () => {
+        setIsSaving(false);
+      },
+    }
+  );
+
+  const deleteTaskTemplateMutation = useMutation(
+    async () => {
+      setIsDeleting(true);
+
+      const { data, error } = await supabase
+        .from('task_templates')
+        .delete()
+        .eq('id', selectedTemplate?.id);
+
+      if (error) {
+        console.error("Error deleting task template:", error);
+        throw error;
+      }
+
+      return data;
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['taskTemplates'] });
+        toast({
+          title: "Tarea eliminada",
+          description: "La plantilla de tarea se ha eliminado correctamente.",
+        });
+        setEditOpen(false);
+        clearForm();
+      },
+      onError: (error: any) => {
+        console.error("Error deleting task template:", error);
+        toast({
+          title: "Error",
+          description: "Hubo un error al eliminar la plantilla de tarea. Inténtalo de nuevo.",
+          variant: "destructive",
+        });
+      },
+      onSettled: () => {
+        setIsDeleting(false);
+      },
+    }
+  );
+
+  const handleCreateTaskTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await createTaskTemplateMutation.mutateAsync();
+  };
+
+  const handleUpdateTaskTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await updateTaskTemplateMutation.mutateAsync();
+  };
+
+  const handleDeleteTaskTemplate = async () => {
+    await deleteTaskTemplateMutation.mutateAsync();
+  };
+
+  const handleEdit = (template: TaskTemplate) => {
+    setSelectedTemplate(template);
+    setTitle(template.title);
+    setDescription(template.description);
+    setSourceFormId(template.sourceForm?.id || "");
+    setTargetFormId(template.targetForm?.id || "");
+    setIsActive(template.isActive);
+    setProjectId(template.projectId);
+    setInheritanceMapping(template.inheritanceMapping);
+    setAssignmentType(template.assignmentType);
+    setDefaultAssignee(template.defaultAssignee);
+    setDueDays(template.dueDays);
+    setAssigneeFormField(template.assigneeFormField);
+    setEditOpen(true);
+  };
+
+  const clearForm = () => {
+    setTitle("");
+    setDescription("");
+    setSourceFormId("");
+    setTargetFormId("");
+    setIsActive(true);
+    setProjectId("");
+    setInheritanceMapping("");
+    setAssignmentType("user");
+    setDefaultAssignee("");
+    setDueDays(7);
+    setAssigneeFormField("");
+    setSelectedTemplate(null);
+  };
+
+  const handleFilterChange = (newFilter: "active" | "inactive" | "all") => {
+    setFilter(newFilter);
+    setIsTemplateActive(newFilter === "active");
+    setIsTemplateInactive(newFilter === "inactive");
+    setIsTemplateAll(newFilter === "all");
+  };
+
+  const getProjectUsers = async (projectId: string): Promise<User[]> => {
+    try {
       const { data, error } = await supabase
         .from('project_users')
         .select(`
-          user_id,
-          profiles:user_id (id, name, email)
+          profiles (
+            id,
+            name,
+            email
+          )
         `)
-        .eq('project_id', projectId)
-        .eq('status', 'active');
-        
+        .eq('project_id', projectId);
+
       if (error) {
         console.error("Error fetching project users:", error);
-        throw error;
+        return [];
       }
       
-      // Extract and transform user data with proper null checks
       const users: User[] = [];
       for (const projectUser of data) {
-        if (projectUser.profiles && 
-            typeof projectUser.profiles === 'object') {
-          // Create a temporary variable to avoid repeated null checks
-          const tempProfiles = projectUser.profiles;
-          if (tempProfiles !== null &&
-              'id' in tempProfiles && 
-              'name' in tempProfiles && 
-              'email' in tempProfiles && 
-              tempProfiles.id !== null && 
-              tempProfiles.name !== null && 
-              tempProfiles.email !== null) {
-            users.push({
-              id: String(tempProfiles.id),
-              name: String(tempProfiles.name),
-              email: String(tempProfiles.email)
-            });
+        if (projectUser.profiles) {
+          // First verify profiles is not null
+          const profilesObj = projectUser.profiles;
+          
+          // Then check if it has the required properties
+          if (profilesObj && 
+              typeof profilesObj === 'object' && 
+              'id' in profilesObj && 
+              'name' in profilesObj && 
+              'email' in profilesObj) {
+            
+            // Final null check on actual properties
+            const id = profilesObj.id;
+            const name = profilesObj.name;
+            const email = profilesObj.email;
+            
+            if (id !== null && name !== null && email !== null) {
+              users.push({
+                id: String(id),
+                name: String(name),
+                email: String(email)
+              });
+            }
           }
         }
       }
       
       return users;
-    },
-    enabled: !!projectId,
-  });
-
-  // Handle template deletion
-  const deleteTemplateMutation = useMutation({
-    mutationFn: async (templateId: string) => {
-      const { error } = await supabase
-        .from('task_templates')
-        .delete()
-        .eq('id', templateId);
-        
-      if (error) throw error;
-      return templateId;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['taskTemplates', projectId] });
-      toast({
-        title: "Plantilla eliminada",
-        description: "La plantilla se ha eliminado correctamente.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Hubo un error al eliminar la plantilla.",
-        variant: "destructive"
-      });
-    },
-  });
-
-  // Toggle template active status
-  const toggleTemplateMutation = useMutation({
-    mutationFn: async ({ id, is_active }: { id: string, is_active: boolean }) => {
-      const { error } = await supabase
-        .from('task_templates')
-        .update({ is_active })
-        .eq('id', id);
-        
-      if (error) throw error;
-      return { id, is_active };
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['taskTemplates', projectId] });
-      toast({
-        title: data.is_active ? "Plantilla activada" : "Plantilla desactivada",
-        description: `La plantilla se ha ${data.is_active ? 'activado' : 'desactivado'} correctamente.`,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Hubo un error al actualizar la plantilla.",
-        variant: "destructive"
-      });
-    },
-  });
-
-  const handleCreateTemplate = () => {
-    setCreateModalOpen(true);
-  };
-
-  const handleViewTemplate = (template: ExtendedTaskTemplate) => {
-    setSelectedTemplate(template);
-    setInheritanceMapping(template.inheritance_mapping || {});
-    setDetailTab('general');
-    setViewModalOpen(true);
-  };
-
-  const handleDeleteTemplate = (templateId: string) => {
-    deleteTemplateMutation.mutate(templateId);
-  };
-
-  const handleToggleActive = (template: ExtendedTaskTemplate) => {
-    toggleTemplateMutation.mutate({
-      id: template.id,
-      is_active: !template.is_active
-    });
-  };
-
-  // Function to display forms name
-  const getFormName = (formId: string | null) => {
-    if (!formId || !forms) return 'N/A';
-    const form = forms.find(f => f.id === formId);
-    return form ? form.title : 'N/A';
-  };
-
-  // Function to display assignee name
-  const getAssigneeName = (template: ExtendedTaskTemplate) => {
-    if (template.assignment_type === 'dynamic') {
-      return `Dinámico (${template.assignee_form_field || 'no especificado'})`;
-    } 
-    
-    if (template.default_assignee && projectUsers) {
-      const user = projectUsers.find(u => u.id === template.default_assignee);
-      return user ? (user.name || user.email) : 'N/A';
+    } catch (error) {
+      console.error("Error fetching project users:", error);
+      return [];
     }
-    
-    return 'No asignado';
   };
 
-  // Handle mapping change for viewing template details
-  const handleMappingChange = (mapping: Record<string, string>) => {
-    setInheritanceMapping(mapping);
-  };
+  if (isLoadingTaskTemplates) return <div className="flex items-center justify-center h-screen bg-gray-50"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando plantillas de tareas...</div>;
+  if (errorTaskTemplates) return <Alert variant="destructive">
+    <AlertTitle>Error</AlertTitle>
+    <AlertDescription>
+      Hubo un error al cargar las plantillas de tareas.
+    </AlertDescription>
+  </Alert>;
 
   return (
-    <PageContainer>
-      <div className="md:flex md:items-center md:justify-between space-y-4 md:space-y-0">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Plantillas de Tareas</h1>
-          <p className="text-gray-500 mt-1">Configura plantillas para generar tareas automáticamente</p>
+    <div>
+      <div className="container mx-auto py-10">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold">Plantillas de Tareas</h1>
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Crear Plantilla
+          </Button>
         </div>
-        <Button onClick={handleCreateTemplate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Crear Plantilla
-        </Button>
-      </div>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Plantillas</CardTitle>
-          <CardDescription>
-            Lista de plantillas de tareas configuradas
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <div className="mb-4">
+          <Label>Filtrar por estado:</Label>
+          <div className="flex space-x-2 mt-2">
+            <Button
+              variant={isTemplateAll ? "default" : "outline"}
+              onClick={() => handleFilterChange("all")}
+            >
+              Todas
+            </Button>
+            <Button
+              variant={isTemplateActive ? "default" : "outline"}
+              onClick={() => handleFilterChange("active")}
+            >
+              Activas
+            </Button>
+            <Button
+              variant={isTemplateInactive ? "default" : "outline"}
+              onClick={() => handleFilterChange("inactive")}
+            >
+              Inactivas
+            </Button>
+          </div>
+        </div>
+
+        <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Título</TableHead>
-                <TableHead>Formulario Origen</TableHead>
-                <TableHead>Formulario Destino</TableHead>
-                <TableHead>Asignado a</TableHead>
+                <TableHead className="w-[200px]">Título</TableHead>
+                <TableHead>Descripción</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10">
-                    <div className="flex justify-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                    <p className="mt-2 text-sm text-muted-foreground">Cargando plantillas...</p>
-                  </TableCell>
-                </TableRow>
-              ) : templates && templates.length > 0 ? (
-                templates.map((template) => (
-                  <TableRow key={template.id}>
-                    <TableCell className="font-medium">{template.title}</TableCell>
-                    <TableCell>{template.source_form?.title || 'N/A'}</TableCell>
-                    <TableCell>{template.target_form?.title || 'N/A'}</TableCell>
-                    <TableCell>{getAssigneeName(template)}</TableCell>
-                    <TableCell>
-                      <Badge variant={template.is_active ? "success" : "secondary"}>
-                        {template.is_active ? 'Activo' : 'Inactivo'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
-                          onClick={() => handleViewTemplate(template)}
-                          title="Ver detalles"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant={template.is_active ? "outline" : "default"}
-                          size="icon"
-                          onClick={() => handleToggleActive(template)}
-                          title={template.is_active ? "Desactivar" : "Activar"}
-                        >
-                          {template.is_active ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button 
-                              variant="destructive" 
-                              size="icon"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Esta acción eliminará permanentemente la plantilla de tareas. 
-                                Esta acción no puede deshacerse.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => handleDeleteTemplate(template.id)} 
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Eliminar
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10">
-                    <p className="text-muted-foreground">No hay plantillas configuradas</p>
-                    <Button 
-                      variant="outline" 
-                      className="mt-4" 
-                      onClick={handleCreateTemplate}
+              {taskTemplates.map((template) => (
+                <TableRow key={template.id}>
+                  <TableCell className="font-medium">{template.title}</TableCell>
+                  <TableCell>{template.description}</TableCell>
+                  <TableCell>{template.isActive ? <Badge variant="outline">Activa</Badge> : <Badge>Inactiva</Badge>}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleEdit(template)}
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Crear tu primera plantilla
+                      <Edit className="mr-2 h-4 w-4" />
+                      Editar
                     </Button>
                   </TableCell>
                 </TableRow>
-              )}
+              ))}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Create Template Modal */}
-      <CreateTaskTemplateModal 
-        open={createModalOpen} 
-        onOpenChange={setCreateModalOpen} 
-        projectId={projectId || ''} 
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['taskTemplates', projectId] });
-        }}
-      />
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Crear Plantilla de Tarea</DialogTitle>
+            <DialogDescription>
+              Crea una nueva plantilla de tarea para automatizar tus procesos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="title" className="text-right">
+                Título
+              </Label>
+              <Input
+                type="text"
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="description" className="text-right">
+                Descripción
+              </Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="sourceFormId" className="text-right">
+                Formulario de Origen
+              </Label>
+              <Select onValueChange={setSourceFormId}>
+                <SelectTrigger id="sourceFormId" className="col-span-3">
+                  <SelectValue placeholder="Selecciona un formulario" />
+                </SelectTrigger>
+                <SelectContent>
+                  {forms?.map((form) => (
+                    <SelectItem key={form.id} value={form.id}>
+                      {form.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="targetFormId" className="text-right">
+                Formulario de Destino
+              </Label>
+              <Select onValueChange={setTargetFormId}>
+                <SelectTrigger id="targetFormId" className="col-span-3">
+                  <SelectValue placeholder="Selecciona un formulario" />
+                </SelectTrigger>
+                <SelectContent>
+                  {forms?.map((form) => (
+                    <SelectItem key={form.id} value={form.id}>
+                      {form.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="projectId" className="text-right">
+                Proyecto
+              </Label>
+              <Select onValueChange={setProjectId}>
+                <SelectTrigger id="projectId" className="col-span-3">
+                  <SelectValue placeholder="Selecciona un proyecto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects?.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="assignmentType" className="text-right">
+                Tipo de Asignación
+              </Label>
+              <Select onValueChange={setAssignmentType}>
+                <SelectTrigger id="assignmentType" className="col-span-3">
+                  <SelectValue placeholder="Selecciona un tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">Usuario</SelectItem>
+                  <SelectItem value="form_field">Campo de Formulario</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {assignmentType === "user" && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="defaultAssignee" className="text-right">
+                  Usuario Asignado
+                </Label>
+                <Select onValueChange={setDefaultAssignee}>
+                  <SelectTrigger id="defaultAssignee" className="col-span-3">
+                    <SelectValue placeholder="Selecciona un usuario" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projectUsers?.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name} ({user.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {assignmentType === "form_field" && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="assigneeFormField" className="text-right">
+                  Campo de Formulario
+                </Label>
+                <Input
+                  type="text"
+                  id="assigneeFormField"
+                  value={assigneeFormField}
+                  onChange={(e) => setAssigneeFormField(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+            )}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="dueDays" className="text-right">
+                Días para Vencer
+              </Label>
+              <Input
+                type="number"
+                id="dueDays"
+                value={dueDays}
+                onChange={(e) => setDueDays(Number(e.target.value))}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="isActive" className="text-right">
+                Activa
+              </Label>
+              <Checkbox
+                id="isActive"
+                checked={isActive}
+                onCheckedChange={(checked) => setIsActive(!!checked)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={isSaving} onClick={handleCreateTaskTemplate}>
+              {isSaving ? (
+                <>
+                  Creando...
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                </>
+              ) : (
+                "Crear"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* View Template Modal */}
-      {selectedTemplate && (
-        <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
-          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Detalles de la Plantilla</DialogTitle>
-              <DialogDescription>
-                Información detallada de la plantilla de tareas
-              </DialogDescription>
-            </DialogHeader>
-
-            <Tabs value={detailTab} onValueChange={setDetailTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="general">Información General</TabsTrigger>
-                <TabsTrigger value="mapping">Mapeo de Campos</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="general" className="space-y-4 mt-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Título</Label>
-                    <div className="mt-1 p-2 border rounded-md bg-muted">
-                      {selectedTemplate.title}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm font-medium">Estado</Label>
-                    <div className="mt-1 p-2 border rounded-md bg-muted flex items-center">
-                      <Badge variant={selectedTemplate.is_active ? "success" : "secondary"}>
-                        {selectedTemplate.is_active ? 'Activo' : 'Inactivo'}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-
-                {selectedTemplate.description && (
-                  <div>
-                    <Label className="text-sm font-medium">Descripción</Label>
-                    <div className="mt-1 p-2 border rounded-md bg-muted">
-                      {selectedTemplate.description}
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  <div>
-                    <Label className="text-sm font-medium">Formulario Origen</Label>
-                    <div className="mt-1 p-2 border rounded-md bg-muted">
-                      {selectedTemplate.source_form?.title || getFormName(selectedTemplate.source_form_id)}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm font-medium">Formulario Destino</Label>
-                    <div className="mt-1 p-2 border rounded-md bg-muted">
-                      {selectedTemplate.target_form?.title || getFormName(selectedTemplate.target_form_id)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  <div>
-                    <Label className="text-sm font-medium">Tipo de Asignación</Label>
-                    <div className="mt-1 p-2 border rounded-md bg-muted">
-                      {selectedTemplate.assignment_type === 'static' ? 'Estática' : 'Dinámica'}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm font-medium">Asignado a</Label>
-                    <div className="mt-1 p-2 border rounded-md bg-muted">
-                      {getAssigneeName(selectedTemplate)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  <div>
-                    <Label className="text-sm font-medium">Días para completar</Label>
-                    <div className="mt-1 p-2 border rounded-md bg-muted">
-                      {selectedTemplate.due_days || 'No especificado'}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm font-medium">Fecha de creación</Label>
-                    <div className="mt-1 p-2 border rounded-md bg-muted">
-                      {new Date(selectedTemplate.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="mapping" className="space-y-4 mt-2">
-                <div className="bg-muted p-4 rounded-lg">
-                  <h3 className="text-lg font-medium mb-2">Mapeo de Campos</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Configuración de cómo los campos del formulario origen poblarán automáticamente el formulario destino.
-                  </p>
-
-                  {selectedTemplate.inheritance_mapping && Object.keys(selectedTemplate.inheritance_mapping).length > 0 ? (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-3 gap-2 bg-background p-2 rounded-lg">
-                        <div className="font-medium">Campo Destino</div>
-                        <div className="text-center font-medium">
-                          <ArrowRight className="inline-block h-4 w-4 mx-2" />
-                        </div>
-                        <div className="font-medium">Campo Origen</div>
-                      </div>
-                      {Object.entries(selectedTemplate.inheritance_mapping).map(([targetField, sourceField]) => (
-                        <div key={targetField} className="grid grid-cols-3 gap-2 items-center border-b border-border pb-2">
-                          <div className="text-sm">{targetField}</div>
-                          <div className="flex justify-center">
-                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                          <div className="text-sm font-medium">{sourceField}</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-amber-500 flex items-center p-4 bg-amber-50 rounded-lg">
-                      <Info className="h-5 w-5 mr-2" />
-                      No hay mapeo de campos configurado para esta plantilla.
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-
-            <DialogFooter className="mt-6">
-              <Button variant="outline" onClick={() => setViewModalOpen(false)}>
-                Cerrar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-    </PageContainer>
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Plantilla de Tarea</DialogTitle>
+            <DialogDescription>
+              Edita la plantilla de tarea para automatizar tus procesos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="title" className="text-right">
+                Título
+              </Label>
+              <Input
+                type="text"
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="description" className="text-right">
+                Descripción
+              </Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="sourceFormId" className="text-right">
+                Formulario de Origen
+              </Label>
+              <Select onValueChange={setSourceFormId}>
+                <SelectTrigger id="sourceFormId" className="col-span-3">
+                  <SelectValue placeholder="Selecciona un formulario" />
+                </SelectTrigger>
+                <SelectContent>
+                  {forms?.map((form) => (
+                    <SelectItem key={form.id} value={form.id}>
+                      {form.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="targetFormId" className="text-right">
+                Formulario de Destino
+              </Label>
+              <Select onValueChange={setTargetFormId}>
+                <SelectTrigger id="targetFormId" className="col-span-3">
+                  <SelectValue placeholder="Selecciona un formulario" />
+                </SelectTrigger>
+                <SelectContent>
+                  {forms?.map((form) => (
+                    <SelectItem key={form.id} value={form.id}>
+                      {form.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="projectId" className="text-right">
+                Proyecto
+              </Label>
+              <Select onValueChange={setProjectId}>
+                <SelectTrigger id="projectId" className="col-span-3">
+                  <SelectValue placeholder="Selecciona un proyecto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects?.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="assignmentType" className="text-right">
+                Tipo de Asignación
+              </Label>
+              <Select onValueChange={setAssignmentType}>
+                <SelectTrigger id="assignmentType" className="col-span-3">
+                  <SelectValue placeholder="Selecciona un tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">Usuario</SelectItem>
+                  <SelectItem value="form_field">Campo de Formulario</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {assignmentType === "user" && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="defaultAssignee" className="text-right">
+                  Usuario Asignado
+                </Label>
+                <Select onValueChange={setDefaultAssignee}>
+                  <SelectTrigger id="defaultAssignee" className="col-span-3">
+                    <SelectValue placeholder="Selecciona un usuario" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projectUsers?.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name} ({user.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {assignmentType === "form_field" && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="assigneeFormField" className="text-right">
+                  Campo de Formulario
+                </Label>
+                <Input
+                  type="text"
+                  id="assigneeFormField"
+                  value={assigneeFormField}
+                  onChange={(e) => setAssigneeFormField(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+            )}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="dueDays" className="text-right">
+                Días para Vencer
+              </Label>
+              <Input
+                type="number"
+                id="dueDays"
+                value={dueDays}
+                onChange={(e) => setDueDays(Number(e.target.value))}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="isActive" className="text-right">
+                Activa
+              </Label>
+              <Checkbox
+                id="isActive"
+                checked={isActive}
+                onCheckedChange={(checked) => setIsActive(!!checked)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="destructive" disabled={isDeleting} onClick={handleDeleteTaskTemplate}>
+              {isDeleting ? (
+                <>
+                  Eliminando...
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                </>
+              ) : (
+                <>
+                  Eliminar
+                  <Trash2 className="ml-2 h-4 w-4" />
+                </>
+              )}
+            </Button>
+            <div className="flex-grow"></div>
+            <Button type="submit" disabled={isSaving} onClick={handleUpdateTaskTemplate}>
+              {isSaving ? (
+                <>
+                  Actualizando...
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                </>
+              ) : (
+                "Actualizar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 
-// Function to display assignee name
-const getAssigneeName = (template: ExtendedTaskTemplate) => {
-  if (template.assignment_type === 'dynamic') {
-    return `Dinámico (${template.assignee_form_field || 'no especificado'})`;
-  } 
-  
-  if (template.default_assignee && template.default_assignee_name) {
-    return template.default_assignee_name;
-  }
-  
-  return 'No asignado';
-};
-
-export default TaskTemplatesPage;
+export default TaskTemplates;
