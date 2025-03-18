@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -22,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus, Edit, Trash2, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, ReloadIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
@@ -43,8 +44,10 @@ import {
 } from "@/components/ui/drawer"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { ReloadIcon } from "@radix-ui/react-icons"
 import { isDevelopment } from "@/config/environment";
+
+// Define type for assignment type to match the database expected values
+type AssignmentType = "static" | "dynamic";
 
 interface Form {
   id: string;
@@ -66,7 +69,7 @@ interface TaskTemplate {
   isActive: boolean;
   projectId: string;
   inheritanceMapping: any;
-  assignmentType: string;
+  assignmentType: AssignmentType; // Updated type
   defaultAssignee: string;
   dueDays: number;
   assigneeFormField: string;
@@ -83,7 +86,7 @@ const TaskTemplates = () => {
   const [isActive, setIsActive] = useState(true);
   const [projectId, setProjectId] = useState("");
   const [inheritanceMapping, setInheritanceMapping] = useState("");
-  const [assignmentType, setAssignmentType] = useState("user");
+  const [assignmentType, setAssignmentType] = useState<AssignmentType>("static"); // Updated type
   const [defaultAssignee, setDefaultAssignee] = useState("");
   const [dueDays, setDueDays] = useState(7);
   const [assigneeFormField, setAssigneeFormField] = useState("");
@@ -250,6 +253,9 @@ const TaskTemplates = () => {
         }
       }
       
+      // Convert the assignment_type to the proper type
+      const assignmentType = template.assignment_type === "dynamic" ? "dynamic" : "static";
+      
       return {
         id: template.id,
         title: template.title,
@@ -259,7 +265,7 @@ const TaskTemplates = () => {
         isActive: template.is_active,
         projectId: template.project_id,
         inheritanceMapping: template.inheritance_mapping,
-        assignmentType: template.assignment_type,
+        assignmentType, // Properly typed now
         defaultAssignee: template.default_assignee,
         dueDays: template.due_days,
         assigneeFormField: template.assignee_form_field
@@ -272,8 +278,8 @@ const TaskTemplates = () => {
     return transformTaskTemplates(taskTemplatesData);
   }, [taskTemplatesData]);
 
-  const createTaskTemplateMutation = useMutation(
-    async () => {
+  const createTaskTemplateMutation = useMutation({
+    mutationFn: async () => {
       setIsSaving(true);
 
       const { data, error } = await supabase
@@ -302,32 +308,30 @@ const TaskTemplates = () => {
 
       return data;
     },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['taskTemplates'] });
-        toast({
-          title: "Tarea creada",
-          description: "La plantilla de tarea se ha creado correctamente.",
-        });
-        setOpen(false);
-        clearForm();
-      },
-      onError: (error: any) => {
-        console.error("Error creating task template:", error);
-        toast({
-          title: "Error",
-          description: "Hubo un error al crear la plantilla de tarea. Inténtalo de nuevo.",
-          variant: "destructive",
-        });
-      },
-      onSettled: () => {
-        setIsSaving(false);
-      },
-    }
-  );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['taskTemplates'] });
+      toast({
+        title: "Tarea creada",
+        description: "La plantilla de tarea se ha creado correctamente.",
+      });
+      setOpen(false);
+      clearForm();
+    },
+    onError: (error: any) => {
+      console.error("Error creating task template:", error);
+      toast({
+        title: "Error",
+        description: "Hubo un error al crear la plantilla de tarea. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setIsSaving(false);
+    },
+  });
 
-  const updateTaskTemplateMutation = useMutation(
-    async () => {
+  const updateTaskTemplateMutation = useMutation({
+    mutationFn: async () => {
       setIsSaving(true);
 
       const { data, error } = await supabase
@@ -355,32 +359,30 @@ const TaskTemplates = () => {
 
       return data;
     },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['taskTemplates'] });
-        toast({
-          title: "Tarea actualizada",
-          description: "La plantilla de tarea se ha actualizado correctamente.",
-        });
-        setEditOpen(false);
-        clearForm();
-      },
-      onError: (error: any) => {
-        console.error("Error updating task template:", error);
-        toast({
-          title: "Error",
-          description: "Hubo un error al actualizar la plantilla de tarea. Inténtalo de nuevo.",
-          variant: "destructive",
-        });
-      },
-      onSettled: () => {
-        setIsSaving(false);
-      },
-    }
-  );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['taskTemplates'] });
+      toast({
+        title: "Tarea actualizada",
+        description: "La plantilla de tarea se ha actualizado correctamente.",
+      });
+      setEditOpen(false);
+      clearForm();
+    },
+    onError: (error: any) => {
+      console.error("Error updating task template:", error);
+      toast({
+        title: "Error",
+        description: "Hubo un error al actualizar la plantilla de tarea. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setIsSaving(false);
+    },
+  });
 
-  const deleteTaskTemplateMutation = useMutation(
-    async () => {
+  const deleteTaskTemplateMutation = useMutation({
+    mutationFn: async () => {
       setIsDeleting(true);
 
       const { data, error } = await supabase
@@ -395,29 +397,27 @@ const TaskTemplates = () => {
 
       return data;
     },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['taskTemplates'] });
-        toast({
-          title: "Tarea eliminada",
-          description: "La plantilla de tarea se ha eliminado correctamente.",
-        });
-        setEditOpen(false);
-        clearForm();
-      },
-      onError: (error: any) => {
-        console.error("Error deleting task template:", error);
-        toast({
-          title: "Error",
-          description: "Hubo un error al eliminar la plantilla de tarea. Inténtalo de nuevo.",
-          variant: "destructive",
-        });
-      },
-      onSettled: () => {
-        setIsDeleting(false);
-      },
-    }
-  );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['taskTemplates'] });
+      toast({
+        title: "Tarea eliminada",
+        description: "La plantilla de tarea se ha eliminado correctamente.",
+      });
+      setEditOpen(false);
+      clearForm();
+    },
+    onError: (error: any) => {
+      console.error("Error deleting task template:", error);
+      toast({
+        title: "Error",
+        description: "Hubo un error al eliminar la plantilla de tarea. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setIsDeleting(false);
+    },
+  });
 
   const handleCreateTaskTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -457,7 +457,7 @@ const TaskTemplates = () => {
     setIsActive(true);
     setProjectId("");
     setInheritanceMapping("");
-    setAssignmentType("user");
+    setAssignmentType("static");
     setDefaultAssignee("");
     setDueDays(7);
     setAssigneeFormField("");
@@ -490,31 +490,31 @@ const TaskTemplates = () => {
       }
       
       const users: User[] = [];
+      
+      if (!data) return users;
+      
       for (const projectUser of data) {
-        if (projectUser.profiles) {
-          // First verify profiles is not null
-          const profilesObj = projectUser.profiles;
-          
-          // Then check if it has the required properties
-          if (profilesObj && 
-              typeof profilesObj === 'object' && 
-              'id' in profilesObj && 
-              'name' in profilesObj && 
-              'email' in profilesObj) {
-            
-            // Final null check on actual properties
-            const id = profilesObj.id;
-            const name = profilesObj.name;
-            const email = profilesObj.email;
-            
-            if (id !== null && name !== null && email !== null) {
-              users.push({
-                id: String(id),
-                name: String(name),
-                email: String(email)
-              });
-            }
-          }
+        // Skip if profiles is null
+        if (!projectUser.profiles) continue;
+        
+        // Create a local variable
+        const profilesObj = projectUser.profiles;
+        
+        // Check if it's an object with the required properties
+        if (typeof profilesObj !== 'object') continue;
+        
+        // Safely check each property
+        const id = 'id' in profilesObj ? profilesObj.id : null;
+        const name = 'name' in profilesObj ? profilesObj.name : null;
+        const email = 'email' in profilesObj ? profilesObj.email : null;
+        
+        // Only add to users if all properties are non-null
+        if (id !== null && name !== null && email !== null) {
+          users.push({
+            id: String(id),
+            name: String(name),
+            email: String(email)
+          });
         }
       }
       
@@ -688,17 +688,17 @@ const TaskTemplates = () => {
               <Label htmlFor="assignmentType" className="text-right">
                 Tipo de Asignación
               </Label>
-              <Select onValueChange={setAssignmentType}>
+              <Select onValueChange={(value: AssignmentType) => setAssignmentType(value)}>
                 <SelectTrigger id="assignmentType" className="col-span-3">
                   <SelectValue placeholder="Selecciona un tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">Usuario</SelectItem>
-                  <SelectItem value="form_field">Campo de Formulario</SelectItem>
+                  <SelectItem value="static">Usuario</SelectItem>
+                  <SelectItem value="dynamic">Campo de Formulario</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {assignmentType === "user" && (
+            {assignmentType === "static" && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="defaultAssignee" className="text-right">
                   Usuario Asignado
@@ -717,7 +717,7 @@ const TaskTemplates = () => {
                 </Select>
               </div>
             )}
-            {assignmentType === "form_field" && (
+            {assignmentType === "dynamic" && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="assigneeFormField" className="text-right">
                   Campo de Formulario
@@ -857,17 +857,17 @@ const TaskTemplates = () => {
               <Label htmlFor="assignmentType" className="text-right">
                 Tipo de Asignación
               </Label>
-              <Select onValueChange={setAssignmentType}>
+              <Select onValueChange={(value: AssignmentType) => setAssignmentType(value)}>
                 <SelectTrigger id="assignmentType" className="col-span-3">
                   <SelectValue placeholder="Selecciona un tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">Usuario</SelectItem>
-                  <SelectItem value="form_field">Campo de Formulario</SelectItem>
+                  <SelectItem value="static">Usuario</SelectItem>
+                  <SelectItem value="dynamic">Campo de Formulario</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {assignmentType === "user" && (
+            {assignmentType === "static" && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="defaultAssignee" className="text-right">
                   Usuario Asignado
@@ -886,7 +886,7 @@ const TaskTemplates = () => {
                 </Select>
               </div>
             )}
-            {assignmentType === "form_field" && (
+            {assignmentType === "dynamic" && (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="assigneeFormField" className="text-right">
                   Campo de Formulario
