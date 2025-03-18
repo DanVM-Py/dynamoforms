@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -131,25 +132,31 @@ const TaskTemplatesPage = () => {
         let sourceForm = null;
         if (template.source_form && 
             typeof template.source_form === 'object' && 
-            template.source_form !== null &&
-            'id' in template.source_form && 
-            'title' in template.source_form) {
-          sourceForm = { 
-            id: String(template.source_form.id), 
-            title: String(template.source_form.title) 
-          };
+            template.source_form !== null) {
+          if ('id' in template.source_form && 
+              'title' in template.source_form && 
+              template.source_form.id !== null && 
+              template.source_form.title !== null) {
+            sourceForm = { 
+              id: String(template.source_form.id), 
+              title: String(template.source_form.title) 
+            };
+          }
         }
         
         let targetForm = null;
         if (template.target_form && 
             typeof template.target_form === 'object' && 
-            template.target_form !== null &&
-            'id' in template.target_form && 
-            'title' in template.target_form) {
-          targetForm = { 
-            id: String(template.target_form.id), 
-            title: String(template.target_form.title) 
-          };
+            template.target_form !== null) {
+          if ('id' in template.target_form && 
+              'title' in template.target_form && 
+              template.target_form.id !== null && 
+              template.target_form.title !== null) {
+            targetForm = { 
+              id: String(template.target_form.id), 
+              title: String(template.target_form.title) 
+            };
+          }
         }
         
         let assigneeName = 'N/A';
@@ -228,16 +235,19 @@ const TaskTemplatesPage = () => {
       for (const projectUser of data) {
         if (projectUser.profiles && 
             typeof projectUser.profiles === 'object' && 
-            projectUser.profiles !== null &&
-            'id' in projectUser.profiles && 
-            'name' in projectUser.profiles && 
-            'email' in projectUser.profiles) {
-          
-          users.push({
-            id: String(projectUser.profiles.id),
-            name: String(projectUser.profiles.name),
-            email: String(projectUser.profiles.email)
-          });
+            projectUser.profiles !== null) {
+          if ('id' in projectUser.profiles && 
+              'name' in projectUser.profiles && 
+              'email' in projectUser.profiles && 
+              projectUser.profiles.id !== null && 
+              projectUser.profiles.name !== null && 
+              projectUser.profiles.email !== null) {
+            users.push({
+              id: String(projectUser.profiles.id),
+              name: String(projectUser.profiles.name),
+              email: String(projectUser.profiles.email)
+            });
+          }
         }
       }
       
@@ -625,5 +635,17 @@ const TaskTemplatesPage = () => {
   );
 };
 
-export default TaskTemplatesPage;
+// Function to display assignee name
+const getAssigneeName = (template: ExtendedTaskTemplate) => {
+  if (template.assignment_type === 'dynamic') {
+    return `Dinámico (${template.assignee_form_field || 'no especificado'})`;
+  } 
+  
+  if (template.default_assignee && template.default_assignee_name) {
+    return template.default_assignee_name;
+  }
+  
+  return 'No asignado';
+};
 
+export default TaskTemplatesPage;
