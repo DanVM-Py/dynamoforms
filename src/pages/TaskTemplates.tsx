@@ -49,25 +49,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { Badge } from '@/components/ui/badge';
-
-interface TaskTemplate {
-  id: string;
-  title: string;
-  description: string | null;
-  source_form_id: string;
-  target_form_id: string;
-  assignment_type: 'static' | 'dynamic';
-  assignee_form_field: string | null;
-  default_assignee: string | null;
-  due_days: number | null;
-  is_active: boolean;
-  inheritance_mapping: Record<string, string> | null;
-  project_id: string;
-  created_at: string;
-  source_form?: { id: string; title: string };
-  target_form?: { id: string; title: string };
-  default_assignee_name?: string;
-}
+import { TaskTemplate } from '@/types/supabase';
 
 interface Form {
   id: string;
@@ -82,11 +64,32 @@ interface User {
   email: string;
 }
 
+// Fixed interface to match what we get from Supabase
+interface ExtendedTaskTemplate {
+  id: string;
+  title: string;
+  description: string | null;
+  source_form_id: string;
+  target_form_id: string;
+  assignment_type: 'static' | 'dynamic';
+  assignee_form_field: string | null;
+  default_assignee: string | null;
+  due_days: number | null;
+  is_active: boolean;
+  inheritance_mapping: Record<string, string> | null;
+  project_id: string;
+  created_at: string;
+  source_form?: { id: string; title: string } | null;
+  target_form?: { id: string; title: string } | null;
+  default_assignee_profile?: { id: string; name: string; email: string } | null;
+  default_assignee_name?: string;
+}
+
 const TaskTemplatesPage = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<ExtendedTaskTemplate | null>(null);
   const [detailTab, setDetailTab] = useState('general');
   const [inheritanceMapping, setInheritanceMapping] = useState<Record<string, string>>({});
   const { toast } = useToast();
@@ -108,6 +111,7 @@ const TaskTemplatesPage = () => {
         return [];
       }
 
+      // Fixed the query to handle foreign tables correctly
       const { data, error } = await supabase
         .from('task_templates')
         .select(`
@@ -123,10 +127,24 @@ const TaskTemplatesPage = () => {
         throw error;
       }
       
-      return data.map(template => ({
-        ...template,
-        default_assignee_name: template.default_assignee_profile?.name || template.default_assignee_profile?.email || 'N/A'
-      })) as TaskTemplate[];
+      // Map the data to our expected format
+      return data.map(template => {
+        // Ensure the source_form and target_form are properly structured
+        const sourceForm = template.source_form && typeof template.source_form === 'object' 
+          ? { id: template.source_form.id, title: template.source_form.title } 
+          : null;
+        
+        const targetForm = template.target_form && typeof template.target_form === 'object' 
+          ? { id: template.target_form.id, title: template.target_form.title } 
+          : null;
+        
+        return {
+          ...template,
+          source_form: sourceForm,
+          target_form: targetForm,
+          default_assignee_name: template.default_assignee_profile?.name || template.default_assignee_profile?.email || 'N/A'
+        } as ExtendedTaskTemplate;
+      });
     },
     enabled: !!projectId,
   });
@@ -142,7 +160,7 @@ const TaskTemplatesPage = () => {
 
       const { data, error } = await supabase
         .from('forms')
-        .select('*')
+        .select('id, title, description, project_id')
         .eq('project_id', projectId)
         .order('title', { ascending: true });
         
@@ -165,6 +183,7 @@ const TaskTemplatesPage = () => {
         return [];
       }
 
+      // Fixed query to avoid foreign table issues
       const { data, error } = await supabase
         .from('project_users')
         .select(`
@@ -179,7 +198,19 @@ const TaskTemplatesPage = () => {
         throw error;
       }
       
-      return data.map(pu => pu.profiles) as User[];
+      // Extract and transform user data
+      const users: User[] = [];
+      for (const projectUser of data) {
+        if (projectUser.profiles && typeof projectUser.profiles === 'object') {
+          users.push({
+            id: projectUser.profiles.id,
+            name: projectUser.profiles.name,
+            email: projectUser.profiles.email
+          });
+        }
+      }
+      
+      return users;
     },
     enabled: !!projectId,
   });
@@ -242,7 +273,7 @@ const TaskTemplatesPage = () => {
     setCreateModalOpen(true);
   };
 
-  const handleViewTemplate = (template: TaskTemplate) => {
+  const handleViewTemplate = (template: ExtendedTaskTemplate) => {
     setSelectedTemplate(template);
     setInheritanceMapping(template.inheritance_mapping || {});
     setDetailTab('general');
@@ -253,7 +284,7 @@ const TaskTemplatesPage = () => {
     deleteTemplateMutation.mutate(templateId);
   };
 
-  const handleToggleActive = (template: TaskTemplate) => {
+  const handleToggleActive = (template: ExtendedTaskTemplate) => {
     toggleTemplateMutation.mutate({
       id: template.id,
       is_active: !template.is_active
@@ -268,7 +299,7 @@ const TaskTemplatesPage = () => {
   };
 
   // Function to display assignee name
-  const getAssigneeName = (template: TaskTemplate) => {
+  const getAssigneeName = (template: ExtendedTaskTemplate) => {
     if (template.assignment_type === 'dynamic') {
       return `Dinámico (${template.assignee_form_field || 'no especificado'})`;
     } 
