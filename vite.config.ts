@@ -6,7 +6,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Load env file based on mode (development, qa, production)
+  // Load env file based on mode (development, production)
   const env = loadEnv(mode, process.cwd(), '');
   
   console.log(`Building for environment: ${mode}`);
@@ -33,7 +33,6 @@ export default defineConfig(({ mode }) => {
     },
     define: defineEnv,
     build: {
-      outDir: `dist/${mode}`,
       sourcemap: mode !== 'production',
       rollupOptions: {
         output: {

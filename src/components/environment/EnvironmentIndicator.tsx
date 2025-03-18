@@ -4,7 +4,7 @@ import { isDevelopment } from '@/config/environment';
 import { AlertTriangle } from 'lucide-react';
 
 export const EnvironmentIndicator = () => {
-  // No mostrar en producción
+  // Only show in development environment
   if (!isDevelopment) {
     return null;
   }

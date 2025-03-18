@@ -14,10 +14,6 @@ if (!packageJson.scripts['build:dev']) {
   packageJson.scripts['build:dev'] = 'vite build --mode development';
 }
 
-if (!packageJson.scripts['build:qa']) {
-  packageJson.scripts['build:qa'] = 'vite build --mode qa';
-}
-
 if (!packageJson.scripts['build:prod']) {
   packageJson.scripts['build:prod'] = 'vite build --mode production';
 }
@@ -28,5 +24,4 @@ fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 console.log('✅ Build scripts added to package.json');
 console.log('You can now run:');
 console.log('  npm run build:dev   - Build for development');
-console.log('  npm run build:qa    - Build for QA');
 console.log('  npm run build:prod  - Build for production');

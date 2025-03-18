@@ -11,15 +11,16 @@ export type Environment = 'development' | 'production';
 
 // Helper to determine the current environment
 export const getCurrentEnvironment = (): Environment => {
-  // In production deployment, Lovable sets the environment
-  if (window.location.hostname.includes('lovable.app') || 
-      window.location.hostname.includes('app.') ||
-      !window.location.hostname.includes('localhost')) {
-    return 'production';
-  }
+  // Check if we're in a production build
+  const isProduction = 
+    // Detect Lovable deployment
+    window.location.hostname.includes('lovable.app') || 
+    window.location.hostname.includes('app.') ||
+    // Detect any non-localhost environment
+    (!window.location.hostname.includes('localhost') && 
+     !window.location.hostname.includes('127.0.0.1'));
   
-  // Development environment (localhost)
-  return 'development';
+  return isProduction ? 'production' : 'development';
 };
 
 // Configuration interface
@@ -84,5 +85,5 @@ export const isDebuggingEnabled = config.featureFlags.debuggingEnabled;
 
 // Helper to get the environment name for display purposes
 export const getEnvironmentName = (): string => {
-  return environment === 'development' ? 'Development' : 'Production';
+  return environment === 'development' ? 'Desarrollo' : 'Producción';
 };

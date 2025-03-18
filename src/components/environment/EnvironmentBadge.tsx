@@ -2,10 +2,10 @@
 import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Info } from "lucide-react";
-import { environment, isDevelopment } from '@/config/environment';
+import { isDevelopment } from '@/config/environment';
 
 export const EnvironmentBadge = () => {
-  // No mostrar en producción
+  // Only show in development environment
   if (!isDevelopment) {
     return null;
   }
