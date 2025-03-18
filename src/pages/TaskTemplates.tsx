@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -533,9 +532,10 @@ const TaskTemplates = () => {
         .from('project_users')
         .select(`
           user_id,
-          profiles:profiles!inner(id, name, email)
+          profiles:user_id(id, name, email)
         `)
-        .eq('project_id', projectId);
+        .eq('project_id', projectId)
+        .eq('status', 'active');
 
       if (error) {
         console.error("Error fetching project users:", error);
@@ -547,13 +547,11 @@ const TaskTemplates = () => {
       if (!data) return users;
       
       for (const projectUser of data) {
-        if (projectUser.profiles && typeof projectUser.profiles === 'object') {
-          const profile = projectUser.profiles as { id: string; name: string; email: string };
-          
+        if (projectUser.profiles) {
           users.push({
-            id: profile.id,
-            name: profile.name,
-            email: profile.email
+            id: projectUser.profiles.id,
+            name: projectUser.profiles.name || 'Usuario sin nombre',
+            email: projectUser.profiles.email || 'correo@desconocido.com'
           });
         }
       }
