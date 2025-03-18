@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,10 +15,21 @@ export const PageContainer = ({ children, className, hideSidebar, title }: PageC
   const { user, loading } = useAuth();
   const isAuthenticated = !!user && !loading;
   
+  // Force sidebar visibility check
+  useEffect(() => {
+    console.log("PageContainer rendering, authenticated:", isAuthenticated, "hideSidebar:", hideSidebar);
+  }, [isAuthenticated, hideSidebar]);
+  
   return (
     <div className="flex min-h-screen bg-gray-50">
       {isAuthenticated && !hideSidebar && <Sidebar />}
-      <main className={cn(`flex-1 p-6 ${!isAuthenticated || hideSidebar ? 'w-full' : ''}`, className)}>
+      <main 
+        className={cn(
+          "flex-1 p-6", 
+          (!isAuthenticated || hideSidebar) ? 'w-full' : '',
+          className
+        )}
+      >
         {title && <h1 className="text-2xl font-bold mb-6">{title}</h1>}
         {children}
       </main>

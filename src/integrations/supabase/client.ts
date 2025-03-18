@@ -16,49 +16,13 @@ export const SERVICES = {
 // Default to the main API if no service is specified
 const DEFAULT_SERVICE = 'api';
 
-// Get service-specific configuration from deployment config
-const getServiceUrl = (service = DEFAULT_SERVICE) => {
-  try {
-    return config.supabaseUrl;
-  } catch (error) {
-    console.error(`Failed to get URL for service ${service}, using default`, error);
-    return config.supabaseUrl;
-  }
-};
-
-// Get service-specific API key
-const getServiceKey = (service = DEFAULT_SERVICE) => {
-  try {
-    return config.supabaseAnonKey;
-  } catch (error) {
-    console.error(`Failed to get API key for service ${service}, using default`, error);
-    return config.supabaseAnonKey;
-  }
-};
-
-// Cache clients to avoid creating multiple instances for the same service
-const clientCache: Record<string, any> = {};
-
-/**
- * Creates or returns a cached Supabase client for the specified service
- * 
- * @param service - The microservice to connect to (auth, projects, forms, etc.)
- * @returns A Supabase client configured for the specified service
- */
-export const getServiceClient = (service = DEFAULT_SERVICE) => {
-  // Return cached client if it exists
-  if (clientCache[service]) {
-    return clientCache[service];
-  }
-
-  const url = getServiceUrl(service);
-  const key = getServiceKey(service);
-  const storageKey = `${config.storage.authTokenKey}.${service}`;
-
-  // Create a new client for this service
-  const client = createClient<Database>(url, key, {
+// Create a single instance of the Supabase client for the main API
+const supabaseClient = createClient<Database>(
+  config.supabaseUrl, 
+  config.supabaseAnonKey,
+  {
     auth: {
-      storageKey,
+      storageKey: config.storage.authTokenKey,
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true
@@ -71,26 +35,21 @@ export const getServiceClient = (service = DEFAULT_SERVICE) => {
         return fetch(url, { ...options, cache: 'no-store' });
       }
     }
-  });
-
-  // Cache the client
-  clientCache[service] = client;
-
-  // Log connection information in non-production environments
-  if (environment !== 'production') {
-    console.log(`Supabase client initialized for ${service} service`);
   }
+);
 
-  return client;
-};
+// Export the main API client as the default supabase client
+export const supabase = supabaseClient;
 
-// Maintain backward compatibility with existing code
-// This exports the main API client as the default supabase client
-export const supabase = getServiceClient(DEFAULT_SERVICE);
+// Maintain service-specific names for backward compatibility
+// but use the same client instance to avoid multiple client warnings
+export const authClient = supabase;
+export const projectsClient = supabase;
+export const formsClient = supabase;
+export const tasksClient = supabase;
+export const notificationsClient = supabase;
 
-// Export service-specific clients for convenience
-export const authClient = getServiceClient(SERVICES.AUTH);
-export const projectsClient = getServiceClient(SERVICES.PROJECTS);
-export const formsClient = getServiceClient(SERVICES.FORMS);
-export const tasksClient = getServiceClient(SERVICES.TASKS);
-export const notificationsClient = getServiceClient(SERVICES.NOTIFICATIONS);
+// For logging in non-production environments
+if (environment !== 'production') {
+  console.log(`Supabase client initialized for environment: ${environment}`);
+}

@@ -20,7 +20,13 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { supabase } from "@/integrations/supabase/client";
+
+interface NavItemsProps {
+  collapsed: boolean;
+  currentProjectId: string | null;
+  projects: {id: string, name: string}[];
+  setCurrentProjectId: (id: string) => void;
+}
 
 type NavItem = {
   title: string;
@@ -39,7 +45,12 @@ type NavSection = {
   items: NavItem[];
 };
 
-const NavItems = ({ collapsed }: { collapsed: boolean }) => {
+const NavItems = ({ 
+  collapsed, 
+  currentProjectId, 
+  projects, 
+  setCurrentProjectId 
+}: NavItemsProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isGlobalAdmin, isProjectAdmin, isApprover } = useAuth();
@@ -49,75 +60,6 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
     administration: true,
     systems: true
   });
-  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
-  const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
-  
-  useEffect(() => {
-    // Try to get current project ID from session storage
-    const projectId = sessionStorage.getItem('currentProjectId');
-    if (projectId) {
-      setCurrentProjectId(projectId);
-    }
-    
-    // Fetch available projects for project admin if needed
-    if (isProjectAdmin || isGlobalAdmin) {
-      fetchUserProjects();
-    }
-  }, [isProjectAdmin, isGlobalAdmin]);
-  
-  const fetchUserProjects = async () => {
-    try {
-      let query;
-      
-      if (isGlobalAdmin) {
-        // Global admins can access all projects
-        query = supabase
-          .from('projects')
-          .select('id, name')
-          .order('name', { ascending: true });
-      } else if (isProjectAdmin) {
-        // Project admins can only access their projects
-        query = supabase
-          .from('project_admins')
-          .select('project_id, projects(id, name)')
-          .order('projects(name)', { ascending: true });
-      }
-      
-      if (query) {
-        const { data, error } = await query;
-        
-        if (error) {
-          console.error('Error fetching user projects:', error);
-          return;
-        }
-        
-        if (data && data.length > 0) {
-          let projectsData;
-          
-          if (isGlobalAdmin) {
-            projectsData = data;
-          } else {
-            // Transform project_admins data to get projects
-            projectsData = data.map((item: any) => item.projects).filter(Boolean);
-          }
-          
-          setProjects(projectsData);
-          
-          // If we have projects but no current project set, set the first one as current
-          if (projectsData.length > 0 && !currentProjectId) {
-            const firstProjectId = isGlobalAdmin ? 
-              projectsData[0].id : 
-              projectsData[0].id;
-              
-            setCurrentProjectId(firstProjectId);
-            sessionStorage.setItem('currentProjectId', firstProjectId);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error in fetchUserProjects:', error);
-    }
-  };
 
   // Create dynamic navItems based on the current state
   const getNavItems = () => {
@@ -309,7 +251,7 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
     }));
   };
 
-  // Add a project selector if user has project admin role
+  // Project selector for admins
   const renderProjectSelector = () => {
     if (!collapsed && (isProjectAdmin || isGlobalAdmin) && projects.length > 0) {
       return (
@@ -319,9 +261,7 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
             className="w-full bg-white border border-gray-300 rounded-md py-1 px-2 text-sm"
             value={currentProjectId || ''}
             onChange={(e) => {
-              const newProjectId = e.target.value;
-              setCurrentProjectId(newProjectId);
-              sessionStorage.setItem('currentProjectId', newProjectId);
+              setCurrentProjectId(e.target.value);
             }}
           >
             {projects.map((project) => (

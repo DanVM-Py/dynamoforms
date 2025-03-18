@@ -3,8 +3,15 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-// Página de carga
-const Loading = () => <div className="p-4">Cargando...</div>;
+// Página de carga con mejor feedback
+const Loading = () => (
+  <div className="flex items-center justify-center h-screen bg-gray-50">
+    <div className="flex flex-col items-center bg-white p-8 rounded-lg shadow-sm">
+      <div className="h-8 w-8 border-4 border-t-dynamo-600 border-r-dynamo-300 border-b-dynamo-300 border-l-dynamo-300 rounded-full animate-spin mb-2"></div>
+      <p className="text-gray-600 font-medium">Cargando...</p>
+    </div>
+  </div>
+);
 
 // Importaciones de páginas
 const Auth = lazy(() => import("./pages/Auth"));

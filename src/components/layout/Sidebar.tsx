@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useWindowWidth } from '@/hooks/use-mobile';
 import { 
   Menu, PanelLeftClose, User, LogOut
@@ -8,45 +8,113 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import NavItems from './NavItems';
+import { supabase } from '@/integrations/supabase/client';
 
 export function Sidebar() {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
   const isMobile = useWindowWidth() < 768;
   const location = useLocation();
   const navigate = useNavigate();
-  const params = useParams();
   const { user, userProfile, isGlobalAdmin, isProjectAdmin, signOut } = useAuth();
   
-  const getProjectIdFromStorage = () => {
-    return sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
-  };
-  
-  const getProjectIdFromUrl = () => {
-    if (params.projectId) return params.projectId;
-    
-    const projectMatch = location.pathname.match(/\/projects\/([^/]+)/);
-    return projectMatch ? projectMatch[1] : null;
-  };
-
-  const projectId = getProjectIdFromUrl() || getProjectIdFromStorage();
-  
-  useEffect(() => {
-    const urlProjectId = getProjectIdFromUrl();
-    if (urlProjectId) {
-      sessionStorage.setItem('currentProjectId', urlProjectId);
-    }
-  }, [location.pathname, params]);
-
+  // Effect to handle mobile/desktop state and close mobile menu on navigation
   useEffect(() => {
     setIsExpanded(!isMobile);
-  }, [isMobile]);
-
-  useEffect(() => {
+    
     if (isMobile) {
       setIsMobileMenuOpen(false);
     }
-  }, [location.pathname, isMobile]);
+  }, [isMobile, location.pathname]);
+
+  // Effect to get the current project ID from storage or URL
+  useEffect(() => {
+    const getProjectIdFromStorage = () => {
+      return sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
+    };
+    
+    const getProjectIdFromUrl = () => {
+      const projectMatch = location.pathname.match(/\/projects\/([^/]+)/);
+      return projectMatch ? projectMatch[1] : null;
+    };
+    
+    const urlProjectId = getProjectIdFromUrl();
+    const storedProjectId = getProjectIdFromStorage();
+    
+    // First try to get from URL, then from storage
+    const projectId = urlProjectId || storedProjectId;
+    
+    if (projectId) {
+      sessionStorage.setItem('currentProjectId', projectId);
+      setCurrentProjectId(projectId);
+    }
+  }, [location.pathname]);
+
+  // Fetch available projects for project admins or global admins
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!user || (!isProjectAdmin && !isGlobalAdmin)) {
+        return;
+      }
+      
+      try {
+        let query;
+        
+        if (isGlobalAdmin) {
+          // Global admins can access all projects
+          query = supabase
+            .from('projects')
+            .select('id, name')
+            .order('name', { ascending: true });
+        } else if (isProjectAdmin) {
+          // Project admins can only access their projects
+          query = supabase
+            .from('project_admins')
+            .select('project_id, projects(id, name)')
+            .eq('user_id', user.id)
+            .order('projects(name)', { ascending: true });
+        }
+        
+        if (query) {
+          const { data, error } = await query;
+          
+          if (error) {
+            console.error('Error fetching projects:', error);
+            return;
+          }
+          
+          if (data && data.length > 0) {
+            let projectsData;
+            
+            if (isGlobalAdmin) {
+              projectsData = data;
+            } else {
+              // Transform project_admins data to get projects
+              projectsData = data.map((item: any) => item.projects).filter(Boolean);
+            }
+            
+            setProjects(projectsData);
+            
+            // If we have projects but no current project set, set the first one
+            if (projectsData.length > 0 && !currentProjectId) {
+              const firstProjectId = isGlobalAdmin ? 
+                projectsData[0].id : 
+                projectsData[0].id;
+                
+              setCurrentProjectId(firstProjectId);
+              sessionStorage.setItem('currentProjectId', firstProjectId);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+      }
+    };
+    
+    fetchProjects();
+  }, [user, isProjectAdmin, isGlobalAdmin, currentProjectId]);
 
   const toggleSidebar = () => {
     setIsExpanded(!isExpanded);
@@ -59,17 +127,17 @@ export function Sidebar() {
   const handleSignOut = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
     try {
       await signOut();
     } catch (error) {
-      console.error("Error signing out from sidebar:", error);
+      console.error("Error signing out:", error);
       navigate("/auth");
     }
   };
 
-  // If user is null or undefined, don't render the sidebar
+  // If user is null, don't render the sidebar
   if (!user) {
-    console.log("User not authenticated, not rendering sidebar");
     return null;
   }
 
@@ -102,7 +170,7 @@ export function Sidebar() {
       
       {isMobile && (
         <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          onClick={toggleMobileMenu}
           className="fixed bottom-4 right-4 z-30 bg-purple-600 text-white p-3 rounded-full shadow-lg hover:bg-purple-700 transition-colors md:hidden"
         >
           <Menu className="h-6 w-6" />
@@ -121,7 +189,7 @@ export function Sidebar() {
             <Link to="/" className="text-xl font-bold text-purple-700">D</Link>
           )}
           {!isMobile && (
-            <button onClick={() => setIsExpanded(!isExpanded)} className="text-gray-500 hover:text-gray-700">
+            <button onClick={toggleSidebar} className="text-gray-500 hover:text-gray-700">
               {isExpanded ? (
                 <PanelLeftClose className="h-5 w-5" />
               ) : (
@@ -132,7 +200,15 @@ export function Sidebar() {
         </div>
 
         <div className="mt-4 flex flex-col flex-1 overflow-y-auto">
-          <NavItems collapsed={!(isExpanded || isMobileMenuOpen)} />
+          <NavItems 
+            collapsed={!(isExpanded || isMobileMenuOpen)} 
+            currentProjectId={currentProjectId}
+            projects={projects}
+            setCurrentProjectId={(id) => {
+              setCurrentProjectId(id);
+              sessionStorage.setItem('currentProjectId', id);
+            }}
+          />
         </div>
 
         {user && (
