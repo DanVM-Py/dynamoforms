@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Separator } from "@/components/ui/separator";
@@ -56,7 +55,6 @@ const Projects = () => {
     }
   });
 
-  // Fetch available users for project admin selection
   useEffect(() => {
     if (open) {
       const fetchUsers = async () => {
@@ -80,7 +78,6 @@ const Projects = () => {
       };
       
       fetchUsers();
-      // Reset form state when dialog opens
       setProjectName("");
       setProjectDescription("");
       setProjectAdminId("");
@@ -119,7 +116,6 @@ const Projects = () => {
     setIsLoading(true);
     
     try {
-      // Step 1: Create the project
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
         .insert([
@@ -136,16 +132,13 @@ const Projects = () => {
       if (projectData && projectData.length > 0) {
         const newProject = projectData[0];
         
-        // Step 2: Assign the project admin
         const { error: adminError } = await supabase
           .from('project_admins')
-          .insert([
-            { 
-              project_id: newProject.id, 
-              user_id: projectAdminId,
-              assigned_by: user?.id
-            }
-          ]);
+          .insert({
+            project_id: newProject.id, 
+            user_id: projectAdminId,
+            created_by: user?.id
+          });
           
         if (adminError) throw adminError;
         
@@ -195,7 +188,7 @@ const Projects = () => {
         toast({
           title: "Project deleted successfully!",
         });
-        refetch(); // Refresh the projects list
+        refetch();
       }
       setProjectToDelete(null);
     }

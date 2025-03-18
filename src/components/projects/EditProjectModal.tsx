@@ -130,7 +130,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
       // If adminId has changed and is not empty, update project admin
       if (adminId && adminId !== project.adminId) {
         // Here you would implement the logic to update the project admin
-        // This could involve removing old admin and adding new one
+        // If implementing this logic, use created_by instead of assigned_by
       }
       
       await onProjectUpdated();
