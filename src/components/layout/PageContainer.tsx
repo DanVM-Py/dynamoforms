@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocation } from 'react-router-dom';
 
 interface PageContainerProps {
   children: React.ReactNode;
@@ -14,19 +15,24 @@ interface PageContainerProps {
 export const PageContainer = ({ children, className, hideSidebar = false, title }: PageContainerProps) => {
   const { user, loading } = useAuth();
   const isAuthenticated = !!user && !loading;
+  const location = useLocation();
+  
+  // Check if current path is task-templates, which should always show sidebar
+  const isTaskTemplatesPage = location.pathname === '/task-templates';
+  const shouldShowSidebar = isAuthenticated && (!hideSidebar || isTaskTemplatesPage);
   
   // Log container rendering for debugging
   useEffect(() => {
-    console.log("PageContainer rendered. User:", !!user, "Loading:", loading, "Authenticated:", isAuthenticated);
-  }, [user, loading, isAuthenticated]);
+    console.log("PageContainer rendered. User:", !!user, "Loading:", loading, "Authenticated:", isAuthenticated, "Path:", location.pathname);
+  }, [user, loading, isAuthenticated, location.pathname]);
   
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {isAuthenticated && !hideSidebar && <Sidebar />}
+      {shouldShowSidebar && <Sidebar />}
       <main 
         className={cn(
           "flex-1 p-6", 
-          (!isAuthenticated || hideSidebar) ? 'w-full' : '',
+          (!shouldShowSidebar) ? 'w-full' : '',
           className
         )}
       >

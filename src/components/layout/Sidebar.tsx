@@ -24,11 +24,18 @@ export function Sidebar() {
   useEffect(() => {
     setIsExpanded(!isMobile);
     
-    // Don't auto-close mobile menu on task-templates page
-    if (isMobile && location.pathname !== '/task-templates') {
+    // Don't auto-close mobile menu on specific pages that need sidebar always visible
+    if (isMobile && !isAllowedPath(location.pathname)) {
       setIsMobileMenuOpen(false);
     }
   }, [isMobile, location.pathname]);
+
+  // Function to check if the current path needs sidebar to stay visible
+  const isAllowedPath = (path: string) => {
+    // Add paths that should always show sidebar here
+    const alwaysShowSidebarPaths = ['/task-templates'];
+    return alwaysShowSidebarPaths.includes(path);
+  };
 
   // Effect to get the current project ID from storage or URL
   useEffect(() => {
@@ -142,16 +149,16 @@ export function Sidebar() {
     return null;
   }
 
-  // Always force sidebar to be visible in task-templates page
-  const isTaskTemplatesPage = location.pathname === '/task-templates';
+  // Always force sidebar to be visible in task-templates page and specific other pages
+  const forceVisibleSidebar = isAllowedPath(location.pathname);
   
   const sidebarClasses = `${
     isMobile ? 'fixed z-20 top-0 bottom-0 left-0' : 'sticky top-0'
   } h-screen bg-white border-r ${
-    (isExpanded || isMobileMenuOpen || isTaskTemplatesPage) ? 'w-64' : 'w-16'
+    (isExpanded || isMobileMenuOpen || forceVisibleSidebar) ? 'w-64' : 'w-16'
   } transition-all duration-300 py-4 flex flex-col`;
 
-  const overlay = isMobile && (isMobileMenuOpen || isTaskTemplatesPage) && (
+  const overlay = isMobile && (isMobileMenuOpen || forceVisibleSidebar) && (
     <div
       className="fixed inset-0 bg-black/30 z-10"
       onClick={() => setIsMobileMenuOpen(false)}
@@ -183,11 +190,11 @@ export function Sidebar() {
       
       <div
         className={`${sidebarClasses} ${
-          isMobile && !isMobileMenuOpen && !isTaskTemplatesPage ? '-translate-x-full' : 'translate-x-0'
+          isMobile && !isMobileMenuOpen && !forceVisibleSidebar ? '-translate-x-full' : 'translate-x-0'
         }`}
       >
         <div className="flex items-center px-4 py-2 justify-between">
-          {(isExpanded || isMobileMenuOpen || isTaskTemplatesPage) ? (
+          {(isExpanded || isMobileMenuOpen || forceVisibleSidebar) ? (
             <Link to="/" className="text-xl font-bold text-purple-700">Dynamo</Link>
           ) : (
             <Link to="/" className="text-xl font-bold text-purple-700">D</Link>
@@ -205,7 +212,7 @@ export function Sidebar() {
 
         <div className="mt-4 flex flex-col flex-1 overflow-y-auto">
           <NavItems 
-            collapsed={!(isExpanded || isMobileMenuOpen || isTaskTemplatesPage)} 
+            collapsed={!(isExpanded || isMobileMenuOpen || forceVisibleSidebar)} 
             currentProjectId={currentProjectId}
             projects={projects}
             setCurrentProjectId={(id) => {
@@ -217,13 +224,13 @@ export function Sidebar() {
 
         {user && (
           <div className="mt-auto px-3 pt-3 border-t">
-            <div className={`flex items-center p-2 rounded-md ${isExpanded || isMobileMenuOpen || isTaskTemplatesPage ? 'justify-between' : 'justify-center'}`}>
+            <div className={`flex items-center p-2 rounded-md ${isExpanded || isMobileMenuOpen || forceVisibleSidebar ? 'justify-between' : 'justify-center'}`}>
               <div className="flex items-center">
                 <div className="bg-gray-200 rounded-full p-2">
                   <User className="h-5 w-5 text-gray-600" />
                 </div>
                 
-                {(isExpanded || isMobileMenuOpen || isTaskTemplatesPage) && (
+                {(isExpanded || isMobileMenuOpen || forceVisibleSidebar) && (
                   <div className="ml-3 overflow-hidden">
                     <p className="text-sm font-semibold text-gray-700 truncate">{displayName}</p>
                     <p className="text-xs text-gray-500 truncate">{displayRole}</p>
@@ -231,7 +238,7 @@ export function Sidebar() {
                 )}
               </div>
               
-              {(isExpanded || isMobileMenuOpen || isTaskTemplatesPage) && (
+              {(isExpanded || isMobileMenuOpen || forceVisibleSidebar) && (
                 <Button
                   variant="ghost"
                   size="icon"

@@ -20,7 +20,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, ArrowRight, Info } from "lucide-react";
+import { Loader2, ArrowRight, Info, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -48,6 +48,17 @@ const taskTemplateSchema = z.object({
 
 type TaskTemplateFormValues = z.infer<typeof taskTemplateSchema>;
 
+// Type definition for form schema structure
+interface FormComponent {
+  key: string;
+  label?: string;
+  type: string;
+}
+
+interface FormSchema {
+  components?: FormComponent[];
+}
+
 // Component for field mapping between forms
 interface FieldMappingProps {
   sourceFormId: string;
@@ -63,8 +74,8 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
   onChange 
 }) => {
   const [mapping, setMapping] = useState<Record<string, string>>(initialMapping);
-  const [sourceSchema, setSourceSchema] = useState<any>(null);
-  const [targetSchema, setTargetSchema] = useState<any>(null);
+  const [sourceSchema, setSourceSchema] = useState<FormSchema | null>(null);
+  const [targetSchema, setTargetSchema] = useState<FormSchema | null>(null);
   const [compatibleFields, setCompatibleFields] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
 
@@ -95,11 +106,15 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
 
         if (targetError) throw targetError;
 
-        setSourceSchema(sourceForm.schema);
-        setTargetSchema(targetForm.schema);
+        // Safely parse or assign schemas
+        const safeSourceSchema = sourceForm.schema as FormSchema || { components: [] };
+        const safeTargetSchema = targetForm.schema as FormSchema || { components: [] };
+
+        setSourceSchema(safeSourceSchema);
+        setTargetSchema(safeTargetSchema);
 
         // Calculate compatible fields
-        const compatibilityMap = calculateCompatibleFields(sourceForm.schema, targetForm.schema);
+        const compatibilityMap = calculateCompatibleFields(safeSourceSchema, safeTargetSchema);
         setCompatibleFields(compatibilityMap);
       } catch (error) {
         console.error("Error fetching form schemas:", error);
@@ -112,7 +127,7 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
   }, [sourceFormId, targetFormId]);
 
   // Determine which fields are compatible between forms
-  const calculateCompatibleFields = (sourceSchema: any, targetSchema: any) => {
+  const calculateCompatibleFields = (sourceSchema: FormSchema, targetSchema: FormSchema) => {
     const result: Record<string, string[]> = {};
 
     if (!sourceSchema?.components || !targetSchema?.components) {
@@ -120,13 +135,13 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
     }
 
     // Map each target field to source fields of compatible types
-    targetSchema.components.forEach((targetComp: any) => {
+    targetSchema.components.forEach((targetComp) => {
       if (!targetComp.key) return;
 
       const targetType = targetComp.type;
       const compatibleSourceFields: string[] = [];
 
-      sourceSchema.components.forEach((sourceComp: any) => {
+      sourceSchema.components.forEach((sourceComp) => {
         if (!sourceComp.key) return;
 
         // Fields are compatible if they are the same type
@@ -160,10 +175,10 @@ const FieldMapping: React.FC<FieldMappingProps> = ({
   };
 
   // Get label for a field from schema
-  const getFieldLabel = (schema: any, fieldKey: string) => {
+  const getFieldLabel = (schema: FormSchema | null, fieldKey: string) => {
     if (!schema?.components) return fieldKey;
     
-    const field = schema.components.find((c: any) => c.key === fieldKey);
+    const field = schema.components.find((c) => c.key === fieldKey);
     return field?.label || fieldKey;
   };
 
@@ -261,7 +276,7 @@ export const CreateTaskTemplateModal = ({
   const watchAssignmentType = form.watch('assignment_type');
 
   // Fetch project forms for selection
-  const { data: forms, isLoading: isLoadingForms } = useQuery({
+  const { data: forms, isLoading: isLoadingForms, refetch: refetchForms } = useQuery({
     queryKey: ['forms', projectId],
     queryFn: async () => {
       if (!projectId) {
@@ -275,7 +290,10 @@ export const CreateTaskTemplateModal = ({
         .eq('project_id', projectId)
         .order('title', { ascending: true });
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching forms:", error);
+        throw error;
+      }
       return data || [];
     },
     enabled: !!projectId && open,
@@ -299,7 +317,10 @@ export const CreateTaskTemplateModal = ({
         .eq('project_id', projectId)
         .eq('status', 'active');
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching project users:", error);
+        throw error;
+      }
       
       // Map and filter out any null profiles
       return data
@@ -337,11 +358,15 @@ export const CreateTaskTemplateModal = ({
     if (!watchSourceFormId || !forms) return [];
     
     const sourceForm = forms.find(f => f.id === watchSourceFormId);
-    if (!sourceForm || !sourceForm.schema || !sourceForm.schema.components) return [];
+    if (!sourceForm || !sourceForm.schema) return [];
     
-    return sourceForm.schema.components
-      .filter((component: any) => component.type === 'email' && component.key)
-      .map((component: any) => ({
+    // Use type casting to handle schema structure
+    const schema = sourceForm.schema as FormSchema;
+    if (!schema.components) return [];
+    
+    return schema.components
+      .filter((component) => component.type === 'email' && component.key)
+      .map((component) => ({
         key: component.key,
         label: component.label || component.key
       }));
@@ -402,8 +427,17 @@ export const CreateTaskTemplateModal = ({
   // Get email fields for dynamic assignment
   const emailFields = getEmailFields();
 
+  // Handle form refresh
+  const handleRefreshForms = () => {
+    refetchForms();
+    toast({
+      title: "Actualizando",
+      description: "Refrescando lista de formularios...",
+    });
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} className="overflow-visible">
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Crear Plantilla de Tarea</DialogTitle>
@@ -459,25 +493,22 @@ export const CreateTaskTemplateModal = ({
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="project_id"
-                  render={({ field }) => (
-                    <FormItem>
+                <div className="bg-muted/30 rounded-md p-4 mb-6">
+                  <div className="flex justify-between items-center mb-2">
+                    <div>
                       <FormLabel>Proyecto</FormLabel>
-                      <FormControl>
-                        <Input type="hidden" {...field} value={projectId} />
-                      </FormControl>
-                      <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground bg-muted/50">
-                        {projectId ? "Proyecto actual" : "Sin proyecto seleccionado"}
-                      </div>
-                      <FormDescription>
-                        La plantilla se creará para el proyecto actual
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      ID: {projectId || "No definido"}
+                    </div>
+                  </div>
+                  <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground bg-muted/50">
+                    {projectId ? "Proyecto actual" : "Sin proyecto seleccionado"}
+                  </div>
+                  <FormDescription>
+                    La plantilla se creará para el proyecto actual
+                  </FormDescription>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
@@ -485,7 +516,18 @@ export const CreateTaskTemplateModal = ({
                     name="source_form_id"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Formulario de Origen</FormLabel>
+                        <div className="flex justify-between items-center">
+                          <FormLabel>Formulario de Origen</FormLabel>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            type="button"
+                            onClick={handleRefreshForms}
+                            title="Refrescar formularios"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        </div>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
@@ -493,11 +535,17 @@ export const CreateTaskTemplateModal = ({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {forms?.map(form => (
-                              <SelectItem key={form.id} value={form.id}>
-                                {form.title}
+                            {forms && forms.length > 0 ? (
+                              forms.map(form => (
+                                <SelectItem key={form.id} value={form.id}>
+                                  {form.title}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-forms" disabled>
+                                No hay formularios disponibles
                               </SelectItem>
-                            ))}
+                            )}
                           </SelectContent>
                         </Select>
                         <FormDescription>
@@ -521,11 +569,17 @@ export const CreateTaskTemplateModal = ({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {forms?.map(form => (
-                              <SelectItem key={form.id} value={form.id}>
-                                {form.title}
+                            {forms && forms.length > 0 ? (
+                              forms.map(form => (
+                                <SelectItem key={form.id} value={form.id}>
+                                  {form.title}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-forms" disabled>
+                                No hay formularios disponibles
                               </SelectItem>
-                            ))}
+                            )}
                           </SelectContent>
                         </Select>
                         <FormDescription>
