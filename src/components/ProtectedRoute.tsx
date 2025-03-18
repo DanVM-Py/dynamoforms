@@ -1,6 +1,6 @@
 
-import { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { ReactNode, useEffect } from "react";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
@@ -24,6 +24,17 @@ const ProtectedRoute = ({
   requiredRole
 }: ProtectedRouteProps) => {
   const { user, userProfile, loading, isGlobalAdmin, isProjectAdmin, isApprover } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    console.log("ProtectedRoute rendering with:", { 
+      isAuthenticated: !!user, 
+      pathname: location.pathname,
+      isGlobalAdmin,
+      isProjectAdmin,
+      isApprover
+    });
+  }, [user, location.pathname, isGlobalAdmin, isProjectAdmin, isApprover]);
 
   // First loading state - waiting for authentication
   if (loading && !user) {
@@ -38,13 +49,13 @@ const ProtectedRoute = ({
   }
 
   // If not authenticated, redirect to auth page
-  if (!user) {
+  if (!user && location.pathname !== "/auth") {
     console.log("User not authenticated, redirecting to auth page");
     return <Navigate to="/auth" replace />;
   }
 
   // Second loading state - waiting for profile data
-  if ((requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover || requireFormAccess || requiredRole) && loading) {
+  if (user && (requireGlobalAdmin || requireProjectAdmin || requireRegularUser || requireApprover || requireFormAccess || requiredRole) && loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="flex flex-col items-center bg-white p-8 rounded-lg shadow-sm">

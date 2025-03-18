@@ -1,6 +1,5 @@
 
 import {
-  BarChart,
   FileText,
   FolderKanban,
   ListTodo,
@@ -8,13 +7,10 @@ import {
   UserCog,
   Bell,
   Activity,
-  Server,
-  LayoutDashboard,
-  Network,
   Database,
-  Users,
   Home,
   Cog,
+  Users,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -24,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { supabase } from "@/integrations/supabase/client";
 
 type NavItem = {
   title: string;
@@ -32,7 +29,6 @@ type NavItem = {
   requiredRoles?: string[];
   section?: 'operations' | 'project_administration' | 'administration' | 'systems';
   color?: string;
-  dynamicPath?: boolean;
 };
 
 type NavSection = {
@@ -42,95 +38,6 @@ type NavSection = {
   requiredRoles?: string[];
   items: NavItem[];
 };
-
-const navItems: NavItem[] = [
-  // Inicio
-  {
-    title: "Inicio",
-    href: "/",
-    icon: Home,
-    color: "text-gray-600",
-  },
-  
-  // Operación - visible for all users
-  {
-    title: "Formularios",
-    href: "/forms",
-    icon: FileText,
-    section: 'operations',
-    color: "text-gray-600",
-  },
-  {
-    title: "Tareas",
-    href: "/tasks",
-    icon: ListTodo,
-    section: 'operations',
-    color: "text-gray-600",
-  },
-  {
-    title: "Notificaciones",
-    href: "/notifications",
-    icon: Bell,
-    section: 'operations',
-    color: "text-gray-600",
-  },
-  
-  // Administración de Proyecto - visible for project_admin and global_admin
-  {
-    title: "Plantillas de Tareas",
-    href: "/task-templates",
-    icon: Settings,
-    requiredRoles: ["project_admin", "global_admin"],
-    section: 'project_administration',
-    color: "text-gray-600",
-  },
-  {
-    title: "Roles del Proyecto",
-    href: "/projects/:projectId/roles",
-    icon: Cog,
-    requiredRoles: ["project_admin", "global_admin"],
-    section: 'project_administration',
-    color: "text-gray-600",
-    dynamicPath: true,
-  },
-  {
-    title: "Usuarios del Proyecto",
-    href: "/projects/:projectId/users",
-    icon: Users,
-    requiredRoles: ["project_admin", "global_admin"],
-    section: 'project_administration',
-    color: "text-gray-600",
-    dynamicPath: true,
-  },
-  
-  // Administración - only for global_admin
-  {
-    title: "Proyectos",
-    href: "/projects",
-    icon: FolderKanban,
-    requiredRoles: ["global_admin"],
-    section: 'administration',
-    color: "text-gray-600",
-  },
-  {
-    title: "Administración",
-    href: "/admin",
-    icon: UserCog,
-    requiredRoles: ["global_admin"],
-    section: 'administration',
-    color: "text-gray-600",
-  },
-  
-  // Systems - only for global_admin
-  {
-    title: "Monitoreo",
-    href: "/systems/monitoring",
-    icon: Activity,
-    requiredRoles: ["global_admin"],
-    section: 'systems',
-    color: "text-gray-600",
-  },
-];
 
 const NavItems = ({ collapsed }: { collapsed: boolean }) => {
   const navigate = useNavigate();
@@ -143,27 +50,184 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
     systems: true
   });
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
-
+  const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
+  
   useEffect(() => {
     // Try to get current project ID from session storage
     const projectId = sessionStorage.getItem('currentProjectId');
     if (projectId) {
       setCurrentProjectId(projectId);
     }
-  }, []);
-
-  const handleNavigate = (href: string, dynamicPath?: boolean) => {
-    if (dynamicPath && currentProjectId) {
-      // Replace :projectId with the actual project ID
-      const actualPath = href.replace(':projectId', currentProjectId);
-      navigate(actualPath);
-    } else {
-      navigate(href);
+    
+    // Fetch available projects for project admin if needed
+    if (isProjectAdmin || isGlobalAdmin) {
+      fetchUserProjects();
+    }
+  }, [isProjectAdmin, isGlobalAdmin]);
+  
+  const fetchUserProjects = async () => {
+    try {
+      let query;
+      
+      if (isGlobalAdmin) {
+        // Global admins can access all projects
+        query = supabase
+          .from('projects')
+          .select('id, name')
+          .order('name', { ascending: true });
+      } else if (isProjectAdmin) {
+        // Project admins can only access their projects
+        query = supabase
+          .from('project_admins')
+          .select('project_id, projects(id, name)')
+          .order('projects(name)', { ascending: true });
+      }
+      
+      if (query) {
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error('Error fetching user projects:', error);
+          return;
+        }
+        
+        if (data && data.length > 0) {
+          let projectsData;
+          
+          if (isGlobalAdmin) {
+            projectsData = data;
+          } else {
+            // Transform project_admins data to get projects
+            projectsData = data.map((item: any) => item.projects).filter(Boolean);
+          }
+          
+          setProjects(projectsData);
+          
+          // If we have projects but no current project set, set the first one as current
+          if (projectsData.length > 0 && !currentProjectId) {
+            const firstProjectId = isGlobalAdmin ? 
+              projectsData[0].id : 
+              projectsData[0].id;
+              
+            setCurrentProjectId(firstProjectId);
+            sessionStorage.setItem('currentProjectId', firstProjectId);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error in fetchUserProjects:', error);
     }
   };
 
+  // Create dynamic navItems based on the current state
+  const getNavItems = () => {
+    const navItems: NavItem[] = [
+      // Inicio
+      {
+        title: "Inicio",
+        href: "/",
+        icon: Home,
+        color: "text-gray-600",
+      },
+      
+      // Operación - visible for all users
+      {
+        title: "Formularios",
+        href: "/forms",
+        icon: FileText,
+        section: 'operations',
+        color: "text-gray-600",
+      },
+      {
+        title: "Tareas",
+        href: "/tasks",
+        icon: ListTodo,
+        section: 'operations',
+        color: "text-gray-600",
+      },
+      {
+        title: "Notificaciones",
+        href: "/notifications",
+        icon: Bell,
+        section: 'operations',
+        color: "text-gray-600",
+      },
+      
+      // Administración de Proyecto - visible for project_admin and global_admin
+      {
+        title: "Plantillas de Tareas",
+        href: "/task-templates",
+        icon: Settings,
+        requiredRoles: ["project_admin", "global_admin"],
+        section: 'project_administration',
+        color: "text-gray-600",
+      }
+    ];
+    
+    // Only add project-specific links if we have a current project
+    if (currentProjectId) {
+      navItems.push(
+        {
+          title: "Roles del Proyecto",
+          href: `/projects/${currentProjectId}/roles`,
+          icon: Cog,
+          requiredRoles: ["project_admin", "global_admin"],
+          section: 'project_administration',
+          color: "text-gray-600",
+        },
+        {
+          title: "Usuarios del Proyecto",
+          href: `/projects/${currentProjectId}/users`,
+          icon: Users,
+          requiredRoles: ["project_admin", "global_admin"],
+          section: 'project_administration',
+          color: "text-gray-600",
+        }
+      );
+    }
+    
+    // Administration items for global admins
+    navItems.push(
+      {
+        title: "Proyectos",
+        href: "/projects",
+        icon: FolderKanban,
+        requiredRoles: ["global_admin"],
+        section: 'administration',
+        color: "text-gray-600",
+      },
+      {
+        title: "Administración",
+        href: "/admin",
+        icon: UserCog,
+        requiredRoles: ["global_admin"],
+        section: 'administration',
+        color: "text-gray-600",
+      },
+      
+      // Systems - only for global_admin
+      {
+        title: "Monitoreo",
+        href: "/systems/monitoring",
+        icon: Activity,
+        requiredRoles: ["global_admin"],
+        section: 'systems',
+        color: "text-gray-600",
+      }
+    );
+    
+    return navItems;
+  };
+
+  const handleNavigate = (href: string) => {
+    navigate(href);
+  };
+
+  // Get all nav items based on the current state
+  const allNavItems = getNavItems();
+  
   // Filter navigation items based on user roles
-  const filteredNavItems = navItems.filter((item) => {
+  const filteredNavItems = allNavItems.filter((item) => {
     if (!item.requiredRoles) return true;
     if (item.requiredRoles.includes("global_admin") && isGlobalAdmin) return true;
     if (item.requiredRoles.includes("project_admin") && isProjectAdmin) return true;
@@ -218,14 +282,8 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
   }).filter(section => section.items.length > 0);
 
   const renderNavItem = (item: NavItem) => {
-    const isActive = (): boolean => {
-      if (item.dynamicPath && currentProjectId) {
-        const actualPath = item.href.replace(':projectId', currentProjectId);
-        return location.pathname === actualPath;
-      }
-      return location.pathname === item.href || 
-        (item.href === "/systems/monitoring" && location.pathname === "/monitoring");
-    };
+    const isActive = location.pathname === item.href || 
+      (item.href === "/systems/monitoring" && location.pathname === "/monitoring");
     
     return (
       <Button
@@ -233,10 +291,10 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
         variant="ghost"
         className={cn(
           "justify-start h-10 w-full hover:bg-gray-100 text-gray-600",
-          isActive() && "bg-gray-100 font-medium",
+          isActive && "bg-gray-100 font-medium",
           collapsed && "justify-center px-2",
         )}
-        onClick={() => handleNavigate(item.href, item.dynamicPath)}
+        onClick={() => handleNavigate(item.href)}
       >
         <item.icon className={cn("h-5 w-5", collapsed ? "mr-0" : "mr-3")} />
         {!collapsed && <span>{item.title}</span>}
@@ -251,8 +309,37 @@ const NavItems = ({ collapsed }: { collapsed: boolean }) => {
     }));
   };
 
+  // Add a project selector if user has project admin role
+  const renderProjectSelector = () => {
+    if (!collapsed && (isProjectAdmin || isGlobalAdmin) && projects.length > 0) {
+      return (
+        <div className="mb-4 px-3">
+          <label className="block text-sm font-medium text-gray-500 mb-1">Proyecto Actual</label>
+          <select 
+            className="w-full bg-white border border-gray-300 rounded-md py-1 px-2 text-sm"
+            value={currentProjectId || ''}
+            onChange={(e) => {
+              const newProjectId = e.target.value;
+              setCurrentProjectId(newProjectId);
+              sessionStorage.setItem('currentProjectId', newProjectId);
+            }}
+          >
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="flex flex-col gap-1">
+      {renderProjectSelector()}
+      
       {homeItem && (
         <div className="px-3 mb-2">
           {renderNavItem(homeItem)}

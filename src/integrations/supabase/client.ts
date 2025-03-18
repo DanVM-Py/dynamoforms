@@ -19,17 +19,9 @@ const DEFAULT_SERVICE = 'api';
 // Get service-specific configuration from deployment config
 const getServiceUrl = (service = DEFAULT_SERVICE) => {
   try {
-    // In development, we use a single Supabase instance for all services
-    if (environment === 'development') {
-      return config.supabaseUrl;
-    }
-
-    // For other environments, we should connect to service-specific instances
-    // This would typically be configured in environment variables or service discovery
-    // For now, we'll use the main instance as a fallback
     return config.supabaseUrl;
   } catch (error) {
-    console.warn(`Failed to get URL for service ${service}, using default`, error);
+    console.error(`Failed to get URL for service ${service}, using default`, error);
     return config.supabaseUrl;
   }
 };
@@ -37,13 +29,9 @@ const getServiceUrl = (service = DEFAULT_SERVICE) => {
 // Get service-specific API key
 const getServiceKey = (service = DEFAULT_SERVICE) => {
   try {
-    if (environment === 'development') {
-      return config.supabaseAnonKey;
-    }
-    
     return config.supabaseAnonKey;
   } catch (error) {
-    console.warn(`Failed to get API key for service ${service}, using default`, error);
+    console.error(`Failed to get API key for service ${service}, using default`, error);
     return config.supabaseAnonKey;
   }
 };
@@ -90,7 +78,7 @@ export const getServiceClient = (service = DEFAULT_SERVICE) => {
 
   // Log connection information in non-production environments
   if (environment !== 'production') {
-    console.log(`Supabase client initialized for ${service} service in ${environment} environment`);
+    console.log(`Supabase client initialized for ${service} service`);
   }
 
   return client;

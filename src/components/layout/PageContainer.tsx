@@ -12,13 +12,13 @@ interface PageContainerProps {
 }
 
 export const PageContainer = ({ children, className, hideSidebar, title }: PageContainerProps) => {
-  const { user } = useAuth();
-  const isAuthenticated = !!user;
+  const { user, loading } = useAuth();
+  const isAuthenticated = !!user && !loading;
   
   return (
     <div className="flex min-h-screen bg-gray-50">
       {isAuthenticated && !hideSidebar && <Sidebar />}
-      <main className={cn(`flex-1 p-6 ${!isAuthenticated ? 'w-full' : ''}`, className)}>
+      <main className={cn(`flex-1 p-6 ${!isAuthenticated || hideSidebar ? 'w-full' : ''}`, className)}>
         {title && <h1 className="text-2xl font-bold mb-6">{title}</h1>}
         {children}
       </main>
