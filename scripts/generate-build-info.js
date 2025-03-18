@@ -9,6 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const deployConfig = require('../deployment.config');
 
 // Get target environment from command line argument or environment variable
 const getTargetEnv = () => {
@@ -39,10 +40,17 @@ const getGitInfo = () => {
   try {
     const gitCommit = execSync('git rev-parse HEAD').toString().trim();
     const gitBranch = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
-    return { gitCommit, gitBranch };
+    const gitLastCommitMessage = execSync('git log -1 --pretty=%B').toString().trim();
+    const gitLastCommitAuthor = execSync('git log -1 --pretty=%an').toString().trim();
+    return { gitCommit, gitBranch, gitLastCommitMessage, gitLastCommitAuthor };
   } catch (error) {
     console.warn('Warning: Unable to get git information', error.message);
-    return { gitCommit: 'unknown', gitBranch: 'unknown' };
+    return { 
+      gitCommit: 'unknown', 
+      gitBranch: 'unknown',
+      gitLastCommitMessage: 'unknown',
+      gitLastCommitAuthor: 'unknown'
+    };
   }
 };
 
@@ -51,22 +59,37 @@ const generateBuildInfo = () => {
   const environment = getTargetEnv();
   const buildId = generateBuildId();
   const timestamp = new Date().toISOString();
-  const { gitCommit, gitBranch } = getGitInfo();
+  const { gitCommit, gitBranch, gitLastCommitMessage, gitLastCommitAuthor } = getGitInfo();
   
   console.log(`Generating build info for ${environment} environment`);
+  
+  // Get environment config from deployment.config.js
+  const envConfig = deployConfig.environments[environment] || {};
   
   const buildInfo = {
     environment,
     buildId,
     timestamp,
     nodeName: process.env.NODE_NAME || 'local',
-    buildNumber: process.env.BUILD_NUMBER || '0',
+    buildNumber: process.env.BUILD_NUMBER || 'local-build',
     gitCommit,
-    gitBranch
+    gitBranch,
+    gitLastCommitMessage,
+    gitLastCommitAuthor,
+    buildDate: new Date().toLocaleDateString(),
+    buildTime: new Date().toLocaleTimeString(),
+    config: {
+      supabaseProjectId: envConfig.supabaseProjectId || 'unknown'
+    }
   };
   
   // Determine the output directory
-  const outputDir = path.resolve(__dirname, '..', 'dist', environment);
+  let outputDir = path.resolve(__dirname, '..', 'dist');
+  
+  // For environment-specific builds
+  if (environment !== 'development') {
+    outputDir = path.join(outputDir, environment);
+  }
   
   // Ensure the directory exists
   if (!fs.existsSync(outputDir)) {
@@ -79,27 +102,20 @@ const generateBuildInfo = () => {
   
   console.log(`Build info written to ${buildInfoPath}`);
   
-  // Also copy to the public directory for development
-  if (environment === 'development') {
-    const publicDir = path.join(__dirname, '..', 'public');
-    if (!fs.existsSync(publicDir)) {
-      fs.mkdirSync(publicDir, { recursive: true });
-    }
-    const publicBuildInfoPath = path.join(publicDir, 'build-info.json');
-    fs.writeFileSync(publicBuildInfoPath, JSON.stringify(buildInfo, null, 2));
-    console.log(`Development build info copy written to ${publicBuildInfoPath}`);
+  // Also copy to the public directory for development or for hosting static files
+  const publicDir = path.join(__dirname, '..', 'public');
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
   }
   
-  // Also write a copy to the root of the dist directory for easier access
-  const rootDistDir = path.join(outputDir, '..');
-  if (!fs.existsSync(rootDistDir)) {
-    fs.mkdirSync(rootDistDir, { recursive: true });
-  }
+  const publicBuildInfoPath = path.join(publicDir, 'build-info.json');
+  fs.writeFileSync(publicBuildInfoPath, JSON.stringify(buildInfo, null, 2));
+  console.log(`Build info copy written to ${publicBuildInfoPath}`);
   
-  const rootBuildInfoPath = path.join(rootDistDir, 'build-info.json');
+  // Write to root of the project for easy access during debugging
+  const rootBuildInfoPath = path.join(__dirname, '..', 'build-info.json');
   fs.writeFileSync(rootBuildInfoPath, JSON.stringify(buildInfo, null, 2));
-  
-  console.log(`Additional build info copy written to ${rootBuildInfoPath}`);
+  console.log(`Build info copy written to ${rootBuildInfoPath}`);
 };
 
 // Run the generator

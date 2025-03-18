@@ -2,8 +2,11 @@
 {
   "environment": "development",
   "buildId": "dev-local-build",
-  "timestamp": "2025-03-17T23:45:00.000Z",
+  "timestamp": "2025-03-18T00:10:00.000Z",
   "gitCommit": "development",
   "buildNumber": "local-dev",
-  "nodeName": "localhost"
+  "nodeName": "localhost",
+  "config": {
+    "supabaseProjectId": "dgnjoqgfccxdlteiptfv"
+  }
 }
