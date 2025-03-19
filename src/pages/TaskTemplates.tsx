@@ -547,7 +547,8 @@ const TaskTemplates = () => {
     }
     
     if (typeof schema === 'string') {
-      console.warn("[TaskTemplates] Schema is a string, trying to parse as JSON");
+      console.log("[TaskTemplates] Schema is a string of length:", schema.length);
+      console.log("[TaskTemplates] First 200 chars:", schema.substring(0, 200));
       try {
         const parsedSchema = JSON.parse(schema);
         const isValid = parsedSchema && 
@@ -556,7 +557,10 @@ const TaskTemplates = () => {
                       Array.isArray(parsedSchema.components);
                       
         if (!isValid) {
-          console.warn("[TaskTemplates] Parsed schema is not valid:", parsedSchema);
+          console.warn("[TaskTemplates] Parsed schema is not valid:", JSON.stringify(parsedSchema).substring(0, 200));
+        } else {
+          console.log("[TaskTemplates] Parsed schema is valid with", 
+                    parsedSchema.components.length, "components");
         }
         return isValid;
       } catch (e) {
@@ -571,7 +575,12 @@ const TaskTemplates = () => {
                   Array.isArray(schema.components);
                   
     if (!isValid) {
-      console.warn("[TaskTemplates] Schema is not valid:", schema);
+      console.warn("[TaskTemplates] Schema is not valid, schema type:", typeof schema);
+      if (typeof schema === 'object') {
+        console.warn("[TaskTemplates] Schema keys:", Object.keys(schema));
+      }
+    } else {
+      console.log("[TaskTemplates] Valid schema with", schema.components.length, "components");
     }
     return isValid;
   };
@@ -584,8 +593,10 @@ const TaskTemplates = () => {
     
     let schema = formSchema;
     if (typeof formSchema === 'string') {
+      console.log("[TaskTemplates] getEmailFieldsFromForm - schema is a string of length:", formSchema.length);
       try {
         schema = JSON.parse(formSchema);
+        console.log("[TaskTemplates] getEmailFieldsFromForm - parsed schema successfully");
       } catch (e) {
         console.error("[TaskTemplates] Failed to parse schema string in getEmailFieldsFromForm:", e);
         return [];
@@ -597,13 +608,16 @@ const TaskTemplates = () => {
       return [];
     }
 
-    return schema.components
+    const fields = schema.components
       .filter((component: any) => 
         component.type === 'email' && component.key)
       .map((component: any) => ({
         key: component.key,
         label: component.label || component.key
       }));
+      
+    console.log(`[TaskTemplates] getEmailFieldsFromForm - Found ${fields.length} email fields`);
+    return fields;
   };
 
   const getSourceFormFields = () => {
@@ -612,12 +626,20 @@ const TaskTemplates = () => {
       return [];
     }
     
+    console.log("[TaskTemplates] getSourceFormFields - Source form schema type:", typeof sourceFormSchema);
+    if (typeof sourceFormSchema === 'object') {
+      console.log("[TaskTemplates] getSourceFormFields - Source form schema keys:", Object.keys(sourceFormSchema));
+    }
+    
     let schema = sourceFormSchema;
     if (typeof sourceFormSchema === 'string') {
+      console.log("[TaskTemplates] getSourceFormFields - schema is a string of length:", sourceFormSchema.length);
       try {
         schema = JSON.parse(sourceFormSchema);
+        console.log("[TaskTemplates] getSourceFormFields - parsed schema successfully");
       } catch (e) {
         console.error("[TaskTemplates] Failed to parse source schema string in getSourceFormFields:", e);
+        console.log("[TaskTemplates] First 200 chars of source schema:", sourceFormSchema.substring(0, 200));
         return [];
       }
     }
@@ -627,13 +649,17 @@ const TaskTemplates = () => {
       return [];
     }
     
-    return schema.components
+    const fields = schema.components
       .filter((component: any) => component.key && component.type !== 'button')
       .map((component: any) => ({
         key: component.key,
         label: component.label || component.key,
         type: component.type
       }));
+      
+    console.log(`[TaskTemplates] getSourceFormFields - Found ${fields.length} fields`, 
+      fields.length > 0 ? `(first field: ${fields[0].label}, type: ${fields[0].type})` : "");
+    return fields;
   };
 
   const getTargetFormFields = () => {
@@ -642,12 +668,20 @@ const TaskTemplates = () => {
       return [];
     }
     
+    console.log("[TaskTemplates] getTargetFormFields - Target form schema type:", typeof targetFormSchema);
+    if (typeof targetFormSchema === 'object') {
+      console.log("[TaskTemplates] getTargetFormFields - Target form schema keys:", Object.keys(targetFormSchema));
+    }
+    
     let schema = targetFormSchema;
     if (typeof targetFormSchema === 'string') {
+      console.log("[TaskTemplates] getTargetFormFields - schema is a string of length:", targetFormSchema.length);
       try {
         schema = JSON.parse(targetFormSchema);
+        console.log("[TaskTemplates] getTargetFormFields - parsed schema successfully");
       } catch (e) {
         console.error("[TaskTemplates] Failed to parse target schema string in getTargetFormFields:", e);
+        console.log("[TaskTemplates] First 200 chars of target schema:", targetFormSchema.substring(0, 200));
         return [];
       }
     }
@@ -657,13 +691,17 @@ const TaskTemplates = () => {
       return [];
     }
     
-    return schema.components
+    const fields = schema.components
       .filter((component: any) => component.key && component.type !== 'button')
       .map((component: any) => ({
         key: component.key,
         label: component.label || component.key,
         type: component.type
       }));
+      
+    console.log(`[TaskTemplates] getTargetFormFields - Found ${fields.length} fields`, 
+      fields.length > 0 ? `(first field: ${fields[0].label}, type: ${fields[0].type})` : "");
+    return fields;
   };
 
   const handleFieldMapping = (sourceKey: string, targetKey: string) => {
@@ -701,8 +739,8 @@ const TaskTemplates = () => {
   const canAccessAdvancedTabs = !!sourceFormId && !!targetFormId;
 
   useEffect(() => {
-    if (editOpen) {
-      console.log("[TaskTemplates] Edit modal opened:", {
+    if (editOpen && sourceFormId && targetFormId) {
+      console.log("[TaskTemplates] Edit modal opened with form schemas:", {
         templateId: selectedTemplate?.id,
         sourceFormId,
         targetFormId,
@@ -712,6 +750,52 @@ const TaskTemplates = () => {
         targetSchemaType: targetFormSchema ? typeof targetFormSchema : 'undefined',
         isLoadingSchemas
       });
+      
+      if (sourceFormSchema) {
+        console.group("[TaskTemplates] Source Form Schema Debug");
+        if (typeof sourceFormSchema === 'string') {
+          console.log("String length:", sourceFormSchema.length);
+          console.log("First 100 chars:", sourceFormSchema.substring(0, 100));
+          try {
+            const parsed = JSON.parse(sourceFormSchema);
+            console.log("Has components array:", Array.isArray(parsed.components));
+            if (Array.isArray(parsed.components)) {
+              console.log("Component count:", parsed.components.length);
+            }
+          } catch (e) {
+            console.error("Parse error:", e);
+          }
+        } else if (typeof sourceFormSchema === 'object') {
+          console.log("Object keys:", Object.keys(sourceFormSchema));
+          if (Array.isArray(sourceFormSchema.components)) {
+            console.log("Component count:", sourceFormSchema.components.length);
+          }
+        }
+        console.groupEnd();
+      }
+      
+      if (targetFormSchema) {
+        console.group("[TaskTemplates] Target Form Schema Debug");
+        if (typeof targetFormSchema === 'string') {
+          console.log("String length:", targetFormSchema.length);
+          console.log("First 100 chars:", targetFormSchema.substring(0, 100));
+          try {
+            const parsed = JSON.parse(targetFormSchema);
+            console.log("Has components array:", Array.isArray(parsed.components));
+            if (Array.isArray(parsed.components)) {
+              console.log("Component count:", parsed.components.length);
+            }
+          } catch (e) {
+            console.error("Parse error:", e);
+          }
+        } else if (typeof targetFormSchema === 'object') {
+          console.log("Object keys:", Object.keys(targetFormSchema));
+          if (Array.isArray(targetFormSchema.components)) {
+            console.log("Component count:", targetFormSchema.components.length);
+          }
+        }
+        console.groupEnd();
+      }
     }
   }, [editOpen, selectedTemplate?.id, sourceFormId, targetFormId, sourceFormSchema, targetFormSchema, isLoadingSchemas]);
 
@@ -1196,3 +1280,4 @@ const TaskTemplates = () => {
 };
 
 export default TaskTemplates;
+

@@ -34,8 +34,9 @@ export const isValidFormSchema = (schema: any): schema is FormSchema => {
   
   // Handle string serialized JSON
   if (typeof schema === 'string') {
-    console.log("[FormSchemaUtils] Schema is a string, trying to parse as JSON:", schema.substring(0, 50) + "...");
     try {
+      console.log("[FormSchemaUtils] Schema is a string, trying to parse as JSON:", 
+        schema.substring(0, 100) + (schema.length > 100 ? "..." : ""));
       const parsedSchema = JSON.parse(schema);
       return isValidFormSchema(parsedSchema);
     } catch (e) {
@@ -50,7 +51,7 @@ export const isValidFormSchema = (schema: any): schema is FormSchema => {
                 Array.isArray(schema.components);
                 
   if (!isValid) {
-    console.warn("[FormSchemaUtils] Schema is not valid:", schema);
+    console.warn("[FormSchemaUtils] Schema is not valid:", JSON.stringify(schema).substring(0, 200) + "...");
   } else {
     console.log("[FormSchemaUtils] Valid schema with", schema.components.length, "components");
   }
@@ -71,7 +72,7 @@ export const getValidFormSchema = (formSchema: any): FormSchema | null => {
   let schema = formSchema;
   if (typeof formSchema === 'string') {
     try {
-      console.log("[FormSchemaUtils] Parsing string schema");
+      console.log("[FormSchemaUtils] Parsing string schema of length:", formSchema.length);
       schema = JSON.parse(formSchema);
     } catch (e) {
       console.error("[FormSchemaUtils] Failed to parse schema string:", e);
@@ -170,19 +171,21 @@ export const debugFormSchema = (formSchema: any, label: string = "Form Schema De
         console.log("Keys:", Object.keys(parsed));
         if (Array.isArray(parsed.components)) {
           console.log("Components:", parsed.components.length);
+          console.log("Component types:", parsed.components.map(c => c.type).slice(0, 10));
         } else {
           console.warn("No valid components array");
         }
       }
     } catch (e) {
       console.error("Failed to parse as JSON:", e);
+      console.log("First 200 chars:", formSchema.substring(0, 200));
     }
   } else if (typeof formSchema === 'object') {
     console.log("Schema is an object");
     console.log("Keys:", Object.keys(formSchema));
     if (Array.isArray(formSchema.components)) {
       console.log("Components:", formSchema.components.length);
-      console.log("Component types:", formSchema.components.map(c => c.type));
+      console.log("Component types:", formSchema.components.map(c => c.type).slice(0, 10));
     } else {
       console.warn("No valid components array");
     }
@@ -191,4 +194,48 @@ export const debugFormSchema = (formSchema: any, label: string = "Form Schema De
   }
   
   console.groupEnd();
+};
+
+/**
+ * Utility to fix common issues in form schemas
+ */
+export const sanitizeFormSchema = (schema: any): any => {
+  if (!schema) return null;
+  
+  // Handle string input
+  if (typeof schema === 'string') {
+    try {
+      schema = JSON.parse(schema);
+    } catch (e) {
+      console.error("[FormSchemaUtils] Failed to parse schema in sanitizeFormSchema:", e);
+      return null;
+    }
+  }
+  
+  // Ensure we have an object
+  if (typeof schema !== 'object' || schema === null) {
+    console.warn("[FormSchemaUtils] Schema is not an object in sanitizeFormSchema");
+    return null;
+  }
+  
+  // Ensure components is an array
+  if (!Array.isArray(schema.components)) {
+    console.warn("[FormSchemaUtils] Schema has no components array in sanitizeFormSchema");
+    schema.components = [];
+  }
+  
+  // Fix common issues with components
+  schema.components = schema.components.map((component: any) => {
+    if (!component.key && component.id) {
+      component.key = component.id;
+    }
+    
+    if (!component.label && component.title) {
+      component.label = component.title;
+    }
+    
+    return component;
+  });
+  
+  return schema;
 };
