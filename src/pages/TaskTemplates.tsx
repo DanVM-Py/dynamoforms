@@ -266,6 +266,8 @@ const TaskTemplates = () => {
         throw error;
       }
 
+      console.log(`[TaskTemplates] Source form schema retrieved:`, data?.schema);
+      
       return data?.schema || null;
     },
     enabled: !!sourceFormId && editOpen,
@@ -294,6 +296,8 @@ const TaskTemplates = () => {
         throw error;
       }
 
+      console.log(`[TaskTemplates] Target form schema retrieved:`, data?.schema);
+      
       return data?.schema || null;
     },
     enabled: !!targetFormId && editOpen,
@@ -536,12 +540,64 @@ const TaskTemplates = () => {
     }
   };
 
+  const isValidFormSchema = (schema: any): schema is FormSchema => {
+    if (!schema) {
+      console.warn("[TaskTemplates] Schema is null or undefined");
+      return false;
+    }
+    
+    if (typeof schema === 'string') {
+      console.warn("[TaskTemplates] Schema is a string, trying to parse as JSON");
+      try {
+        const parsedSchema = JSON.parse(schema);
+        const isValid = parsedSchema && 
+                      typeof parsedSchema === 'object' && 
+                      !Array.isArray(parsedSchema) && 
+                      Array.isArray(parsedSchema.components);
+                      
+        if (!isValid) {
+          console.warn("[TaskTemplates] Parsed schema is not valid:", parsedSchema);
+        }
+        return isValid;
+      } catch (e) {
+        console.error("[TaskTemplates] Failed to parse schema string:", e);
+        return false;
+      }
+    }
+    
+    const isValid = schema && 
+                  typeof schema === 'object' && 
+                  !Array.isArray(schema) && 
+                  Array.isArray(schema.components);
+                  
+    if (!isValid) {
+      console.warn("[TaskTemplates] Schema is not valid:", schema);
+    }
+    return isValid;
+  };
+
   const getEmailFieldsFromForm = (formSchema: any): { key: string, label: string }[] => {
-    if (!isValidFormSchema(formSchema)) {
+    if (!formSchema) {
+      console.warn("[TaskTemplates] Form schema is null or undefined in getEmailFieldsFromForm");
+      return [];
+    }
+    
+    let schema = formSchema;
+    if (typeof formSchema === 'string') {
+      try {
+        schema = JSON.parse(formSchema);
+      } catch (e) {
+        console.error("[TaskTemplates] Failed to parse schema string in getEmailFieldsFromForm:", e);
+        return [];
+      }
+    }
+    
+    if (!isValidFormSchema(schema)) {
+      console.warn("[TaskTemplates] Invalid schema format in getEmailFieldsFromForm");
       return [];
     }
 
-    return formSchema.components
+    return schema.components
       .filter((component: any) => 
         component.type === 'email' && component.key)
       .map((component: any) => ({
@@ -550,24 +606,28 @@ const TaskTemplates = () => {
       }));
   };
 
-  const areFieldTypesCompatible = (sourceType: string, targetType: string) => {
-    const textTypes = ['textfield', 'textarea', 'text'];
-    const numberTypes = ['number', 'currency'];
-    const dateTypes = ['datetime', 'date'];
-    const selectionTypes = ['select', 'radio', 'checkbox'];
-    
-    if (textTypes.includes(sourceType) && textTypes.includes(targetType)) return true;
-    if (numberTypes.includes(sourceType) && numberTypes.includes(targetType)) return true;
-    if (dateTypes.includes(sourceType) && dateTypes.includes(targetType)) return true;
-    if (selectionTypes.includes(sourceType) && selectionTypes.includes(targetType)) return true;
-    
-    return sourceType === targetType;
-  };
-
   const getSourceFormFields = () => {
-    if (!isValidFormSchema(sourceFormSchema)) return [];
+    if (!sourceFormSchema) {
+      console.warn("[TaskTemplates] Source form schema is null or undefined in getSourceFormFields");
+      return [];
+    }
     
-    return sourceFormSchema.components
+    let schema = sourceFormSchema;
+    if (typeof sourceFormSchema === 'string') {
+      try {
+        schema = JSON.parse(sourceFormSchema);
+      } catch (e) {
+        console.error("[TaskTemplates] Failed to parse source schema string in getSourceFormFields:", e);
+        return [];
+      }
+    }
+    
+    if (!isValidFormSchema(schema)) {
+      console.warn("[TaskTemplates] Invalid source schema format in getSourceFormFields");
+      return [];
+    }
+    
+    return schema.components
       .filter((component: any) => component.key && component.type !== 'button')
       .map((component: any) => ({
         key: component.key,
@@ -577,9 +637,27 @@ const TaskTemplates = () => {
   };
 
   const getTargetFormFields = () => {
-    if (!isValidFormSchema(targetFormSchema)) return [];
+    if (!targetFormSchema) {
+      console.warn("[TaskTemplates] Target form schema is null or undefined in getTargetFormFields");
+      return [];
+    }
     
-    return targetFormSchema.components
+    let schema = targetFormSchema;
+    if (typeof targetFormSchema === 'string') {
+      try {
+        schema = JSON.parse(targetFormSchema);
+      } catch (e) {
+        console.error("[TaskTemplates] Failed to parse target schema string in getTargetFormFields:", e);
+        return [];
+      }
+    }
+    
+    if (!isValidFormSchema(schema)) {
+      console.warn("[TaskTemplates] Invalid target schema format in getTargetFormFields");
+      return [];
+    }
+    
+    return schema.components
       .filter((component: any) => component.key && component.type !== 'button')
       .map((component: any) => ({
         key: component.key,
@@ -604,11 +682,18 @@ const TaskTemplates = () => {
     setInheritanceMapping(newMapping);
   };
 
-  const isValidFormSchema = (schema: any): schema is FormSchema => {
-    return schema && 
-           typeof schema === 'object' && 
-           !Array.isArray(schema) && 
-           Array.isArray(schema.components);
+  const areFieldTypesCompatible = (sourceType: string, targetType: string) => {
+    const textTypes = ['textfield', 'textarea', 'text'];
+    const numberTypes = ['number', 'currency'];
+    const dateTypes = ['datetime', 'date'];
+    const selectionTypes = ['select', 'radio', 'checkbox'];
+    
+    if (textTypes.includes(sourceType) && textTypes.includes(targetType)) return true;
+    if (numberTypes.includes(sourceType) && numberTypes.includes(targetType)) return true;
+    if (dateTypes.includes(sourceType) && dateTypes.includes(targetType)) return true;
+    if (selectionTypes.includes(sourceType) && selectionTypes.includes(targetType)) return true;
+    
+    return sourceType === targetType;
   };
 
   const isLoadingSchemas = isLoadingSourceSchema || isLoadingTargetSchema;
@@ -623,6 +708,8 @@ const TaskTemplates = () => {
         targetFormId,
         hasSourceSchema: !!sourceFormSchema,
         hasTargetSchema: !!targetFormSchema,
+        sourceSchemaType: sourceFormSchema ? typeof sourceFormSchema : 'undefined',
+        targetSchemaType: targetFormSchema ? typeof targetFormSchema : 'undefined',
         isLoadingSchemas
       });
     }

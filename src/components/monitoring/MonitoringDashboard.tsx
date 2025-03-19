@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -8,7 +7,7 @@ import { ServiceMetrics } from "./ServiceMetrics";
 import { MicroserviceConfig } from "@/components/environment/MicroserviceConfig";
 import { useQuery } from '@tanstack/react-query';
 import { environment } from '@/config/environment';
-import { Sidebar } from "@/components/layout/Sidebar";
+import { PageContainer } from "@/components/layout/PageContainer";
 
 // Componente para mostrar logs del sistema
 interface LogEntry {
@@ -162,9 +161,7 @@ function LogViewer() {
 // Componente principal del Dashboard de Monitoreo
 export function MonitoringDashboard() {
   return (
-    <div className="flex h-screen">
-      <Sidebar />
-      
+    <PageContainer>
       <div className="max-w-[1200px] mx-auto px-4 py-4 flex-1 overflow-auto">
         <div className="mb-4">
           <h2 className="text-2xl font-bold tracking-tight">Monitor del Sistema</h2>
@@ -213,6 +210,6 @@ export function MonitoringDashboard() {
           <p>Todos los datos son simulados con fines de demostración</p>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }
