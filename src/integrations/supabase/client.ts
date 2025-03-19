@@ -48,26 +48,7 @@ const supabaseClient = createClient<Database>(
     },
     global: {
       headers: getDefaultHeaders(),
-      fetch: (url, options) => {
-        // Create a controller with timeout to prevent hanging requests
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-        
-        // Get current project ID for this specific request
-        const currentHeaders = { ...getDefaultHeaders() };
-        
-        return fetch(url, { 
-          ...options, 
-          headers: {
-            ...((options as RequestInit).headers || {}),
-            ...currentHeaders
-          },
-          cache: 'no-store',
-          signal: controller.signal
-        }).finally(() => {
-          clearTimeout(timeoutId);
-        });
-      }
+      // Don't override the fetch function as it's causing authentication issues
     }
   }
 );
