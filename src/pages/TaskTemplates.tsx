@@ -47,7 +47,6 @@ import { isDevelopment } from "@/config/environment";
 import { CreateTaskTemplateModal } from "@/components/project/CreateTaskTemplateModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  FormSchema,
   isValidFormSchema, 
   getValidFormSchema, 
   safelyAccessFormSchema,
@@ -85,16 +84,6 @@ interface TaskTemplate {
   minDays: number;
   dueDays: number;
   assigneeFormField: string;
-}
-
-interface FormSchema {
-  components: Array<{
-    type: string;
-    key: string;
-    label: string;
-    [key: string]: any;
-  }>;
-  [key: string]: any;
 }
 
 const TaskTemplates = () => {
