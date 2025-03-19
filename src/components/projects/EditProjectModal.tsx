@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { 
   Dialog, 
@@ -164,7 +165,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             .insert({
               project_id: project.id,
               user_id: adminId,
-              assigned_by: user?.id
+              assigned_by: user?.id  // Using assigned_by to match the database schema
             });
             
           if (insertError) throw insertError;

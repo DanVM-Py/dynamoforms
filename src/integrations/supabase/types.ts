@@ -233,6 +233,7 @@ export type Database = {
         Row: {
           assigned_at: string
           assigned_by: string
+          created_at: string | null
           id: string
           project_id: string
           user_id: string
@@ -240,6 +241,7 @@ export type Database = {
         Insert: {
           assigned_at?: string
           assigned_by: string
+          created_at?: string | null
           id?: string
           project_id: string
           user_id: string
@@ -247,6 +249,7 @@ export type Database = {
         Update: {
           assigned_at?: string
           assigned_by?: string
+          created_at?: string | null
           id?: string
           project_id?: string
           user_id?: string

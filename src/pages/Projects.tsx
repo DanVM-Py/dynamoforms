@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Separator } from "@/components/ui/separator";
@@ -138,7 +139,7 @@ const Projects = () => {
           .insert({
             project_id: newProject.id, 
             user_id: projectAdminId,
-            assigned_by: user?.id
+            assigned_by: user?.id  // Using assigned_by to match the database schema
           });
           
         if (adminError) throw adminError;
