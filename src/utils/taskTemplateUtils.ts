@@ -1,4 +1,5 @@
 import { Json } from "@/types/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 export type TaskTemplate = {
   id: string;
@@ -15,6 +16,8 @@ export type TaskTemplate = {
   minDays: number;
   dueDays: number;
   assigneeFormField: string;
+  sourceFormTitle?: string;
+  targetFormTitle?: string;
 };
 
 export type Form = {
@@ -77,7 +80,7 @@ export const getProjectUsers = async (projectId: string): Promise<User[]> => {
   const userIds = projectUsers.map(pu => pu.user_id);
 
   const { data: users, error: usersError } = await supabase
-    .from('users')
+    .from('profiles')
     .select('id, name, email')
     .in('id', userIds);
 
@@ -226,5 +229,3 @@ export const getEmailFieldsFromForm = (formSchema: Json | null): FormField[] => 
     return [];
   }
 };
-
-import { supabase } from "@/integrations/supabase/client";

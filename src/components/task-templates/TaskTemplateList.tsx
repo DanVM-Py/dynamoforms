@@ -45,8 +45,8 @@ const TaskTemplateList = ({ taskTemplates, onEdit }: TaskTemplateListProps) => {
               <TableRow key={template.id}>
                 <TableCell className="font-medium">{template.title}</TableCell>
                 <TableCell>{template.description}</TableCell>
-                <TableCell>{template.sourceForm?.title || '—'}</TableCell>
-                <TableCell>{template.targetForm?.title || '—'}</TableCell>
+                <TableCell>{template.sourceFormTitle || '—'}</TableCell>
+                <TableCell>{template.targetFormTitle || '—'}</TableCell>
                 <TableCell>
                   {template.minDays === 0 ? 
                     `Hasta ${template.dueDays} día${template.dueDays !== 1 ? 's' : ''}` : 
