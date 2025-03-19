@@ -1,21 +1,25 @@
-import React from 'react';
+
+import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { PageContainer } from './components/layout/PageContainer';
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Log before rendering the task-templates route
 const TaskTemplatesWrapper = () => {
+  const { user, loading } = useAuth();
+  
   console.log('ProtectedRoute: task-templates path detected', {
     path: '/task-templates',
-    user: !!useAuth().user,
-    loading: useAuth().loading
+    user: !!user,
+    loading
   });
   
   return (
     <PageContainer>
-      <React.Suspense fallback={<div>Loading...</div>}>
-        <React.lazy(() => import('./pages/TaskTemplates'))/>
-      </React.Suspense>
+      <Suspense fallback={<div>Loading...</div>}>
+        <TaskTemplates />
+      </Suspense>
     </PageContainer>
   );
 };
