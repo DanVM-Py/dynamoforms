@@ -46,6 +46,16 @@ const InheritanceTab = ({
     setInheritanceMapping(newMapping);
   };
   
+  // Obtenemos los campos de origen y destino
+  const sourceFields = getSourceFormFields(sourceFormSchema);
+  const targetFields = getTargetFormFields(targetFormSchema);
+  
+  // Log para depuración
+  console.log("[InheritanceTab] Source Fields:", sourceFields);
+  console.log("[InheritanceTab] Target Fields:", targetFields);
+  console.log("[InheritanceTab] Source Schema Type:", sourceFormSchema ? typeof sourceFormSchema : "null");
+  console.log("[InheritanceTab] Target Schema Type:", targetFormSchema ? typeof targetFormSchema : "null");
+  
   return (
     <div className="space-y-4 pt-4">
       <div className="text-sm mb-4">
@@ -73,9 +83,9 @@ const InheritanceTab = ({
               <span>Cargando esquemas de formularios...</span>
             </div>
           </div>
-        ) : getTargetFormFields(targetFormSchema).length > 0 ? (
+        ) : targetFields.length > 0 ? (
           <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-            {getTargetFormFields(targetFormSchema).map((targetField) => {
+            {targetFields.map((targetField) => {
               const mappedSourceKey = Object.entries(inheritanceMapping)
                 .find(([_, value]) => value === targetField.key)?.[0] || "";
                 
@@ -94,8 +104,8 @@ const InheritanceTab = ({
                         <SelectValue placeholder="Selecciona un campo origen" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No heredar</SelectItem>
-                        {getSourceFormFields(sourceFormSchema)
+                        <SelectItem value="no-inheritance">No heredar</SelectItem>
+                        {sourceFields
                           .filter(sourceField => areFieldTypesCompatible(sourceField.type, targetField.type))
                           .map((sourceField) => (
                             <SelectItem key={sourceField.key} value={sourceField.key}>

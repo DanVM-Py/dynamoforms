@@ -48,6 +48,13 @@ export const isValidFormSchema = (schema: any): schema is FormSchema => {
   // Check for Json array type from Supabase (this is crucial for type safety)
   if (Array.isArray(schema)) {
     console.warn("[FormSchemaUtils] Schema is an array, not an object with components");
+    
+    // Intenta verificar si es un array que contiene un objeto válido
+    if (schema.length > 0 && typeof schema[0] === 'object') {
+      console.log("[FormSchemaUtils] Attempting to use first item of array");
+      return isValidFormSchema(schema[0]);
+    }
+    
     return false;
   }
   
@@ -58,7 +65,11 @@ export const isValidFormSchema = (schema: any): schema is FormSchema => {
                 Array.isArray(schema.components);
                 
   if (!isValid) {
-    console.warn("[FormSchemaUtils] Schema is not valid:", JSON.stringify(schema).substring(0, 200) + "...");
+    console.warn("[FormSchemaUtils] Schema is not valid:", 
+      typeof schema === 'object' ? 
+        JSON.stringify(schema).substring(0, 200) + "..." : 
+        `Not an object: ${typeof schema}`);
+    
     if (typeof schema === 'object') {
       console.warn("[FormSchemaUtils] Schema keys:", Object.keys(schema));
     }
@@ -220,11 +231,15 @@ export const debugFormSchema = (formSchema: any, label: string = "Form Schema De
  * Utility to fix common issues in form schemas
  */
 export const sanitizeFormSchema = (schema: any): FormSchema | null => {
-  if (!schema) return null;
+  if (!schema) {
+    console.warn("[FormSchemaUtils] Schema is null or undefined in sanitizeFormSchema");
+    return null;
+  }
   
   // Handle string input
   if (typeof schema === 'string') {
     try {
+      console.log("[FormSchemaUtils] Parsing string schema in sanitizeFormSchema");
       schema = JSON.parse(schema);
     } catch (e) {
       console.error("[FormSchemaUtils] Failed to parse schema in sanitizeFormSchema:", e);
@@ -232,22 +247,44 @@ export const sanitizeFormSchema = (schema: any): FormSchema | null => {
     }
   }
   
-  // Handle Json type from Supabase
+  // Handle Json array type from Supabase
   if (Array.isArray(schema)) {
-    console.warn("[FormSchemaUtils] Schema is an array, not an object with components");
+    console.warn("[FormSchemaUtils] Schema is an array in sanitizeFormSchema");
+    
+    // Si es un array y tiene elementos, intentamos utilizar el primero
+    if (schema.length > 0) {
+      console.log("[FormSchemaUtils] Trying first element of array in sanitizeFormSchema");
+      return sanitizeFormSchema(schema[0]);
+    }
+    
     return null;
   }
   
   // Ensure we have an object
   if (typeof schema !== 'object' || schema === null) {
-    console.warn("[FormSchemaUtils] Schema is not an object in sanitizeFormSchema");
+    console.warn("[FormSchemaUtils] Schema is not an object in sanitizeFormSchema, type:", typeof schema);
     return null;
+  }
+  
+  // Si no tiene components pero tiene schema, usamos ese
+  if (!schema.components && schema.schema) {
+    console.log("[FormSchemaUtils] Using nested schema property");
+    return sanitizeFormSchema(schema.schema);
   }
   
   // Ensure components is an array
   if (!Array.isArray(schema.components)) {
     console.warn("[FormSchemaUtils] Schema has no components array in sanitizeFormSchema");
-    schema.components = [];
+    console.log("[FormSchemaUtils] Schema keys:", Object.keys(schema));
+    
+    // Si no tiene components pero tiene display.components, usamos ese
+    if (schema.display && Array.isArray(schema.display.components)) {
+      console.log("[FormSchemaUtils] Using display.components instead");
+      schema.components = schema.display.components;
+    } else {
+      // Si no hay una forma de recuperar los componentes, creamos un array vacío
+      schema.components = [];
+    }
   }
   
   // Fix common issues with components
@@ -271,12 +308,19 @@ export const sanitizeFormSchema = (schema: any): FormSchema | null => {
  * This is the key function that helps with TypeScript type safety
  */
 export const safelyAccessFormSchema = (schema: Json | null): FormSchema | null => {
-  if (!schema) return null;
+  if (!schema) {
+    console.warn("[FormSchemaUtils] Schema is null or undefined in safelyAccessFormSchema");
+    return null;
+  }
+  
+  console.log("[FormSchemaUtils] Processing schema in safelyAccessFormSchema, type:", typeof schema);
   
   // Handle string input (common when retrieving from DB)
   if (typeof schema === 'string') {
     try {
-      return sanitizeFormSchema(JSON.parse(schema));
+      console.log("[FormSchemaUtils] Parsing string schema in safelyAccessFormSchema");
+      const parsed = JSON.parse(schema);
+      return sanitizeFormSchema(parsed);
     } catch (e) {
       console.error("[FormSchemaUtils] Failed to parse schema string in safelyAccessFormSchema:", e);
       return null;
@@ -285,8 +329,31 @@ export const safelyAccessFormSchema = (schema: Json | null): FormSchema | null =
   
   // Handle Json array type from Supabase
   if (Array.isArray(schema)) {
-    console.warn("[FormSchemaUtils] Schema is an array in safelyAccessFormSchema, not an object with components");
+    console.warn("[FormSchemaUtils] Schema is an array in safelyAccessFormSchema");
+    
+    // Si es un array, intentamos ver si el primer elemento es un esquema válido
+    if (schema.length > 0) {
+      console.log("[FormSchemaUtils] Trying first element of array in safelyAccessFormSchema");
+      return safelyAccessFormSchema(schema[0] as Json);
+    }
+    
     return null;
+  }
+  
+  // Verificar si schema.display existe y contiene un componente schema
+  if (typeof schema === 'object' && schema !== null && 'display' in schema) {
+    console.log("[FormSchemaUtils] Schema has display property, checking if it contains the actual schema");
+    const display = (schema as any).display;
+    if (typeof display === 'object' && display !== null && 'components' in display) {
+      console.log("[FormSchemaUtils] Using schema.display as schema");
+      return sanitizeFormSchema(display as Json);
+    }
+  }
+  
+  // Si es un objeto y existe un campo schema, intentamos usarlo
+  if (typeof schema === 'object' && schema !== null && 'schema' in schema) {
+    console.log("[FormSchemaUtils] Found schema property, using it instead");
+    return safelyAccessFormSchema((schema as any).schema as Json);
   }
   
   // If it's already an object, sanitize it

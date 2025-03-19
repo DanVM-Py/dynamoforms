@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
@@ -200,12 +199,31 @@ const TaskTemplates = () => {
         throw error;
       }
 
-      console.log(`[TaskTemplates] Source form schema retrieved:`, data?.schema ? typeof data.schema : "null");
-      debugFormSchema(data?.schema, "[TaskTemplates] Source Form Schema");
+      if (!data || !data.schema) {
+        console.warn(`[TaskTemplates] No schema found for source form: ${sourceFormId}`);
+        return null;
+      }
+
+      console.log(`[TaskTemplates] Source form schema retrieved:`, 
+        data.schema ? `type: ${typeof data.schema}` : "null");
       
-      return data?.schema || null;
+      // Si el esquema es un string, intentamos parsearlo
+      if (typeof data.schema === 'string') {
+        try {
+          const parsedSchema = JSON.parse(data.schema);
+          console.log("[TaskTemplates] Successfully parsed source schema from string");
+          debugFormSchema(parsedSchema, "[TaskTemplates] Source Form Schema (Parsed)");
+          return parsedSchema;
+        } catch (e) {
+          console.error("[TaskTemplates] Error parsing source schema string:", e);
+          return data.schema;
+        }
+      }
+      
+      debugFormSchema(data.schema, "[TaskTemplates] Source Form Schema");
+      return data.schema;
     },
-    enabled: !!sourceFormId && editOpen,
+    enabled: !!sourceFormId && (editOpen || createTemplateModalOpen),
     staleTime: 10 * 60 * 1000, // 10 minutes cache
     retry: 1, // Reduced retries
   });
@@ -231,12 +249,31 @@ const TaskTemplates = () => {
         throw error;
       }
 
-      console.log(`[TaskTemplates] Target form schema retrieved:`, data?.schema ? typeof data.schema : "null");
-      debugFormSchema(data?.schema, "[TaskTemplates] Target Form Schema");
+      if (!data || !data.schema) {
+        console.warn(`[TaskTemplates] No schema found for target form: ${targetFormId}`);
+        return null;
+      }
+
+      console.log(`[TaskTemplates] Target form schema retrieved:`, 
+        data.schema ? `type: ${typeof data.schema}` : "null");
       
-      return data?.schema || null;
+      // Si el esquema es un string, intentamos parsearlo
+      if (typeof data.schema === 'string') {
+        try {
+          const parsedSchema = JSON.parse(data.schema);
+          console.log("[TaskTemplates] Successfully parsed target schema from string");
+          debugFormSchema(parsedSchema, "[TaskTemplates] Target Form Schema (Parsed)");
+          return parsedSchema;
+        } catch (e) {
+          console.error("[TaskTemplates] Error parsing target schema string:", e);
+          return data.schema;
+        }
+      }
+      
+      debugFormSchema(data.schema, "[TaskTemplates] Target Form Schema");
+      return data.schema;
     },
-    enabled: !!targetFormId && editOpen,
+    enabled: !!targetFormId && (editOpen || createTemplateModalOpen),
     staleTime: 10 * 60 * 1000, // 10 minutes cache
     retry: 1, // Reduced retries
   });
