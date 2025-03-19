@@ -1,94 +1,31 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Plus, Edit, Trash2, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogFooter } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
+import { Plus, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer";
-import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { isDevelopment } from "@/config/environment";
-import { CreateTaskTemplateModal } from "@/components/project/CreateTaskTemplateModal";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  isValidFormSchema, 
-  getValidFormSchema, 
-  safelyAccessFormSchema,
-  debugFormSchema,
-  FormSchema
-} from "@/utils/formSchemaUtils";
+import { debugFormSchema } from "@/utils/formSchemaUtils";
 import { Json } from "@/types/supabase";
-
-type AssignmentType = "static" | "dynamic";
-
-interface Form {
-  id: string;
-  title: string;
-  schema?: any;
-}
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
-
-interface TaskTemplate {
-  id: string;
-  title: string;
-  description: string;
-  sourceFormId: string;
-  sourceForm?: Form | null;
-  targetFormId: string;
-  targetForm?: Form | null;
-  isActive: boolean;
-  projectId: string;
-  inheritanceMapping: any;
-  assignmentType: AssignmentType;
-  defaultAssignee: string;
-  minDays: number;
-  dueDays: number;
-  assigneeFormField: string;
-}
+import { CreateTaskTemplateModal } from "@/components/project/CreateTaskTemplateModal";
+import TaskTemplateList from "@/components/task-templates/TaskTemplateList";
+import TaskTemplateFilter from "@/components/task-templates/TaskTemplateFilter";
+import EditTaskTemplateModal from "@/components/task-templates/EditTaskTemplateModal";
+import { 
+  TaskTemplate, 
+  Form, 
+  transformTaskTemplates, 
+  getProjectUsers, 
+  AssignmentType
+} from "@/utils/taskTemplateUtils";
 
 const TaskTemplates = () => {
-  const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | null>(null);
   const [title, setTitle] = useState("");
@@ -111,9 +48,8 @@ const TaskTemplates = () => {
   const [filter, setFilter] = useState<"active" | "inactive" | "all">("all");
   const [createTemplateModalOpen, setCreateTemplateModalOpen] = useState(false);
   const [currentEditTab, setCurrentEditTab] = useState("general");
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, userProfile } = useAuth();
+  const { userProfile } = useAuth();
 
   useEffect(() => {
     const storedProjectId = sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
@@ -315,40 +251,9 @@ const TaskTemplates = () => {
     return map;
   }, [forms]);
 
-  const transformTaskTemplates = (data: any[]): TaskTemplate[] => {
-    if (!data || !Array.isArray(data)) return [];
-    
-    return data.map(template => {
-      const sourceForm = formsMap.get(template.source_form_id) || null;
-      const targetForm = formsMap.get(template.target_form_id) || null;
-      
-      const assignmentType: AssignmentType = template.assignment_type === "dynamic" 
-        ? "dynamic" 
-        : "static";
-      
-      return {
-        id: template.id,
-        title: template.title,
-        description: template.description,
-        sourceFormId: template.source_form_id,
-        sourceForm,
-        targetFormId: template.target_form_id,
-        targetForm,
-        isActive: template.is_active,
-        projectId: template.project_id,
-        inheritanceMapping: template.inheritance_mapping || {},
-        assignmentType,
-        defaultAssignee: template.default_assignee || "",
-        minDays: template.min_days || 0,
-        dueDays: template.due_days || 7,
-        assigneeFormField: template.assignee_form_field || ""
-      };
-    });
-  };
-
   const taskTemplates = React.useMemo(() => {
     if (!taskTemplatesData) return [];
-    return transformTaskTemplates(taskTemplatesData);
+    return transformTaskTemplates(taskTemplatesData, formsMap);
   }, [taskTemplatesData, formsMap]);
 
   const updateTaskTemplateMutation = useMutation({
@@ -496,161 +401,6 @@ const TaskTemplates = () => {
     setIsTemplateAll(newFilter === "all");
   };
 
-  const getProjectUsers = async (projectId: string): Promise<User[]> => {
-    try {
-      console.log(`[TaskTemplates] Fetching users for project: ${projectId}`);
-      
-      const { data: projectUsersData, error: projectUsersError } = await supabase
-        .from('project_users')
-        .select('user_id')
-        .eq('project_id', projectId)
-        .eq('status', 'active');
-
-      if (projectUsersError) {
-        console.error("[TaskTemplates] Error fetching project users:", projectUsersError);
-        return [];
-      }
-      
-      if (!projectUsersData || projectUsersData.length === 0) {
-        return [];
-      }
-      
-      const userIds = projectUsersData.map(pu => pu.user_id);
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, name, email')
-        .in('id', userIds);
-        
-      if (profilesError) {
-        console.error("[TaskTemplates] Error fetching user profiles:", profilesError);
-        return [];
-      }
-      
-      const users: User[] = profilesData?.map(profile => ({
-        id: profile.id,
-        name: profile.name || 'Usuario sin nombre',
-        email: profile.email || 'correo@desconocido.com'
-      })) || [];
-      
-      console.log(`[TaskTemplates] Found ${users.length} users for project ${projectId}`);
-      return users;
-    } catch (error) {
-      console.error("[TaskTemplates] Error fetching project users:", error);
-      return [];
-    }
-  };
-
-  const getEmailFieldsFromForm = (formSchema: Json | null): { key: string, label: string }[] => {
-    if (!formSchema) {
-      console.warn("[TaskTemplates] Form schema is null or undefined in getEmailFieldsFromForm");
-      return [];
-    }
-    
-    // Use safelyAccessFormSchema to ensure proper type conversion
-    const schema = safelyAccessFormSchema(formSchema);
-    if (!schema) {
-      console.warn("[TaskTemplates] Invalid schema format in getEmailFieldsFromForm");
-      return [];
-    }
-
-    // Now we can safely access the components property because schema is a FormSchema
-    return schema.components
-      .filter((component) => 
-        component.type === 'email' && component.key)
-      .map((component) => ({
-        key: component.key,
-        label: component.label || component.key
-      }));
-  };
-
-  const getSourceFormFields = () => {
-    if (!sourceFormSchema) {
-      console.warn("[TaskTemplates] Source form schema is null or undefined in getSourceFormFields");
-      return [];
-    }
-    
-    // Use safelyAccessFormSchema to ensure proper type conversion
-    const schema = safelyAccessFormSchema(sourceFormSchema);
-    if (!schema) {
-      console.warn("[TaskTemplates] Invalid source schema format in getSourceFormFields");
-      return [];
-    }
-    
-    // Now we can safely access the components property because schema is a FormSchema
-    const fields = schema.components
-      .filter((component) => component.key && component.type !== 'button')
-      .map((component) => ({
-        key: component.key,
-        label: component.label || component.key,
-        type: component.type
-      }));
-      
-    console.log(`[TaskTemplates] getSourceFormFields - Found ${fields.length} fields`, 
-      fields.length > 0 ? `(first field: ${fields[0].label}, type: ${fields[0].type})` : "");
-    return fields;
-  };
-
-  const getTargetFormFields = () => {
-    if (!targetFormSchema) {
-      console.warn("[TaskTemplates] Target form schema is null or undefined in getTargetFormFields");
-      return [];
-    }
-    
-    // Use safelyAccessFormSchema to ensure proper type conversion
-    const schema = safelyAccessFormSchema(targetFormSchema);
-    if (!schema) {
-      console.warn("[TaskTemplates] Invalid target schema format in getTargetFormFields");
-      return [];
-    }
-    
-    // Now we can safely access the components property because schema is a FormSchema
-    const fields = schema.components
-      .filter((component) => component.key && component.type !== 'button')
-      .map((component) => ({
-        key: component.key,
-        label: component.label || component.key,
-        type: component.type
-      }));
-      
-    console.log(`[TaskTemplates] getTargetFormFields - Found ${fields.length} fields`, 
-      fields.length > 0 ? `(first field: ${fields[0].label}, type: ${fields[0].type})` : "");
-    return fields;
-  };
-
-  const handleFieldMapping = (sourceKey: string, targetKey: string) => {
-    const newMapping = { ...inheritanceMapping };
-    if (sourceKey) {
-      newMapping[sourceKey] = targetKey;
-    } else {
-      const sourceKeyToRemove = Object.entries(inheritanceMapping)
-        .find(([_, value]) => value === targetKey)?.[0];
-      
-      if (sourceKeyToRemove) {
-        delete newMapping[sourceKeyToRemove];
-      }
-    }
-    
-    setInheritanceMapping(newMapping);
-  };
-
-  const areFieldTypesCompatible = (sourceType: string, targetType: string) => {
-    const textTypes = ['textfield', 'textarea', 'text'];
-    const numberTypes = ['number', 'currency'];
-    const dateTypes = ['datetime', 'date'];
-    const selectionTypes = ['select', 'radio', 'checkbox'];
-    
-    if (textTypes.includes(sourceType) && textTypes.includes(targetType)) return true;
-    if (numberTypes.includes(sourceType) && numberTypes.includes(targetType)) return true;
-    if (dateTypes.includes(sourceType) && dateTypes.includes(targetType)) return true;
-    if (selectionTypes.includes(sourceType) && selectionTypes.includes(targetType)) return true;
-    
-    return sourceType === targetType;
-  };
-
-  const isLoadingSchemas = isLoadingSourceSchema || isLoadingTargetSchema;
-  const hasSchemaError = errorSourceSchema || errorTargetSchema;
-  const canAccessAdvancedTabs = !!sourceFormId && !!targetFormId;
-
   useEffect(() => {
     if (editOpen && sourceFormId && targetFormId) {
       console.log("[TaskTemplates] Edit modal opened with form schemas:", {
@@ -661,9 +411,10 @@ const TaskTemplates = () => {
         hasTargetSchema: !!targetFormSchema,
         sourceSchemaType: sourceFormSchema ? typeof sourceFormSchema : 'undefined',
         targetSchemaType: targetFormSchema ? typeof targetFormSchema : 'undefined',
-        isLoadingSchemas
+        isLoadingSchemas: isLoadingSourceSchema || isLoadingTargetSchema
       });
       
+      // Debug logging for form schemas
       if (sourceFormSchema) {
         console.group("[TaskTemplates] Source Form Schema Debug");
         if (typeof sourceFormSchema === 'string') {
@@ -680,8 +431,8 @@ const TaskTemplates = () => {
           }
         } else if (typeof sourceFormSchema === 'object') {
           console.log("Object keys:", Object.keys(sourceFormSchema));
-          if (Array.isArray(sourceFormSchema.components)) {
-            console.log("Component count:", sourceFormSchema.components.length);
+          if (Array.isArray((sourceFormSchema as any).components)) {
+            console.log("Component count:", (sourceFormSchema as any).components.length);
           }
         }
         console.groupEnd();
@@ -703,14 +454,14 @@ const TaskTemplates = () => {
           }
         } else if (typeof targetFormSchema === 'object') {
           console.log("Object keys:", Object.keys(targetFormSchema));
-          if (Array.isArray(targetFormSchema.components)) {
-            console.log("Component count:", targetFormSchema.components.length);
+          if (Array.isArray((targetFormSchema as any).components)) {
+            console.log("Component count:", (targetFormSchema as any).components.length);
           }
         }
         console.groupEnd();
       }
     }
-  }, [editOpen, selectedTemplate?.id, sourceFormId, targetFormId, sourceFormSchema, targetFormSchema, isLoadingSchemas]);
+  }, [editOpen, selectedTemplate?.id, sourceFormId, targetFormId, sourceFormSchema, targetFormSchema, isLoadingSourceSchema, isLoadingTargetSchema]);
 
   if (isLoadingTaskTemplates) return (
     <div className="flex items-center justify-center h-screen bg-gray-50">
@@ -722,7 +473,7 @@ const TaskTemplates = () => {
     <Alert variant="destructive">
       <AlertTitle>Error</AlertTitle>
       <AlertDescription>
-        Hubo un error al cargar las plantillas de tareas. {errorTaskTemplates.message}
+        Hubo un error al cargar las plantillas de tareas. {(errorTaskTemplates as Error).message}
       </AlertDescription>
     </Alert>
   );
@@ -752,433 +503,75 @@ const TaskTemplates = () => {
         </div>
       </div>
 
-      <div className="mb-4">
-        <Label>Filtrar por estado:</Label>
-        <div className="flex space-x-2 mt-2">
-          <Button
-            variant={isTemplateAll ? "default" : "outline"}
-            onClick={() => handleFilterChange("all")}
-          >
-            Todas
-          </Button>
-          <Button
-            variant={isTemplateActive ? "default" : "outline"}
-            onClick={() => handleFilterChange("active")}
-          >
-            Activas
-          </Button>
-          <Button
-            variant={isTemplateInactive ? "default" : "outline"}
-            onClick={() => handleFilterChange("inactive")}
-          >
-            Inactivas
-          </Button>
-        </div>
-      </div>
+      <TaskTemplateFilter 
+        filter={filter}
+        onFilterChange={handleFilterChange}
+        isTemplateActive={isTemplateActive}
+        isTemplateInactive={isTemplateInactive}
+        isTemplateAll={isTemplateAll}
+      />
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[200px]">Título</TableHead>
-              <TableHead>Descripción</TableHead>
-              <TableHead>Formulario de Origen</TableHead>
-              <TableHead>Formulario de Destino</TableHead>
-              <TableHead>Periodo de ejecución</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {taskTemplates.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-6">
-                  No hay plantillas de tareas disponibles
-                </TableCell>
-              </TableRow>
-            ) : (
-              taskTemplates.map((template) => (
-                <TableRow key={template.id}>
-                  <TableCell className="font-medium">{template.title}</TableCell>
-                  <TableCell>{template.description}</TableCell>
-                  <TableCell>{template.sourceForm?.title || '—'}</TableCell>
-                  <TableCell>{template.targetForm?.title || '—'}</TableCell>
-                  <TableCell>
-                    {template.minDays === 0 ? 
-                      `Hasta ${template.dueDays} día${template.dueDays !== 1 ? 's' : ''}` : 
-                      `${template.minDays} - ${template.dueDays} día${template.dueDays !== 1 ? 's' : ''}`}
-                  </TableCell>
-                  <TableCell>{template.isActive ? <Badge variant="outline" className="bg-green-50">Activa</Badge> : <Badge variant="outline" className="bg-gray-100">Inactiva</Badge>}</TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleEdit(template)}
-                    >
-                      <Edit className="mr-2 h-4 w-4" />
-                      Editar
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <TaskTemplateList 
+        taskTemplates={taskTemplates} 
+        onEdit={handleEdit} 
+      />
 
       {errorForms && (
         <Alert variant="destructive" className="mt-4">
           <AlertTitle>Error al cargar formularios</AlertTitle>
           <AlertDescription>
-            {errorForms.message}
+            {(errorForms as Error).message}
           </AlertDescription>
         </Alert>
       )}
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-[650px]">
-          <DialogHeader>
-            <DialogTitle>Editar Plantilla de Tarea</DialogTitle>
-            <DialogDescription>
-              Edita la plantilla de tarea para automatizar tus procesos.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <Tabs value={currentEditTab} onValueChange={setCurrentEditTab}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="general">General</TabsTrigger>
-              <TabsTrigger value="assignment" disabled={!canAccessAdvancedTabs}>
-                Asignación
-              </TabsTrigger>
-              <TabsTrigger value="inheritance" disabled={!canAccessAdvancedTabs}>
-                Herencia
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="general" className="space-y-4 pt-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="title" className="text-right">
-                  Título
-                </Label>
-                <Input
-                  type="text"
-                  id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">
-                  Descripción
-                </Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="projectId" className="text-right">
-                  Proyecto
-                </Label>
-                <Select onValueChange={setProjectId} value={projectId}>
-                  <SelectTrigger id="projectId" className="col-span-3">
-                    <SelectValue placeholder="Selecciona un proyecto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {isLoadingProjects ? (
-                      <div className="flex items-center justify-center p-2">
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> 
-                        Cargando...
-                      </div>
-                    ) : projects?.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="sourceFormId" className="text-right">
-                  Formulario de Origen
-                </Label>
-                <Select onValueChange={setSourceFormId} value={sourceFormId}>
-                  <SelectTrigger id="sourceFormId" className="col-span-3">
-                    <SelectValue placeholder="Selecciona un formulario" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {isLoadingForms ? (
-                      <div className="flex items-center justify-center p-2">
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> 
-                        Cargando...
-                      </div>
-                    ) : forms?.map((form) => (
-                      <SelectItem key={form.id} value={form.id}>
-                        {form.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="targetFormId" className="text-right">
-                  Formulario de Destino
-                </Label>
-                <Select onValueChange={setTargetFormId} value={targetFormId}>
-                  <SelectTrigger id="targetFormId" className="col-span-3">
-                    <SelectValue placeholder="Selecciona un formulario" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {isLoadingForms ? (
-                      <div className="flex items-center justify-center p-2">
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> 
-                        Cargando...
-                      </div>
-                    ) : forms?.map((form) => (
-                      <SelectItem key={form.id} value={form.id}>
-                        {form.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">
-                  Periodo de Ejecución
-                </Label>
-                <div className="col-span-3 grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="minDays">Mínimo (días)</Label>
-                    <Input
-                      type="number"
-                      id="minDays"
-                      value={minDays}
-                      onChange={(e) => setMinDays(Number(e.target.value))}
-                      min={0}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="dueDays">Máximo (días)</Label>
-                    <Input
-                      type="number"
-                      id="dueDays"
-                      value={dueDays}
-                      onChange={(e) => setDueDays(Number(e.target.value))}
-                      min={1}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="isActive" className="text-right">
-                  Activa
-                </Label>
-                <div className="col-span-3">
-                  <Switch
-                    id="isActive"
-                    checked={isActive}
-                    onCheckedChange={setIsActive}
-                  />
-                </div>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="assignment" className="space-y-4 pt-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="assignmentType" className="text-right">
-                  Tipo de Asignación
-                </Label>
-                <Select onValueChange={(value: AssignmentType) => setAssignmentType(value)} value={assignmentType}>
-                  <SelectTrigger id="assignmentType" className="col-span-3">
-                    <SelectValue placeholder="Selecciona un tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="static">Usuario</SelectItem>
-                    <SelectItem value="dynamic">Campo de Formulario</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {assignmentType === "static" && (
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="defaultAssignee" className="text-right">
-                    Usuario Asignado
-                  </Label>
-                  <Select onValueChange={setDefaultAssignee} value={defaultAssignee}>
-                    <SelectTrigger id="defaultAssignee" className="col-span-3">
-                      <SelectValue placeholder="Selecciona un usuario" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {isLoadingProjectUsers ? (
-                        <div className="flex items-center justify-center p-2">
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> 
-                          Cargando usuarios...
-                        </div>
-                      ) : projectUsers?.length === 0 ? (
-                        <div className="p-2 text-center text-sm text-gray-500">
-                          No hay usuarios disponibles
-                        </div>
-                      ) : (
-                        projectUsers?.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.name} ({user.email})
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              {assignmentType === "dynamic" && (
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="assigneeFormField" className="text-right">
-                    Campo de Email
-                  </Label>
-                  <Select 
-                    onValueChange={setAssigneeFormField} 
-                    value={assigneeFormField}
-                    disabled={!sourceFormId || isLoadingSourceSchema}
-                  >
-                    <SelectTrigger id="assigneeFormField" className="col-span-3">
-                      <SelectValue placeholder={
-                        !sourceFormId 
-                          ? "Selecciona un formulario origen primero" 
-                          : isLoadingSourceSchema 
-                            ? "Cargando campos..." 
-                            : "Selecciona campo email"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {isLoadingSourceSchema ? (
-                        <div className="flex items-center justify-center p-2">
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> 
-                          Cargando campos...
-                        </div>
-                      ) : getEmailFieldsFromForm(sourceFormSchema).length === 0 ? (
-                        <div className="p-2 text-center text-sm text-gray-500">
-                          No hay campos de email disponibles
-                        </div>
-                      ) : (
-                        getEmailFieldsFromForm(sourceFormSchema).map((field) => (
-                          <SelectItem key={field.key} value={field.key}>
-                            {field.label}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="inheritance" className="space-y-4 pt-4">
-              <div className="text-sm mb-4">
-                <div className="font-medium">Mapeo de Campos</div>
-                <p className="text-gray-500">
-                  Selecciona qué campos del formulario de origen se copiarán a cada campo del formulario de destino.
-                </p>
-              </div>
-              
-              {hasSchemaError && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Error al cargar esquemas</AlertTitle>
-                  <AlertDescription>
-                    Hubo un problema al cargar los esquemas de formularios. Intenta nuevamente.
-                  </AlertDescription>
-                </Alert>
-              )}
-              
-              {canAccessAdvancedTabs ? (
-                isLoadingSchemas ? (
-                  <div className="text-center p-6 border rounded-md">
-                    <div className="flex flex-col items-center justify-center">
-                      <Loader2 className="h-6 w-6 animate-spin mb-2" />
-                      <span>Cargando esquemas de formularios...</span>
-                    </div>
-                  </div>
-                ) : getTargetFormFields().length > 0 ? (
-                  <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                    {getTargetFormFields().map((targetField) => {
-                      const mappedSourceKey = Object.entries(inheritanceMapping)
-                        .find(([_, value]) => value === targetField.key)?.[0] || "";
-                        
-                      return (
-                        <div key={targetField.key} className="grid grid-cols-2 gap-4 p-3 border rounded-md">
-                          <div>
-                            <Label className="font-medium">{targetField.label}</Label>
-                            <div className="text-xs text-gray-500">Campo destino ({targetField.type})</div>
-                          </div>
-                          <div>
-                            <Select
-                              value={mappedSourceKey}
-                              onValueChange={(sourceKey) => handleFieldMapping(sourceKey, targetField.key)}
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Selecciona un campo origen" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="">No heredar</SelectItem>
-                                {getSourceFormFields()
-                                  .filter(sourceField => areFieldTypesCompatible(sourceField.type, targetField.type))
-                                  .map((sourceField) => (
-                                    <SelectItem key={sourceField.key} value={sourceField.key}>
-                                      {sourceField.label} ({sourceField.type})
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center p-6 border rounded-md">
-                    <AlertTriangle className="h-6 w-6 text-amber-500 mx-auto mb-2" />
-                    <p className="text-gray-500">No se encontraron campos en los formularios seleccionados.</p>
-                  </div>
-                )
-              ) : (
-                <div className="text-center p-6 border rounded-md">
-                  <div>
-                    <p className="text-gray-500">Selecciona formularios de origen y destino primero</p>
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-          
-          <DialogFooter>
-            <Button variant="destructive" disabled={isDeleting} onClick={handleDeleteTaskTemplate}>
-              {isDeleting ? (
-                <>
-                  Eliminando...
-                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                </>
-              ) : (
-                <>
-                  Eliminar
-                  <Trash2 className="ml-2 h-4 w-4" />
-                </>
-              )}
-            </Button>
-            <div className="flex-grow"></div>
-            <Button type="submit" disabled={isSaving} onClick={handleUpdateTaskTemplate}>
-              {isSaving ? (
-                <>
-                  Actualizando...
-                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                </>
-              ) : (
-                "Actualizar"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EditTaskTemplateModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        selectedTemplate={selectedTemplate}
+        title={title}
+        setTitle={setTitle}
+        description={description}
+        setDescription={setDescription}
+        sourceFormId={sourceFormId}
+        setSourceFormId={setSourceFormId}
+        targetFormId={targetFormId}
+        setTargetFormId={setTargetFormId}
+        isActive={isActive}
+        setIsActive={setIsActive}
+        projectId={projectId}
+        setProjectId={setProjectId}
+        inheritanceMapping={inheritanceMapping}
+        setInheritanceMapping={setInheritanceMapping}
+        assignmentType={assignmentType}
+        setAssignmentType={setAssignmentType}
+        defaultAssignee={defaultAssignee}
+        setDefaultAssignee={setDefaultAssignee}
+        minDays={minDays}
+        setMinDays={setMinDays}
+        dueDays={dueDays}
+        setDueDays={setDueDays}
+        assigneeFormField={assigneeFormField}
+        setAssigneeFormField={setAssigneeFormField}
+        currentEditTab={currentEditTab}
+        setCurrentEditTab={setCurrentEditTab}
+        projects={projects}
+        forms={forms}
+        projectUsers={projectUsers}
+        sourceFormSchema={sourceFormSchema as Json}
+        targetFormSchema={targetFormSchema as Json}
+        isLoadingProjects={isLoadingProjects}
+        isLoadingForms={isLoadingForms}
+        isLoadingProjectUsers={isLoadingProjectUsers}
+        isLoadingSourceSchema={isLoadingSourceSchema}
+        isLoadingTargetSchema={isLoadingTargetSchema}
+        errorSourceSchema={errorSourceSchema}
+        errorTargetSchema={errorTargetSchema}
+        isSaving={isSaving}
+        isDeleting={isDeleting}
+        onUpdateTemplate={handleUpdateTaskTemplate}
+        onDeleteTemplate={handleDeleteTaskTemplate}
+      />
       
       <CreateTaskTemplateModal
         open={createTemplateModalOpen}
