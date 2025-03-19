@@ -13,6 +13,23 @@ export const SERVICES = {
   NOTIFICATIONS: 'notifications'
 };
 
+// Get the current project ID from session storage
+const getCurrentProjectId = () => {
+  return sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
+};
+
+// Create default headers with project ID if available
+const getDefaultHeaders = (): Record<string, string> => {
+  const projectId = getCurrentProjectId();
+  const headers: Record<string, string> = {};
+  
+  if (projectId) {
+    headers['X-Current-Project'] = projectId;
+  }
+  
+  return headers;
+};
+
 // Create a single instance of the Supabase client for the main API
 // Set reasonable timeouts to prevent hanging requests
 const supabaseClient = createClient<Database>(
@@ -30,13 +47,21 @@ const supabaseClient = createClient<Database>(
       schema: 'public'
     },
     global: {
+      headers: getDefaultHeaders(),
       fetch: (url, options) => {
         // Create a controller with timeout to prevent hanging requests
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
         
+        // Get current project ID for this specific request
+        const currentHeaders = { ...getDefaultHeaders() };
+        
         return fetch(url, { 
           ...options, 
+          headers: {
+            ...((options as RequestInit).headers || {}),
+            ...currentHeaders
+          },
           cache: 'no-store',
           signal: controller.signal
         }).finally(() => {
@@ -51,20 +76,6 @@ const supabaseClient = createClient<Database>(
 if (environment !== 'production') {
   console.log(`Supabase client initialized for ${environment} environment`);
 }
-
-// Get the current project ID from session storage
-const getCurrentProjectId = () => {
-  return sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
-};
-
-// Add project ID header if it exists
-supabaseClient.headers = () => {
-  const projectId = getCurrentProjectId();
-  if (projectId) {
-    return { 'X-Current-Project': projectId };
-  }
-  return {};
-};
 
 // Export the main API client as the default supabase client
 export const supabase = supabaseClient;
