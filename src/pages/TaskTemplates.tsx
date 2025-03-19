@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -546,12 +547,14 @@ const TaskTemplates = () => {
       return [];
     }
     
+    // Use safelyAccessFormSchema to ensure proper type conversion
     const schema = safelyAccessFormSchema(formSchema);
     if (!schema) {
       console.warn("[TaskTemplates] Invalid schema format in getEmailFieldsFromForm");
       return [];
     }
 
+    // Now we can safely access the components property
     const fields = schema.components
       .filter((component) => 
         component.type === 'email' && component.key)
@@ -570,12 +573,14 @@ const TaskTemplates = () => {
       return [];
     }
     
+    // Use safelyAccessFormSchema to ensure proper type conversion
     const schema = safelyAccessFormSchema(sourceFormSchema);
     if (!schema) {
       console.warn("[TaskTemplates] Invalid source schema format in getSourceFormFields");
       return [];
     }
     
+    // Now we can safely access the components property
     const fields = schema.components
       .filter((component) => component.key && component.type !== 'button')
       .map((component) => ({
@@ -595,12 +600,14 @@ const TaskTemplates = () => {
       return [];
     }
     
+    // Use safelyAccessFormSchema to ensure proper type conversion
     const schema = safelyAccessFormSchema(targetFormSchema);
     if (!schema) {
       console.warn("[TaskTemplates] Invalid target schema format in getTargetFormFields");
       return [];
     }
     
+    // Now we can safely access the components property
     const fields = schema.components
       .filter((component) => component.key && component.type !== 'button')
       .map((component) => ({
