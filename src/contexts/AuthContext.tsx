@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useMemo, use
 import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
 import { toast } from "@/components/ui/use-toast";
+import { config } from "@/config/environment"; // Add this import for the config object
 
 interface AuthContextType {
   session: Session | null;
