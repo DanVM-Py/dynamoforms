@@ -83,6 +83,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/forms/:formId/edit",
+    element: (
+      <ProtectedRoute>
+        <Suspense fallback={<Loading />}><FormEdit /></Suspense>
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: "/forms/:formId",
     element: (
       <ProtectedRoute>
