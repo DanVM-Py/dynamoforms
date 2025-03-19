@@ -13,41 +13,26 @@ interface SidebarStateProps {
 }
 
 export function useSidebarState({ forceVisible = false, isMobile }: SidebarStateProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(!isMobile);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   
-  // Check if current path should hide the sidebar
+  // Simple check if current path should hide the sidebar
   const shouldHideSidebar = HIDE_SIDEBAR_PATHS.some(path => 
     location.pathname === path || 
     location.pathname.startsWith(`${path}/`)
   );
   
-  // Force visibility overrides the hide paths check
+  // Force visibility takes precedence over path-based hiding
   const shouldShowSidebar = forceVisible || !shouldHideSidebar;
   
-  // Debug log for bug diagnosis
-  console.log('useSidebarState hook check:', {
-    path: location.pathname,
-    forceVisible,
-    shouldHideSidebar,
-    shouldShowSidebar,
-    isMobile
-  });
-  
   useEffect(() => {
-    // Set initial state based on device
-    setIsExpanded(!isMobile);
-    
-    // For mobile devices, only open the menu when explicitly forced
-    if (isMobile && !forceVisible) {
-      setIsMobileMenuOpen(false);
-    } else if (forceVisible && isMobile) {
-      setIsMobileMenuOpen(true);
+    // For mobile devices, reset mobile menu state on route changes
+    if (isMobile) {
+      setIsMobileMenuOpen(forceVisible);
     }
   }, [isMobile, location.pathname, forceVisible]);
 
-  // Manage the sidebar state
   const toggleSidebar = () => {
     setIsExpanded(!isExpanded);
   };
@@ -61,7 +46,6 @@ export function useSidebarState({ forceVisible = false, isMobile }: SidebarState
     isMobileMenuOpen,
     toggleSidebar,
     toggleMobileMenu,
-    isSidebarForced: forceVisible,
     shouldShowSidebar
   };
 }

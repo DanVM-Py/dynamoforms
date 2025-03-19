@@ -27,18 +27,8 @@ export const PageContainer = ({ children, className, hideSidebar = false, title 
   // Only hide sidebar if explicitly requested OR if path is in hidden paths
   const shouldHideSidebar = hideSidebar || isHiddenSidebarPath;
   
-  // Render sidebar if user is authenticated and sidebar should not be hidden
+  // Show sidebar if user is authenticated and sidebar should not be hidden
   const shouldShowSidebar = isAuthenticated && !shouldHideSidebar;
-  
-  // Debug log for diagnosis
-  console.log('PageContainer sidebar check:', {
-    path: location.pathname,
-    hideSidebar,
-    isHiddenSidebarPath,
-    shouldHideSidebar,
-    shouldShowSidebar,
-    isAuthenticated
-  });
   
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -46,7 +36,7 @@ export const PageContainer = ({ children, className, hideSidebar = false, title 
       <main 
         className={cn(
           "flex-1 p-6", 
-          (!shouldShowSidebar) ? 'w-full' : '',
+          !shouldShowSidebar ? 'w-full' : '',
           className
         )}
       >

@@ -1,9 +1,27 @@
 
 import React, { lazy, Suspense } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { PageContainer } from './components/layout/PageContainer';
 import ProtectedRoute from "./components/ProtectedRoute";
+
+// Lazy-loaded components
+const Auth = lazy(() => import("./pages/Auth"));
+const Forms = lazy(() => import("./pages/Forms"));
+const FormEdit = lazy(() => import("./pages/FormEdit"));
+const FormResponses = lazy(() => import("./pages/FormResponses"));
+const PublicFormView = lazy(() => import("./pages/PublicFormView"));
+const PublicFormSuccess = lazy(() => import("./pages/PublicFormSuccess"));
+const Projects = lazy(() => import("./pages/Projects"));
+const ProjectRoles = lazy(() => import("./pages/ProjectRoles"));
+const ProjectUsers = lazy(() => import("./pages/ProjectUsers"));
+const Admin = lazy(() => import("./pages/Admin"));
+const Tasks = lazy(() => import("./pages/Tasks"));
+const TaskTemplates = lazy(() => import("./pages/TaskTemplates"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const Index = lazy(() => import("./pages/Index"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Monitoring = lazy(() => import("./pages/Monitoring"));
 
 // Log before rendering the task-templates route
 const TaskTemplatesWrapper = () => {
@@ -24,7 +42,7 @@ const TaskTemplatesWrapper = () => {
   );
 };
 
-// Página de carga con mejor feedback
+// Loading component with better feedback
 const Loading = () => (
   <div className="flex items-center justify-center h-screen bg-gray-50">
     <div className="flex flex-col items-center bg-white p-8 rounded-lg shadow-sm">
@@ -34,25 +52,7 @@ const Loading = () => (
   </div>
 );
 
-// Importaciones de páginas
-const Auth = lazy(() => import("./pages/Auth"));
-const Forms = lazy(() => import("./pages/Forms"));
-const FormEdit = lazy(() => import("./pages/FormEdit"));
-const FormResponses = lazy(() => import("./pages/FormResponses"));
-const PublicFormView = lazy(() => import("./pages/PublicFormView"));
-const PublicFormSuccess = lazy(() => import("./pages/PublicFormSuccess"));
-const Projects = lazy(() => import("./pages/Projects"));
-const ProjectRoles = lazy(() => import("./pages/ProjectRoles"));
-const ProjectUsers = lazy(() => import("./pages/ProjectUsers"));
-const Admin = lazy(() => import("./pages/Admin"));
-const Tasks = lazy(() => import("./pages/Tasks"));
-const TaskTemplates = lazy(() => import("./pages/TaskTemplates"));
-const Notifications = lazy(() => import("./pages/Notifications"));
-const Index = lazy(() => import("./pages/Index"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const Monitoring = lazy(() => import("./pages/Monitoring"));
-
-// Configuración de rutas
+// Route configuration
 export const router = createBrowserRouter([
   {
     path: "/",

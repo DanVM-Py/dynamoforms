@@ -22,22 +22,10 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
     isMobileMenuOpen, 
     toggleSidebar, 
     toggleMobileMenu, 
-    isSidebarForced,
     shouldShowSidebar
   } = useSidebarState({
     forceVisible,
     isMobile
-  });
-
-  // Debug log for diagnosis
-  console.log('Sidebar component check:', {
-    forceVisible,
-    isMobile,
-    isExpanded,
-    isMobileMenuOpen,
-    isSidebarForced,
-    shouldShowSidebar,
-    user: !!user
   });
 
   if (!user || !shouldShowSidebar) {
@@ -47,14 +35,14 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
   const sidebarClasses = `${
     isMobile ? 'fixed z-20 top-0 bottom-0 left-0' : 'sticky top-0'
   } h-screen bg-white border-r ${
-    (isExpanded || isMobileMenuOpen || isSidebarForced) ? 'w-64' : 'w-16'
+    (isExpanded || isMobileMenuOpen || forceVisible) ? 'w-64' : 'w-16'
   } transition-all duration-300 py-4 flex flex-col`;
 
-  const overlay = isMobile && (isMobileMenuOpen || isSidebarForced) && (
+  const overlay = isMobile && (isMobileMenuOpen || forceVisible) && (
     <div
       className="fixed inset-0 bg-black/30 z-10"
       onClick={() => {
-        if (!isSidebarForced) {
+        if (!forceVisible) {
           toggleMobileMenu();
         }
       }}
@@ -65,7 +53,7 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
     <>
       {overlay}
       
-      {isMobile && !isSidebarForced && (
+      {isMobile && !forceVisible && (
         <button
           onClick={toggleMobileMenu}
           className="fixed bottom-4 right-4 z-30 bg-purple-600 text-white p-3 rounded-full shadow-lg hover:bg-purple-700 transition-colors md:hidden"
@@ -76,11 +64,11 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
       
       <div
         className={`${sidebarClasses} ${
-          isMobile && !isMobileMenuOpen && !isSidebarForced ? '-translate-x-full' : 'translate-x-0'
+          isMobile && !isMobileMenuOpen && !forceVisible ? '-translate-x-full' : 'translate-x-0'
         }`}
       >
         <div className="flex items-center px-4 py-2 justify-between">
-          {(isExpanded || isMobileMenuOpen || isSidebarForced) ? (
+          {(isExpanded || isMobileMenuOpen || forceVisible) ? (
             <Link to="/" className="text-xl font-bold text-purple-700">Dynamo</Link>
           ) : (
             <Link to="/" className="text-xl font-bold text-purple-700">D</Link>
@@ -98,7 +86,7 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
 
         <div className="mt-4 flex flex-col flex-1 overflow-y-auto">
           <NavItems 
-            collapsed={!(isExpanded || isMobileMenuOpen || isSidebarForced)} 
+            collapsed={!(isExpanded || isMobileMenuOpen || forceVisible)} 
             currentProjectId={currentProjectId}
             projects={projects}
             setCurrentProjectId={setCurrentProjectId}
@@ -108,7 +96,7 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
         <SidebarUserSection 
           isExpanded={isExpanded} 
           isMobileMenuOpen={isMobileMenuOpen} 
-          isSidebarForced={isSidebarForced} 
+          isSidebarForced={forceVisible} 
         />
       </div>
     </>
