@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Edit, Trash2, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
@@ -104,23 +104,22 @@ const TaskTemplates = () => {
   const [filter, setFilter] = useState<"active" | "inactive" | "all">("all");
   const [createTemplateModalOpen, setCreateTemplateModalOpen] = useState(false);
   const [currentEditTab, setCurrentEditTab] = useState("general");
-  const [sourceFormSchema, setSourceFormSchema] = useState<any>(null);
-  const [targetFormSchema, setTargetFormSchema] = useState<any>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, userProfile } = useAuth();
 
+  // Get the project ID from session storage or user profile
   useEffect(() => {
     const storedProjectId = sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
     
     if (storedProjectId) {
-      console.log("Using project ID from session storage:", storedProjectId);
+      console.log("[TaskTemplates] Using project ID from session storage:", storedProjectId);
       setProjectId(storedProjectId);
     } else if (userProfile?.project_id) {
-      console.log("Falling back to project ID from user profile:", userProfile.project_id);
+      console.log("[TaskTemplates] Falling back to project ID from user profile:", userProfile.project_id);
       setProjectId(userProfile.project_id);
     } else {
-      console.warn("No project ID found in session storage or user profile");
+      console.warn("[TaskTemplates] No project ID found in session storage or user profile");
     }
   }, [userProfile]);
 
@@ -165,7 +164,7 @@ const TaskTemplates = () => {
       const { data, error } = await query;
 
       if (error) {
-        console.error("Error fetching task templates:", error);
+        console.error("[TaskTemplates] Error fetching task templates:", error);
         throw error;
       }
 
@@ -174,6 +173,7 @@ const TaskTemplates = () => {
     enabled: true,
   });
 
+  // Optimize forms query with better caching and error handling
   const {
     data: forms,
     isLoading: isLoadingForms,
@@ -183,6 +183,7 @@ const TaskTemplates = () => {
     queryFn: async () => {
       if (!projectId) return [];
       
+      console.log(`[TaskTemplates] Fetching forms for project: ${projectId}`);
       const { data, error } = await supabase
         .from('forms')
         .select('id, title, schema')
@@ -190,13 +191,14 @@ const TaskTemplates = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error("Error fetching forms:", error);
+        console.error("[TaskTemplates] Error fetching forms:", error);
         throw error;
       }
 
-      return data;
+      return data || [];
     },
     enabled: !!projectId,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 
   const {
@@ -206,18 +208,20 @@ const TaskTemplates = () => {
   } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
+      console.log("[TaskTemplates] Fetching all projects");
       const { data, error } = await supabase
         .from('projects')
         .select('id, name')
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error("Error fetching projects:", error);
+        console.error("[TaskTemplates] Error fetching projects:", error);
         throw error;
       }
 
       return data;
     },
+    staleTime: 10 * 60 * 1000, // 10 minutes cache
   });
 
   const {
@@ -228,10 +232,67 @@ const TaskTemplates = () => {
     queryKey: ['projectUsers', projectId],
     queryFn: async () => {
       if (!projectId) return [];
-
       return getProjectUsers(projectId);
     },
     enabled: !!projectId,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+  });
+  
+  // Use separate queries for source and target form schemas
+  const {
+    data: sourceFormSchema,
+    isLoading: isLoadingSourceSchema,
+    error: errorSourceSchema
+  } = useQuery({
+    queryKey: ['formSchema', sourceFormId],
+    queryFn: async () => {
+      if (!sourceFormId) return null;
+      
+      console.log(`[TaskTemplates] Fetching schema for source form: ${sourceFormId}`);
+      const { data, error } = await supabase
+        .from('forms')
+        .select('schema')
+        .eq('id', sourceFormId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[TaskTemplates] Error loading source form schema:", error);
+        throw error;
+      }
+
+      return data?.schema || null;
+    },
+    enabled: !!sourceFormId && editOpen,
+    staleTime: 10 * 60 * 1000, // 10 minutes cache
+    retry: 1, // Reduced retries
+  });
+
+  const {
+    data: targetFormSchema,
+    isLoading: isLoadingTargetSchema,
+    error: errorTargetSchema
+  } = useQuery({
+    queryKey: ['formSchema', targetFormId],
+    queryFn: async () => {
+      if (!targetFormId) return null;
+      
+      console.log(`[TaskTemplates] Fetching schema for target form: ${targetFormId}`);
+      const { data, error } = await supabase
+        .from('forms')
+        .select('schema')
+        .eq('id', targetFormId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[TaskTemplates] Error loading target form schema:", error);
+        throw error;
+      }
+
+      return data?.schema || null;
+    },
+    enabled: !!targetFormId && editOpen,
+    staleTime: 10 * 60 * 1000, // 10 minutes cache
+    retry: 1, // Reduced retries
   });
 
   const formsMap = React.useMemo(() => {
@@ -280,97 +341,6 @@ const TaskTemplates = () => {
     return transformTaskTemplates(taskTemplatesData);
   }, [taskTemplatesData, formsMap]);
 
-  useEffect(() => {
-    const loadFormSchema = async (formId: string, setSchema: (schema: any) => void) => {
-      if (!formId) {
-        setSchema(null);
-        return;
-      }
-      
-      try {
-        const { data, error } = await supabase
-          .from("forms")
-          .select("schema")
-          .eq("id", formId)
-          .maybeSingle();
-
-        if (error) {
-          console.error("Error loading form schema:", error);
-          return;
-        }
-
-        if (data && data.schema) {
-          setSchema(data.schema);
-        }
-      } catch (error) {
-        console.error("Error loading form schema:", error);
-      }
-    };
-
-    if (sourceFormId) {
-      loadFormSchema(sourceFormId, setSourceFormSchema);
-    } else {
-      setSourceFormSchema(null);
-    }
-
-    if (targetFormId) {
-      loadFormSchema(targetFormId, setTargetFormSchema);
-    } else {
-      setTargetFormSchema(null);
-    }
-  }, [sourceFormId, targetFormId]);
-
-  const createTaskTemplateMutation = useMutation({
-    mutationFn: async () => {
-      setIsSaving(true);
-
-      const { data, error } = await supabase
-        .from('task_templates')
-        .insert({
-          title,
-          description,
-          source_form_id: sourceFormId,
-          target_form_id: targetFormId,
-          is_active: isActive,
-          project_id: projectId,
-          inheritance_mapping: inheritanceMapping,
-          assignment_type: assignmentType,
-          default_assignee: defaultAssignee,
-          min_days: minDays,
-          due_days: dueDays,
-          assignee_form_field: assigneeFormField
-        })
-        .select();
-
-      if (error) {
-        console.error("Error creating task template:", error);
-        throw error;
-      }
-
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['taskTemplates'] });
-      toast({
-        title: "Tarea creada",
-        description: "La plantilla de tarea se ha creado correctamente.",
-      });
-      setOpen(false);
-      clearForm();
-    },
-    onError: (error: any) => {
-      console.error("Error creating task template:", error);
-      toast({
-        title: "Error",
-        description: "Hubo un error al crear la plantilla de tarea. Inténtalo de nuevo.",
-        variant: "destructive",
-      });
-    },
-    onSettled: () => {
-      setIsSaving(false);
-    },
-  });
-
   const updateTaskTemplateMutation = useMutation({
     mutationFn: async () => {
       setIsSaving(true);
@@ -399,7 +369,7 @@ const TaskTemplates = () => {
         .select();
 
       if (error) {
-        console.error("Error updating task template:", error);
+        console.error("[TaskTemplates] Error updating task template:", error);
         throw error;
       }
 
@@ -415,7 +385,7 @@ const TaskTemplates = () => {
       clearForm();
     },
     onError: (error: any) => {
-      console.error("Error updating task template:", error);
+      console.error("[TaskTemplates] Error updating task template:", error);
       toast({
         title: "Error",
         description: typeof error === 'object' && error.message ? error.message : "Hubo un error al actualizar la plantilla de tarea. Inténtalo de nuevo.",
@@ -437,7 +407,7 @@ const TaskTemplates = () => {
         .eq('id', selectedTemplate?.id);
 
       if (error) {
-        console.error("Error deleting task template:", error);
+        console.error("[TaskTemplates] Error deleting task template:", error);
         throw error;
       }
 
@@ -453,7 +423,7 @@ const TaskTemplates = () => {
       clearForm();
     },
     onError: (error: any) => {
-      console.error("Error deleting task template:", error);
+      console.error("[TaskTemplates] Error deleting task template:", error);
       toast({
         title: "Error",
         description: "Hubo un error al eliminar la plantilla de tarea. Inténtalo de nuevo.",
@@ -465,11 +435,6 @@ const TaskTemplates = () => {
     },
   });
 
-  const handleCreateTaskTemplate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await createTaskTemplateMutation.mutateAsync();
-  };
-
   const handleUpdateTaskTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
     await updateTaskTemplateMutation.mutateAsync();
@@ -480,6 +445,7 @@ const TaskTemplates = () => {
   };
 
   const handleEdit = (template: TaskTemplate) => {
+    console.log("[TaskTemplates] Editing template:", template.id);
     setSelectedTemplate(template);
     setTitle(template.title);
     setDescription(template.description);
@@ -511,8 +477,6 @@ const TaskTemplates = () => {
     setDueDays(7);
     setAssigneeFormField("");
     setSelectedTemplate(null);
-    setSourceFormSchema(null);
-    setTargetFormSchema(null);
   };
 
   const handleFilterChange = (newFilter: "active" | "inactive" | "all") => {
@@ -524,9 +488,9 @@ const TaskTemplates = () => {
 
   const getProjectUsers = async (projectId: string): Promise<User[]> => {
     try {
-      console.log(`Fetching users for project: ${projectId}`);
+      console.log(`[TaskTemplates] Fetching users for project: ${projectId}`);
       
-      // Use a different approach - first get all project_users
+      // First get all project_users
       const { data: projectUsersData, error: projectUsersError } = await supabase
         .from('project_users')
         .select('user_id')
@@ -534,7 +498,7 @@ const TaskTemplates = () => {
         .eq('status', 'active');
 
       if (projectUsersError) {
-        console.error("Error fetching project users:", projectUsersError);
+        console.error("[TaskTemplates] Error fetching project users:", projectUsersError);
         return [];
       }
       
@@ -550,7 +514,7 @@ const TaskTemplates = () => {
         .in('id', userIds);
         
       if (profilesError) {
-        console.error("Error fetching user profiles:", profilesError);
+        console.error("[TaskTemplates] Error fetching user profiles:", profilesError);
         return [];
       }
       
@@ -560,21 +524,20 @@ const TaskTemplates = () => {
         email: profile.email || 'correo@desconocido.com'
       })) || [];
       
-      console.log(`Found ${users.length} users for project ${projectId}`);
+      console.log(`[TaskTemplates] Found ${users.length} users for project ${projectId}`);
       return users;
     } catch (error) {
-      console.error("Error fetching project users:", error);
+      console.error("[TaskTemplates] Error fetching project users:", error);
       return [];
     }
   };
 
-  const getEmailFieldsFromForm = (formId: string): { key: string, label: string }[] => {
-    const form = formsMap.get(formId);
-    if (!form || !form.schema || !form.schema.components) {
+  const getEmailFieldsFromForm = (formSchema: any): { key: string, label: string }[] => {
+    if (!formSchema || !formSchema.components) {
       return [];
     }
 
-    return form.schema.components
+    return formSchema.components
       .filter((component: any) => 
         component.type === 'email' && component.key)
       .map((component: any) => ({
@@ -637,15 +600,39 @@ const TaskTemplates = () => {
     setInheritanceMapping(newMapping);
   };
 
+  // Calculate loading and error states for the inheritance tab
+  const isLoadingSchemas = isLoadingSourceSchema || isLoadingTargetSchema;
+  const hasSchemaError = errorSourceSchema || errorTargetSchema;
   const canAccessAdvancedTabs = !!sourceFormId && !!targetFormId;
 
-  if (isLoadingTaskTemplates) return <div className="flex items-center justify-center h-screen bg-gray-50"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando plantillas de tareas...</div>;
-  if (errorTaskTemplates) return <Alert variant="destructive">
-    <AlertTitle>Error</AlertTitle>
-    <AlertDescription>
-      Hubo un error al cargar las plantillas de tareas. {errorTaskTemplates.message}
-    </AlertDescription>
-  </Alert>;
+  // Log when modal is opened/closed to help with debugging
+  useEffect(() => {
+    if (editOpen) {
+      console.log("[TaskTemplates] Edit modal opened:", {
+        templateId: selectedTemplate?.id,
+        sourceFormId,
+        targetFormId,
+        hasSourceSchema: !!sourceFormSchema,
+        hasTargetSchema: !!targetFormSchema,
+        isLoadingSchemas
+      });
+    }
+  }, [editOpen, selectedTemplate?.id, sourceFormId, targetFormId, sourceFormSchema, targetFormSchema, isLoadingSchemas]);
+
+  if (isLoadingTaskTemplates) return (
+    <div className="flex items-center justify-center h-screen bg-gray-50">
+      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando plantillas de tareas...
+    </div>
+  );
+  
+  if (errorTaskTemplates) return (
+    <Alert variant="destructive">
+      <AlertTitle>Error</AlertTitle>
+      <AlertDescription>
+        Hubo un error al cargar las plantillas de tareas. {errorTaskTemplates.message}
+      </AlertDescription>
+    </Alert>
+  );
 
   return (
     <div className="container mx-auto py-10">
@@ -808,7 +795,12 @@ const TaskTemplates = () => {
                     <SelectValue placeholder="Selecciona un proyecto" />
                   </SelectTrigger>
                   <SelectContent>
-                    {projects?.map((project) => (
+                    {isLoadingProjects ? (
+                      <div className="flex items-center justify-center p-2">
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> 
+                        Cargando...
+                      </div>
+                    ) : projects?.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
                       </SelectItem>
@@ -825,7 +817,12 @@ const TaskTemplates = () => {
                     <SelectValue placeholder="Selecciona un formulario" />
                   </SelectTrigger>
                   <SelectContent>
-                    {forms?.map((form) => (
+                    {isLoadingForms ? (
+                      <div className="flex items-center justify-center p-2">
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> 
+                        Cargando...
+                      </div>
+                    ) : forms?.map((form) => (
                       <SelectItem key={form.id} value={form.id}>
                         {form.title}
                       </SelectItem>
@@ -842,7 +839,12 @@ const TaskTemplates = () => {
                     <SelectValue placeholder="Selecciona un formulario" />
                   </SelectTrigger>
                   <SelectContent>
-                    {forms?.map((form) => (
+                    {isLoadingForms ? (
+                      <div className="flex items-center justify-center p-2">
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> 
+                        Cargando...
+                      </div>
+                    ) : forms?.map((form) => (
                       <SelectItem key={form.id} value={form.id}>
                         {form.title}
                       </SelectItem>
@@ -862,7 +864,7 @@ const TaskTemplates = () => {
                       id="minDays"
                       value={minDays}
                       onChange={(e) => setMinDays(Number(e.target.value))}
-                      minValue={0}
+                      min={0}
                     />
                   </div>
                   <div>
@@ -872,7 +874,7 @@ const TaskTemplates = () => {
                       id="dueDays"
                       value={dueDays}
                       onChange={(e) => setDueDays(Number(e.target.value))}
-                      minValue={1}
+                      min={1}
                     />
                   </div>
                 </div>
@@ -916,11 +918,22 @@ const TaskTemplates = () => {
                       <SelectValue placeholder="Selecciona un usuario" />
                     </SelectTrigger>
                     <SelectContent>
-                      {projectUsers?.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.name} ({user.email})
-                        </SelectItem>
-                      ))}
+                      {isLoadingProjectUsers ? (
+                        <div className="flex items-center justify-center p-2">
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> 
+                          Cargando usuarios...
+                        </div>
+                      ) : projectUsers?.length === 0 ? (
+                        <div className="p-2 text-center text-sm text-gray-500">
+                          No hay usuarios disponibles
+                        </div>
+                      ) : (
+                        projectUsers?.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.name} ({user.email})
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -933,17 +946,34 @@ const TaskTemplates = () => {
                   <Select 
                     onValueChange={setAssigneeFormField} 
                     value={assigneeFormField}
-                    disabled={!sourceFormId}
+                    disabled={!sourceFormId || isLoadingSourceSchema}
                   >
                     <SelectTrigger id="assigneeFormField" className="col-span-3">
-                      <SelectValue placeholder={!sourceFormId ? "Selecciona un formulario origen primero" : "Selecciona campo email"} />
+                      <SelectValue placeholder={
+                        !sourceFormId 
+                          ? "Selecciona un formulario origen primero" 
+                          : isLoadingSourceSchema 
+                            ? "Cargando campos..." 
+                            : "Selecciona campo email"
+                      } />
                     </SelectTrigger>
                     <SelectContent>
-                      {getEmailFieldsFromForm(sourceFormId).map((field) => (
-                        <SelectItem key={field.key} value={field.key}>
-                          {field.label}
-                        </SelectItem>
-                      ))}
+                      {isLoadingSourceSchema ? (
+                        <div className="flex items-center justify-center p-2">
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> 
+                          Cargando campos...
+                        </div>
+                      ) : getEmailFieldsFromForm(sourceFormSchema).length === 0 ? (
+                        <div className="p-2 text-center text-sm text-gray-500">
+                          No hay campos de email disponibles
+                        </div>
+                      ) : (
+                        getEmailFieldsFromForm(sourceFormSchema).map((field) => (
+                          <SelectItem key={field.key} value={field.key}>
+                            {field.label}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -958,54 +988,71 @@ const TaskTemplates = () => {
                 </p>
               </div>
               
-              {canAccessAdvancedTabs && getTargetFormFields().length > 0 ? (
-                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                  {getTargetFormFields().map((targetField) => {
-                    const mappedSourceKey = Object.entries(inheritanceMapping)
-                      .find(([_, value]) => value === targetField.key)?.[0] || "";
-                      
-                    return (
-                      <div key={targetField.key} className="grid grid-cols-2 gap-4 p-3 border rounded-md">
-                        <div>
-                          <Label className="font-medium">{targetField.label}</Label>
-                          <div className="text-xs text-gray-500">Campo destino ({targetField.type})</div>
-                        </div>
-                        <div>
-                          <Select
-                            value={mappedSourceKey}
-                            onValueChange={(sourceKey) => handleFieldMapping(sourceKey, targetField.key)}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Selecciona un campo origen" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">No heredar</SelectItem>
-                              {getSourceFormFields()
-                                .filter(sourceField => areFieldTypesCompatible(sourceField.type, targetField.type))
-                                .map((sourceField) => (
-                                  <SelectItem key={sourceField.key} value={sourceField.key}>
-                                    {sourceField.label} ({sourceField.type})
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center p-6 border rounded-md">
-                  {!canAccessAdvancedTabs ? (
-                    <div>
-                      <p className="text-gray-500">Selecciona formularios de origen y destino primero</p>
-                    </div>
-                  ) : (
+              {hasSchemaError && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Error al cargar esquemas</AlertTitle>
+                  <AlertDescription>
+                    Hubo un problema al cargar los esquemas de formularios. Intenta nuevamente.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {canAccessAdvancedTabs ? (
+                isLoadingSchemas ? (
+                  <div className="text-center p-6 border rounded-md">
                     <div className="flex flex-col items-center justify-center">
                       <Loader2 className="h-6 w-6 animate-spin mb-2" />
                       <span>Cargando esquemas de formularios...</span>
                     </div>
-                  )}
+                  </div>
+                ) : getTargetFormFields().length > 0 ? (
+                  <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+                    {getTargetFormFields().map((targetField) => {
+                      const mappedSourceKey = Object.entries(inheritanceMapping)
+                        .find(([_, value]) => value === targetField.key)?.[0] || "";
+                        
+                      return (
+                        <div key={targetField.key} className="grid grid-cols-2 gap-4 p-3 border rounded-md">
+                          <div>
+                            <Label className="font-medium">{targetField.label}</Label>
+                            <div className="text-xs text-gray-500">Campo destino ({targetField.type})</div>
+                          </div>
+                          <div>
+                            <Select
+                              value={mappedSourceKey}
+                              onValueChange={(sourceKey) => handleFieldMapping(sourceKey, targetField.key)}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Selecciona un campo origen" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">No heredar</SelectItem>
+                                {getSourceFormFields()
+                                  .filter(sourceField => areFieldTypesCompatible(sourceField.type, targetField.type))
+                                  .map((sourceField) => (
+                                    <SelectItem key={sourceField.key} value={sourceField.key}>
+                                      {sourceField.label} ({sourceField.type})
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center p-6 border rounded-md">
+                    <AlertTriangle className="h-6 w-6 text-amber-500 mx-auto mb-2" />
+                    <p className="text-gray-500">No se encontraron campos en los formularios seleccionados.</p>
+                  </div>
+                )
+              ) : (
+                <div className="text-center p-6 border rounded-md">
+                  <div>
+                    <p className="text-gray-500">Selecciona formularios de origen y destino primero</p>
+                  </div>
                 </div>
               )}
             </TabsContent>
