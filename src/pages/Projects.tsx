@@ -34,6 +34,7 @@ const Projects = () => {
     description?: string;
     admin?: string;
   }>({});
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: projects, refetch } = useQuery({
     queryKey: ['projects'],
@@ -173,24 +174,38 @@ const Projects = () => {
 
   const confirmDeleteProject = async () => {
     if (projectToDelete) {
-      const { error } = await supabase
-        .from('projects')
-        .delete()
-        .eq('id', projectToDelete.id);
+      setIsDeleting(true);
+      try {
+        const { error } = await supabase
+          .from('projects')
+          .delete()
+          .eq('id', projectToDelete.id);
 
-      if (error) {
+        if (error) {
+          console.error("Error deleting project:", error);
+          toast({
+            title: "Error deleting project",
+            description: error.message,
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Project deleted successfully",
+            description: "The project and all associated data have been removed.",
+          });
+          refetch();
+        }
+      } catch (error: any) {
+        console.error("Exception during project deletion:", error);
         toast({
-          title: "Error deleting project",
-          description: error.message,
+          title: "Failed to delete project",
+          description: error?.message || "An unexpected error occurred",
           variant: "destructive"
         });
-      } else {
-        toast({
-          title: "Project deleted successfully!",
-        });
-        refetch();
+      } finally {
+        setIsDeleting(false);
+        setProjectToDelete(null);
       }
-      setProjectToDelete(null);
     }
   };
 
@@ -300,18 +315,31 @@ const Projects = () => {
         ))}
       </div>
 
-      <AlertDialog open={projectToDelete !== null} onOpenChange={() => setProjectToDelete(null)}>
+      <AlertDialog open={projectToDelete !== null} onOpenChange={(open) => !open && setProjectToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the project
-              and remove all of its data.
+              and all related data including forms, roles, and user assignments.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setProjectToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteProject}>Continue</AlertDialogAction>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteProject} 
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                  Deleting...
+                </>
+              ) : (
+                'Delete Project'
+              )}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
