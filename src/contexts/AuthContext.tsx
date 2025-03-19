@@ -89,7 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setFetchComplete(false);
         
         // Get current session
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error("Error getting session:", sessionError);
+        }
+        
         console.log("Auth state initialized:", !!session);
         
         setSession(session);
@@ -105,17 +110,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         authListener = supabase.auth.onAuthStateChange(
           async (event, newSession) => {
             console.log("Auth state changed:", event, !!newSession);
-            setSession(newSession);
-            setUser(newSession?.user ?? null);
             
-            if (newSession?.user) {
-              await fetchUserProfile(newSession.user.id, true);
-            } else {
+            // Update state based on auth event
+            if (event === 'SIGNED_OUT') {
+              // Clear all auth-related state
+              setSession(null);
+              setUser(null);
               setUserProfile(null);
               setIsGlobalAdmin(false);
               setIsProjectAdmin(false);
               setIsApprover(false);
               setFetchComplete(true);
+            } else {
+              // For other events, update session and user
+              setSession(newSession);
+              setUser(newSession?.user ?? null);
+              
+              if (newSession?.user) {
+                await fetchUserProfile(newSession.user.id, true);
+              } else {
+                setFetchComplete(true);
+              }
             }
           }
         );
@@ -147,7 +162,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       
-      // Clear local state first
+      console.log("Starting sign out process");
+      
+      // Clear local state first - this ensures UI responds immediately
       setUser(null);
       setSession(null);
       setUserProfile(null);
@@ -155,19 +172,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsProjectAdmin(false);
       setIsApprover(false);
       
+      // Clear local storage manually to ensure all auth data is removed
+      localStorage.removeItem(config.storage.authTokenKey);
+      
       try {
-        // Then sign out from Supabase
+        // Then sign out from Supabase - this may fail if session is already gone
         const { error } = await supabase.auth.signOut();
         
-        if (error && error.name !== 'AuthSessionMissingError') {
-          // Only throw if it's not an AuthSessionMissingError
-          // AuthSessionMissingError means the session was already cleared, which is fine
-          console.error("Error signing out:", error);
-          throw error;
+        if (error) {
+          console.warn("Supabase signOut warning:", error.message);
+          // Don't throw on AuthSessionMissingError since that's expected in some cases
+          if (error.name !== 'AuthSessionMissingError') {
+            console.error("Error during signOut:", error);
+          }
         }
-      } catch (err) {
+      } catch (err: any) {
         // Log but don't rethrow, since we've already cleared local state
-        console.warn("Error in Supabase signOut:", err);
+        console.warn("Error in Supabase signOut:", err.message || err);
       }
       
       toast({
@@ -177,11 +198,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Force navigation to auth page
       window.location.href = "/auth";
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in signOut function:", error);
       toast({
         title: "Error al cerrar sesión",
-        description: "No se pudo cerrar sesión completamente.",
+        description: "No se pudo cerrar sesión completamente, pero se te ha redirigido a la página de inicio de sesión.",
         variant: "destructive"
       });
       

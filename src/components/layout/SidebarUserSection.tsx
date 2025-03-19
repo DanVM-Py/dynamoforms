@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, LogOut } from 'lucide-react';
+import { User, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/use-toast';
@@ -19,6 +19,7 @@ const SidebarUserSection = ({
 }: SidebarUserSectionProps) => {
   const navigate = useNavigate();
   const { user, userProfile, isGlobalAdmin, isProjectAdmin, signOut } = useAuth();
+  const [isSigningOut, setIsSigningOut] = useState(false);
   
   if (!user) return null;
   
@@ -36,8 +37,12 @@ const SidebarUserSection = ({
     e.preventDefault();
     e.stopPropagation();
     
+    if (isSigningOut) return; // Prevent multiple clicks
+    
     try {
+      setIsSigningOut(true);
       await signOut();
+      // No need to navigate here as signOut already does this
     } catch (error) {
       console.error("Error signing out:", error);
       // Show a toast notification to the user
@@ -47,6 +52,8 @@ const SidebarUserSection = ({
         variant: "destructive"
       });
       navigate("/auth");
+    } finally {
+      setIsSigningOut(false);
     }
   };
   
@@ -73,10 +80,11 @@ const SidebarUserSection = ({
             variant="ghost"
             size="icon"
             onClick={handleSignOut}
+            disabled={isSigningOut}
             title="Cerrar sesión"
             className="text-gray-500 hover:text-gray-700"
           >
-            <LogOut className="h-4 w-4" />
+            {isSigningOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
           </Button>
         )}
       </div>

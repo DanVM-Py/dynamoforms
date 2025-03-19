@@ -28,9 +28,28 @@ const Auth = () => {
   // Redirect to specified path if user is already logged in
   useEffect(() => {
     if (user) {
+      console.log("User already authenticated, redirecting to:", redirectTo);
       navigate(redirectTo, { replace: true });
     }
   }, [user, navigate, redirectTo]);
+
+  // Clear any lingering session data on component mount
+  useEffect(() => {
+    // This helps avoid potential auth state inconsistencies
+    const checkAndClearSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) {
+          // Clear local storage auth data if no valid session exists
+          localStorage.removeItem('supabase.auth.token');
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+      }
+    };
+    
+    checkAndClearSession();
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,8 +74,10 @@ const Auth = () => {
       
       if (error) throw error;
       
+      console.log("Login successful, redirecting to:", redirectTo);
+      
       // Redirect to the requested page after login
-      navigate(redirectTo);
+      navigate(redirectTo, { replace: true });
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error.message);
       toast({

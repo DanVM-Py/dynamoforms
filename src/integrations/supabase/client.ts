@@ -24,7 +24,7 @@ const supabaseClient = createClient<Database>(
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false, // Disable to prevent navigation issues
-      storage: localStorage // Explicitly define storage mechanism
+      storage: localStorage, // Explicitly define storage mechanism
     },
     db: {
       schema: 'public'
@@ -33,7 +33,7 @@ const supabaseClient = createClient<Database>(
       fetch: (url, options) => {
         // Create a controller with timeout to prevent hanging requests
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout (increased from 10)
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
         
         return fetch(url, { 
           ...options, 
@@ -47,12 +47,9 @@ const supabaseClient = createClient<Database>(
   }
 );
 
-// Set headers to avoid CORS issues
-if (typeof window !== 'undefined') {
-  const token = localStorage.getItem(config.storage.authTokenKey);
-  if (token) {
-    supabaseClient.realtime.setAuth(token);
-  }
+// Log initialization in development
+if (environment !== 'production') {
+  console.log(`Supabase client initialized for ${environment} environment`);
 }
 
 // Export the main API client as the default supabase client
@@ -66,7 +63,20 @@ export const formsClient = supabase;
 export const tasksClient = supabase;
 export const notificationsClient = supabase;
 
-// For logging in non-production environments
-if (environment !== 'production') {
-  console.log(`Supabase client initialized for environment: ${environment}`);
-}
+// Function to get the current session - useful for components that need quick access
+export const getCurrentSession = async () => {
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    return data.session;
+  } catch (e) {
+    console.error("Error getting current session:", e);
+    return null;
+  }
+};
+
+// Function to check if user is authenticated - useful for quick checks
+export const isAuthenticated = async () => {
+  const session = await getCurrentSession();
+  return !!session;
+};
