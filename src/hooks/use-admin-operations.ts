@@ -87,29 +87,38 @@ export function useAdminOperations() {
   };
 
   /**
-   * Initiates a password reset for a user
+   * Directly sets a new password for a user (admin only)
    */
-  const initiatePasswordReset = async (email: string) => {
+  const setUserPassword = async (userId: string, newPassword: string) => {
     setIsLoading(true);
     try {
       checkGlobalAdminAccess();
       
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+      if (!user) throw new Error('No authenticated user found');
+      
+      // Call the edge function to reset the password
+      const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+        body: {
+          userId,
+          password: newPassword,
+          requesterId: user.id
+        }
       });
       
       if (error) throw error;
       
+      if (data.error) throw new Error(data.error);
+      
       toast({
-        title: "Solicitud enviada",
-        description: "Se ha enviado un correo con instrucciones para restablecer la contraseña.",
+        title: "Contraseña actualizada",
+        description: "La contraseña del usuario ha sido actualizada exitosamente.",
       });
       
       return true;
     } catch (error: any) {
       toast({
-        title: "Error de operación",
-        description: error.message || "No se pudo enviar la solicitud de restablecimiento",
+        title: "Error al actualizar contraseña",
+        description: error.message || "No se pudo actualizar la contraseña",
         variant: "destructive",
       });
       throw error;
@@ -122,6 +131,6 @@ export function useAdminOperations() {
     isLoading,
     promoteToGlobalAdmin,
     removeUserFromProject,
-    initiatePasswordReset,
+    setUserPassword
   };
 }
