@@ -25,13 +25,15 @@ const PublicFormSuccess = () => {
           </p>
         </CardContent>
         <CardFooter className="flex justify-center space-x-4">
-          <Button 
-            variant="outline" 
-            onClick={() => navigate(`/public/forms/${formId}`)}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver al formulario
-          </Button>
+          {formId && (
+            <Button 
+              variant="outline" 
+              onClick={() => navigate(`/public/forms/${formId}`)}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Volver al formulario
+            </Button>
+          )}
           <Button 
             variant="default"
             onClick={() => navigate("/")}

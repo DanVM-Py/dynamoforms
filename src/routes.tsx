@@ -107,6 +107,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/public/forms/:formId",
+    element: <Suspense fallback={<Loading />}><PublicFormView /></Suspense>,
+  },
+  {
+    path: "/public/forms/:formId/success",
+    element: <Suspense fallback={<Loading />}><PublicFormSuccess /></Suspense>,
+  },
+  {
     path: "/public-form/:formId",
     element: <Suspense fallback={<Loading />}><PublicFormView /></Suspense>,
   },
