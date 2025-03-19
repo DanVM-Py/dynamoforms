@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { 
   Dialog, 
@@ -164,7 +165,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             .insert({
               project_id: project.id,
               user_id: adminId,
-              created_by: user?.id
+              assigned_by: user?.id  // FIXED: changed from created_by to assigned_by
             });
             
           if (insertError) throw insertError;

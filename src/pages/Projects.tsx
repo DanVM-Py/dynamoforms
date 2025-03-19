@@ -138,7 +138,7 @@ const Projects = () => {
           .insert({
             project_id: newProject.id, 
             user_id: projectAdminId,
-            created_by: user?.id
+            assigned_by: user?.id
           });
           
         if (adminError) throw adminError;
