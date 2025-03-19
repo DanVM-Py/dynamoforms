@@ -269,6 +269,7 @@ export const sanitizeFormSchema = (schema: any): FormSchema | null => {
 
 /**
  * Safely access a form schema that might be a Json type from Supabase
+ * This is the key function that helps with TypeScript type safety
  */
 export const safelyAccessFormSchema = (schema: Json | null): FormSchema | null => {
   if (!schema) return null;

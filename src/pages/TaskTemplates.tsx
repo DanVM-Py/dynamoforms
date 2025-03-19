@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -50,7 +51,8 @@ import {
   isValidFormSchema, 
   getValidFormSchema, 
   safelyAccessFormSchema,
-  debugFormSchema
+  debugFormSchema,
+  FormSchema
 } from "@/utils/formSchemaUtils";
 import { Json } from "@/types/supabase";
 
