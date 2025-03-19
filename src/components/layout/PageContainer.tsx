@@ -4,13 +4,7 @@ import { Sidebar } from './Sidebar';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
-
-// Paths that should always show the sidebar regardless of hideSidebar prop
-const ALWAYS_SHOW_SIDEBAR_PATHS = [
-  '/task-templates',
-  '/task-templates/',
-  // Add any other paths that should always show sidebar here
-];
+import { ALWAYS_SHOW_SIDEBAR_PATHS } from '@/hooks/use-sidebar-state';
 
 interface PageContainerProps {
   children: React.ReactNode;
