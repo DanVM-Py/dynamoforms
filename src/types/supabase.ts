@@ -241,26 +241,26 @@ export interface Database {
           project_id: string
           user_id: string
           created_at: string
-          created_by: string
+          assigned_by: string
         }
         Insert: {
           id?: string
           project_id: string
           user_id: string
           created_at?: string
-          created_by: string
+          assigned_by: string
         }
         Update: {
           id?: string
           project_id?: string
           user_id?: string
           created_at?: string
-          created_by?: string
+          assigned_by?: string
         }
         Relationships: [
           {
-            foreignKeyName: "project_admins_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: "project_admins_assigned_by_fkey"
+            columns: ["assigned_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

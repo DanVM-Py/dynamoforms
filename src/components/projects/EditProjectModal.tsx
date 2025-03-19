@@ -165,7 +165,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             .insert({
               project_id: project.id,
               user_id: adminId,
-              created_by: user?.id  // Using created_by to match the TypeScript types
+              assigned_by: user?.id  // Using assigned_by to match the database schema
             });
             
           if (insertError) throw insertError;
