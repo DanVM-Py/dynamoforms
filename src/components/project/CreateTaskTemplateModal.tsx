@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -106,6 +105,14 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
   const queryClient = useQueryClient();
   const { user, userProfile } = useAuth();
 
+  useEffect(() => {
+    console.log("CreateTaskTemplateModal mounted/updated:", {
+      open,
+      projectId,
+      isVisible: !!document.querySelector('.dialog-content')
+    });
+  }, [open, projectId]);
+
   const {
     data: forms,
     isLoading: isLoadingForms,
@@ -201,7 +208,6 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
     return map;
   }, [forms]);
 
-  // Load form schemas when form IDs change during editing
   useEffect(() => {
     const loadFormSchema = async (formId: string, setSchema: (schema: any) => void) => {
       if (!formId) {
@@ -330,25 +336,20 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
       }));
   };
 
-  // Define field type compatibility
   const areFieldTypesCompatible = (sourceType: string, targetType: string) => {
-    // Define groups of compatible field types
     const textTypes = ['textfield', 'textarea', 'text'];
     const numberTypes = ['number', 'currency'];
     const dateTypes = ['datetime', 'date'];
     const selectionTypes = ['select', 'radio', 'checkbox'];
 
-    // Check if both types are in the same compatibility group
     if (textTypes.includes(sourceType) && textTypes.includes(targetType)) return true;
     if (numberTypes.includes(sourceType) && numberTypes.includes(targetType)) return true;
     if (dateTypes.includes(sourceType) && dateTypes.includes(targetType)) return true;
     if (selectionTypes.includes(sourceType) && selectionTypes.includes(targetType)) return true;
 
-    // Exact match for other types
     return sourceType === targetType;
   };
 
-  // Helper functions for inheritance mapping
   const getSourceFormFields = () => {
     if (!sourceFormSchema || !sourceFormSchema.components) return [];
 
@@ -373,13 +374,11 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
       }));
   };
 
-  // Handle field selection for inheritance mapping
   const handleFieldMapping = (sourceKey: string, targetKey: string) => {
     const newMapping = { ...inheritanceMapping };
     if (sourceKey) {
       newMapping[sourceKey] = targetKey;
     } else {
-      // Find the source key for this target and remove it
       const sourceKeyToRemove = Object.entries(inheritanceMapping)
         .find(([_, value]) => value === targetKey)?.[0];
 
@@ -395,7 +394,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[650px]">
+      <DialogContent className="sm:max-w-[650px] dialog-content">
         <DialogHeader>
           <DialogTitle>Crear Plantilla de Tarea</DialogTitle>
           <DialogDescription>
@@ -585,7 +584,6 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
             {canAccessAdvancedTabs && getTargetFormFields().length > 0 ? (
               <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
                 {getTargetFormFields().map((targetField) => {
-                  // Find if this target field has a source field mapped to it
                   const mappedSourceKey = Object.entries(inheritanceMapping)
                     .find(([_, value]) => value === targetField.key)?.[0] || "";
 

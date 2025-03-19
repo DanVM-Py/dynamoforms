@@ -30,6 +30,16 @@ export const PageContainer = ({ children, className, hideSidebar = false, title 
   // Render sidebar if user is authenticated and sidebar should not be hidden
   const shouldShowSidebar = isAuthenticated && !shouldHideSidebar;
   
+  // Debug log
+  console.log('PageContainer sidebar check:', {
+    path: location.pathname,
+    hideSidebar,
+    isHiddenSidebarPath,
+    shouldHideSidebar,
+    shouldShowSidebar,
+    isAuthenticated
+  });
+  
   return (
     <div className="flex min-h-screen bg-gray-50">
       {shouldShowSidebar && <Sidebar />}

@@ -29,6 +29,17 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
     isMobile
   });
 
+  // Debug log
+  console.log('Sidebar component check:', {
+    forceVisible,
+    isMobile,
+    isExpanded,
+    isMobileMenuOpen,
+    isSidebarForced,
+    shouldShowSidebar,
+    user: !!user
+  });
+
   if (!user || !shouldShowSidebar) {
     return null;
   }
