@@ -139,7 +139,7 @@ const Projects = () => {
           .insert({
             project_id: newProject.id, 
             user_id: projectAdminId,
-            assigned_by: user?.id  // Using assigned_by to match the database schema
+            created_by: user?.id  // Using created_by to match the TypeScript types
           });
           
         if (adminError) throw adminError;
