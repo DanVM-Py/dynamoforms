@@ -4,6 +4,7 @@
  * 
  * This module provides helpers for validating and working with form schemas.
  */
+import { Json } from '@/types/supabase';
 
 // Define a proper FormSchema interface to ensure type safety
 export interface FormSchema {
@@ -45,6 +46,13 @@ export const isValidFormSchema = (schema: any): schema is FormSchema => {
     }
   }
   
+  // Check for Json array type from Supabase (this is crucial for type safety)
+  if (Array.isArray(schema)) {
+    console.warn("[FormSchemaUtils] Schema is an array, not an object with components");
+    return false;
+  }
+  
+  // Proper object type check
   const isValid = schema && 
                 typeof schema === 'object' && 
                 !Array.isArray(schema) && 
@@ -52,6 +60,9 @@ export const isValidFormSchema = (schema: any): schema is FormSchema => {
                 
   if (!isValid) {
     console.warn("[FormSchemaUtils] Schema is not valid:", JSON.stringify(schema).substring(0, 200) + "...");
+    if (typeof schema === 'object') {
+      console.warn("[FormSchemaUtils] Schema keys:", Object.keys(schema));
+    }
   } else {
     console.log("[FormSchemaUtils] Valid schema with", schema.components.length, "components");
   }
@@ -80,8 +91,14 @@ export const getValidFormSchema = (formSchema: any): FormSchema | null => {
     }
   }
   
+  // Handle Json type from Supabase
+  if (Array.isArray(schema)) {
+    console.warn("[FormSchemaUtils] Schema is an array, not an object with components");
+    return null;
+  }
+  
   if (isValidFormSchema(schema)) {
-    return schema;
+    return schema as FormSchema;
   }
   
   console.warn("[FormSchemaUtils] Schema validation failed");
@@ -180,6 +197,10 @@ export const debugFormSchema = (formSchema: any, label: string = "Form Schema De
       console.error("Failed to parse as JSON:", e);
       console.log("First 200 chars:", formSchema.substring(0, 200));
     }
+  } else if (Array.isArray(formSchema)) {
+    console.warn("Schema is an array, not an object with components");
+    console.log("Array length:", formSchema.length);
+    console.log("First item type:", typeof formSchema[0]);
   } else if (typeof formSchema === 'object') {
     console.log("Schema is an object");
     console.log("Keys:", Object.keys(formSchema));
@@ -199,7 +220,7 @@ export const debugFormSchema = (formSchema: any, label: string = "Form Schema De
 /**
  * Utility to fix common issues in form schemas
  */
-export const sanitizeFormSchema = (schema: any): any => {
+export const sanitizeFormSchema = (schema: any): FormSchema | null => {
   if (!schema) return null;
   
   // Handle string input
@@ -210,6 +231,12 @@ export const sanitizeFormSchema = (schema: any): any => {
       console.error("[FormSchemaUtils] Failed to parse schema in sanitizeFormSchema:", e);
       return null;
     }
+  }
+  
+  // Handle Json type from Supabase
+  if (Array.isArray(schema)) {
+    console.warn("[FormSchemaUtils] Schema is an array, not an object with components");
+    return null;
   }
   
   // Ensure we have an object
@@ -237,5 +264,31 @@ export const sanitizeFormSchema = (schema: any): any => {
     return component;
   });
   
-  return schema;
+  return schema as FormSchema;
+};
+
+/**
+ * Safely access a form schema that might be a Json type from Supabase
+ */
+export const safelyAccessFormSchema = (schema: Json | null): FormSchema | null => {
+  if (!schema) return null;
+  
+  // Handle string input (common when retrieving from DB)
+  if (typeof schema === 'string') {
+    try {
+      return sanitizeFormSchema(JSON.parse(schema));
+    } catch (e) {
+      console.error("[FormSchemaUtils] Failed to parse schema string in safelyAccessFormSchema:", e);
+      return null;
+    }
+  }
+  
+  // Handle Json array type from Supabase
+  if (Array.isArray(schema)) {
+    console.warn("[FormSchemaUtils] Schema is an array in safelyAccessFormSchema, not an object with components");
+    return null;
+  }
+  
+  // If it's already an object, sanitize it
+  return sanitizeFormSchema(schema);
 };

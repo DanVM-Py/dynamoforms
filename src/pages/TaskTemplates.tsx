@@ -46,6 +46,14 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { isDevelopment } from "@/config/environment";
 import { CreateTaskTemplateModal } from "@/components/project/CreateTaskTemplateModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  FormSchema,
+  isValidFormSchema, 
+  getValidFormSchema, 
+  safelyAccessFormSchema,
+  debugFormSchema
+} from "@/utils/formSchemaUtils";
+import { Json } from "@/types/supabase";
 
 type AssignmentType = "static" | "dynamic";
 
@@ -266,7 +274,8 @@ const TaskTemplates = () => {
         throw error;
       }
 
-      console.log(`[TaskTemplates] Source form schema retrieved:`, data?.schema);
+      console.log(`[TaskTemplates] Source form schema retrieved:`, data?.schema ? typeof data.schema : "null");
+      debugFormSchema(data?.schema, "[TaskTemplates] Source Form Schema");
       
       return data?.schema || null;
     },
@@ -296,7 +305,8 @@ const TaskTemplates = () => {
         throw error;
       }
 
-      console.log(`[TaskTemplates] Target form schema retrieved:`, data?.schema);
+      console.log(`[TaskTemplates] Target form schema retrieved:`, data?.schema ? typeof data.schema : "null");
+      debugFormSchema(data?.schema, "[TaskTemplates] Target Form Schema");
       
       return data?.schema || null;
     },
@@ -585,33 +595,22 @@ const TaskTemplates = () => {
     return isValid;
   };
 
-  const getEmailFieldsFromForm = (formSchema: any): { key: string, label: string }[] => {
+  const getEmailFieldsFromForm = (formSchema: Json | null): { key: string, label: string }[] => {
     if (!formSchema) {
       console.warn("[TaskTemplates] Form schema is null or undefined in getEmailFieldsFromForm");
       return [];
     }
     
-    let schema = formSchema;
-    if (typeof formSchema === 'string') {
-      console.log("[TaskTemplates] getEmailFieldsFromForm - schema is a string of length:", formSchema.length);
-      try {
-        schema = JSON.parse(formSchema);
-        console.log("[TaskTemplates] getEmailFieldsFromForm - parsed schema successfully");
-      } catch (e) {
-        console.error("[TaskTemplates] Failed to parse schema string in getEmailFieldsFromForm:", e);
-        return [];
-      }
-    }
-    
-    if (!isValidFormSchema(schema)) {
+    const schema = safelyAccessFormSchema(formSchema);
+    if (!schema) {
       console.warn("[TaskTemplates] Invalid schema format in getEmailFieldsFromForm");
       return [];
     }
 
     const fields = schema.components
-      .filter((component: any) => 
+      .filter((component) => 
         component.type === 'email' && component.key)
-      .map((component: any) => ({
+      .map((component) => ({
         key: component.key,
         label: component.label || component.key
       }));
@@ -626,32 +625,15 @@ const TaskTemplates = () => {
       return [];
     }
     
-    console.log("[TaskTemplates] getSourceFormFields - Source form schema type:", typeof sourceFormSchema);
-    if (typeof sourceFormSchema === 'object') {
-      console.log("[TaskTemplates] getSourceFormFields - Source form schema keys:", Object.keys(sourceFormSchema));
-    }
-    
-    let schema = sourceFormSchema;
-    if (typeof sourceFormSchema === 'string') {
-      console.log("[TaskTemplates] getSourceFormFields - schema is a string of length:", sourceFormSchema.length);
-      try {
-        schema = JSON.parse(sourceFormSchema);
-        console.log("[TaskTemplates] getSourceFormFields - parsed schema successfully");
-      } catch (e) {
-        console.error("[TaskTemplates] Failed to parse source schema string in getSourceFormFields:", e);
-        console.log("[TaskTemplates] First 200 chars of source schema:", sourceFormSchema.substring(0, 200));
-        return [];
-      }
-    }
-    
-    if (!isValidFormSchema(schema)) {
+    const schema = safelyAccessFormSchema(sourceFormSchema);
+    if (!schema) {
       console.warn("[TaskTemplates] Invalid source schema format in getSourceFormFields");
       return [];
     }
     
     const fields = schema.components
-      .filter((component: any) => component.key && component.type !== 'button')
-      .map((component: any) => ({
+      .filter((component) => component.key && component.type !== 'button')
+      .map((component) => ({
         key: component.key,
         label: component.label || component.key,
         type: component.type
@@ -668,32 +650,15 @@ const TaskTemplates = () => {
       return [];
     }
     
-    console.log("[TaskTemplates] getTargetFormFields - Target form schema type:", typeof targetFormSchema);
-    if (typeof targetFormSchema === 'object') {
-      console.log("[TaskTemplates] getTargetFormFields - Target form schema keys:", Object.keys(targetFormSchema));
-    }
-    
-    let schema = targetFormSchema;
-    if (typeof targetFormSchema === 'string') {
-      console.log("[TaskTemplates] getTargetFormFields - schema is a string of length:", targetFormSchema.length);
-      try {
-        schema = JSON.parse(targetFormSchema);
-        console.log("[TaskTemplates] getTargetFormFields - parsed schema successfully");
-      } catch (e) {
-        console.error("[TaskTemplates] Failed to parse target schema string in getTargetFormFields:", e);
-        console.log("[TaskTemplates] First 200 chars of target schema:", targetFormSchema.substring(0, 200));
-        return [];
-      }
-    }
-    
-    if (!isValidFormSchema(schema)) {
+    const schema = safelyAccessFormSchema(targetFormSchema);
+    if (!schema) {
       console.warn("[TaskTemplates] Invalid target schema format in getTargetFormFields");
       return [];
     }
     
     const fields = schema.components
-      .filter((component: any) => component.key && component.type !== 'button')
-      .map((component: any) => ({
+      .filter((component) => component.key && component.type !== 'button')
+      .map((component) => ({
         key: component.key,
         label: component.label || component.key,
         type: component.type
@@ -1280,4 +1245,3 @@ const TaskTemplates = () => {
 };
 
 export default TaskTemplates;
-
