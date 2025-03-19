@@ -38,9 +38,9 @@ const AssignmentTab = ({
     <div className="space-y-4 pt-4">
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="assignmentType" className="text-right">
-          Tipo de Asignación
+          Tipo de Asignación <span className="text-red-500">*</span>
         </Label>
-        <Select onValueChange={(value: AssignmentType) => setAssignmentType(value)} value={assignmentType}>
+        <Select onValueChange={(value: AssignmentType) => setAssignmentType(value)} value={assignmentType} required>
           <SelectTrigger id="assignmentType" className="col-span-3">
             <SelectValue placeholder="Selecciona un tipo" />
           </SelectTrigger>
@@ -53,9 +53,9 @@ const AssignmentTab = ({
       {assignmentType === "static" && (
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="defaultAssignee" className="text-right">
-            Usuario Asignado
+            Usuario Asignado <span className="text-red-500">*</span>
           </Label>
-          <Select onValueChange={setDefaultAssignee} value={defaultAssignee}>
+          <Select onValueChange={setDefaultAssignee} value={defaultAssignee} required>
             <SelectTrigger id="defaultAssignee" className="col-span-3">
               <SelectValue placeholder="Selecciona un usuario" />
             </SelectTrigger>
@@ -83,12 +83,13 @@ const AssignmentTab = ({
       {assignmentType === "dynamic" && (
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="assigneeFormField" className="text-right">
-            Campo de Email
+            Campo de Email <span className="text-red-500">*</span>
           </Label>
           <Select 
             onValueChange={setAssigneeFormField} 
             value={assigneeFormField}
             disabled={!sourceFormId || isLoadingSourceSchema}
+            required
           >
             <SelectTrigger id="assigneeFormField" className="col-span-3">
               <SelectValue placeholder={

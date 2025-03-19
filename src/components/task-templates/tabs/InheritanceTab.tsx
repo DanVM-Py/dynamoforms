@@ -32,7 +32,7 @@ const InheritanceTab = ({
   
   const handleFieldMapping = (sourceKey: string, targetKey: string) => {
     const newMapping = { ...inheritanceMapping };
-    if (sourceKey) {
+    if (sourceKey && sourceKey !== "no-inheritance") {
       newMapping[sourceKey] = targetKey;
     } else {
       const sourceKeyToRemove = Object.entries(inheritanceMapping)
@@ -53,8 +53,6 @@ const InheritanceTab = ({
   // Log para depuración
   console.log("[InheritanceTab] Source Fields:", sourceFields);
   console.log("[InheritanceTab] Target Fields:", targetFields);
-  console.log("[InheritanceTab] Source Schema Type:", sourceFormSchema ? typeof sourceFormSchema : "null");
-  console.log("[InheritanceTab] Target Schema Type:", targetFormSchema ? typeof targetFormSchema : "null");
   
   return (
     <div className="space-y-4 pt-4">
@@ -101,7 +99,7 @@ const InheritanceTab = ({
                       onValueChange={(sourceKey) => handleFieldMapping(sourceKey, targetField.key)}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecciona un campo origen" />
+                        <SelectValue placeholder="No heredar" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="no-inheritance">No heredar</SelectItem>

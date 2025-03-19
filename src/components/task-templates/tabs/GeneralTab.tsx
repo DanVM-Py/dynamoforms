@@ -57,7 +57,7 @@ const GeneralTab = ({
     <div className="space-y-4 pt-4">
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="title" className="text-right">
-          Título
+          Título <span className="text-red-500">*</span>
         </Label>
         <Input
           type="text"
@@ -65,24 +65,26 @@ const GeneralTab = ({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="col-span-3"
+          required
         />
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="description" className="text-right">
-          Descripción
+          Descripción <span className="text-red-500">*</span>
         </Label>
         <Textarea
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           className="col-span-3"
+          required
         />
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="projectId" className="text-right">
-          Proyecto
+          Proyecto <span className="text-red-500">*</span>
         </Label>
-        <Select onValueChange={setProjectId} value={projectId}>
+        <Select onValueChange={setProjectId} value={projectId} required>
           <SelectTrigger id="projectId" className="col-span-3">
             <SelectValue placeholder="Selecciona un proyecto" />
           </SelectTrigger>
@@ -102,9 +104,9 @@ const GeneralTab = ({
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="sourceFormId" className="text-right">
-          Formulario de Origen
+          Formulario de Origen <span className="text-red-500">*</span>
         </Label>
-        <Select onValueChange={setSourceFormId} value={sourceFormId}>
+        <Select onValueChange={setSourceFormId} value={sourceFormId} required>
           <SelectTrigger id="sourceFormId" className="col-span-3">
             <SelectValue placeholder="Selecciona un formulario" />
           </SelectTrigger>
@@ -124,9 +126,9 @@ const GeneralTab = ({
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="targetFormId" className="text-right">
-          Formulario de Destino
+          Formulario de Destino <span className="text-red-500">*</span>
         </Label>
-        <Select onValueChange={setTargetFormId} value={targetFormId}>
+        <Select onValueChange={setTargetFormId} value={targetFormId} required>
           <SelectTrigger id="targetFormId" className="col-span-3">
             <SelectValue placeholder="Selecciona un formulario" />
           </SelectTrigger>
@@ -146,40 +148,43 @@ const GeneralTab = ({
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label className="text-right">
-          Periodo de Ejecución
+          Periodo de Ejecución <span className="text-red-500">*</span>
         </Label>
         <div className="col-span-3 grid grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="minDays">Mínimo (días)</Label>
+            <Label htmlFor="minDays">Mínimo (días) <span className="text-red-500">*</span></Label>
             <Input
               type="number"
               id="minDays"
               value={minDays}
               onChange={(e) => setMinDays(Number(e.target.value))}
               min={0}
+              required
             />
           </div>
           <div>
-            <Label htmlFor="dueDays">Máximo (días)</Label>
+            <Label htmlFor="dueDays">Máximo (días) <span className="text-red-500">*</span></Label>
             <Input
               type="number"
               id="dueDays"
               value={dueDays}
               onChange={(e) => setDueDays(Number(e.target.value))}
               min={1}
+              required
             />
           </div>
         </div>
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="isActive" className="text-right">
-          Activa
+          Activa <span className="text-red-500">*</span>
         </Label>
         <div className="col-span-3">
           <Switch
             id="isActive"
             checked={isActive}
             onCheckedChange={setIsActive}
+            required
           />
         </div>
       </div>
