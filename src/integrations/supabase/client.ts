@@ -23,7 +23,8 @@ const supabaseClient = createClient<Database>(
       storageKey: config.storage.authTokenKey,
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: false // Disable to prevent navigation issues
+      detectSessionInUrl: false, // Disable to prevent navigation issues
+      storage: localStorage // Explicitly define storage mechanism
     },
     db: {
       schema: 'public'

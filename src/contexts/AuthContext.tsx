@@ -155,12 +155,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsProjectAdmin(false);
       setIsApprover(false);
       
-      // Then sign out from Supabase
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error("Error signing out:", error);
-        throw error;
+      try {
+        // Then sign out from Supabase
+        const { error } = await supabase.auth.signOut();
+        
+        if (error && error.name !== 'AuthSessionMissingError') {
+          // Only throw if it's not an AuthSessionMissingError
+          // AuthSessionMissingError means the session was already cleared, which is fine
+          console.error("Error signing out:", error);
+          throw error;
+        }
+      } catch (err) {
+        // Log but don't rethrow, since we've already cleared local state
+        console.warn("Error in Supabase signOut:", err);
       }
       
       toast({

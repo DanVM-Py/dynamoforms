@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from '@/components/ui/use-toast';
 
 interface SidebarUserSectionProps {
   isExpanded: boolean;
@@ -39,6 +40,12 @@ const SidebarUserSection = ({
       await signOut();
     } catch (error) {
       console.error("Error signing out:", error);
+      // Show a toast notification to the user
+      toast({
+        title: "Error al cerrar sesión",
+        description: "Hubo un problema al cerrar sesión. Intenta de nuevo.",
+        variant: "destructive"
+      });
       navigate("/auth");
     }
   };
