@@ -23,13 +23,13 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
     toggleSidebar, 
     toggleMobileMenu, 
     isSidebarForced,
-    shouldForceVisible
+    shouldShowSidebar
   } = useSidebarState({
     forceVisible,
     isMobile
   });
 
-  if (!user) {
+  if (!user || !shouldShowSidebar) {
     return null;
   }
 

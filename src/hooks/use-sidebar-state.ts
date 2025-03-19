@@ -2,11 +2,9 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
-// Define paths that should always show the sidebar
-export const ALWAYS_SHOW_SIDEBAR_PATHS = [
-  '/task-templates',
-  '/task-templates/',
-  // Add any other paths that should always show sidebar here
+// Define paths that should hide the sidebar
+export const HIDE_SIDEBAR_PATHS = [
+  '/public/forms', // Public form submissions should not show sidebar
 ];
 
 interface SidebarStateProps {
@@ -19,53 +17,36 @@ export function useSidebarState({ forceVisible = false, isMobile }: SidebarState
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   
-  // Determine if sidebar should be forced based on URL
-  const isTaskTemplatesPath = 
-    location.pathname === '/task-templates' ||
-    location.pathname.startsWith('/task-templates/') ||
-    location.pathname.includes('task-templates');
-    
-  const isForcedFromSession = sessionStorage.getItem('forceSidebar') === 'true';
-  const isForcedFromPath = isTaskTemplatesPath || ALWAYS_SHOW_SIDEBAR_PATHS.some(path => 
+  // Check if current path should hide the sidebar
+  const shouldHideSidebar = HIDE_SIDEBAR_PATHS.some(path => 
     location.pathname === path || 
-    location.pathname.startsWith(`${path}/`) ||
-    location.pathname.includes(path)
+    location.pathname.startsWith(`${path}/`)
   );
   
-  // Combine all conditions that would force sidebar visibility
-  const shouldForceVisible = forceVisible || isForcedFromSession || isForcedFromPath;
-  
-  // Helper function to check if the current path matches any of the allowed paths
-  function isAllowedPath(path: string) {
-    return ALWAYS_SHOW_SIDEBAR_PATHS.some(allowedPath => 
-      path === allowedPath || 
-      path.startsWith(`${allowedPath}/`) ||
-      path.includes(allowedPath)
-    );
-  }
+  // Always show sidebar unless explicitly hidden
+  const shouldShowSidebar = !shouldHideSidebar || forceVisible;
   
   // Debug log
   useEffect(() => {
     console.log('Sidebar visibility check:', {
       forceVisible,
-      isForcedFromSession,
-      isForcedFromPath,
-      isTaskTemplatesPath,
       path: location.pathname,
-      shouldForceVisible
+      shouldHideSidebar,
+      shouldShowSidebar
     });
-  }, [forceVisible, isForcedFromSession, isForcedFromPath, isTaskTemplatesPath, location.pathname, shouldForceVisible]);
+  }, [forceVisible, location.pathname, shouldHideSidebar, shouldShowSidebar]);
   
   useEffect(() => {
+    // Set initial state based on device
     setIsExpanded(!isMobile);
     
-    if (isMobile && !shouldForceVisible) {
+    // For mobile devices, only open the menu when explicitly forced
+    if (isMobile && !forceVisible) {
       setIsMobileMenuOpen(false);
-    } else if (shouldForceVisible && isMobile) {
-      // Always open mobile menu if sidebar should be forced
+    } else if (forceVisible && isMobile) {
       setIsMobileMenuOpen(true);
     }
-  }, [isMobile, location.pathname, shouldForceVisible]);
+  }, [isMobile, location.pathname, forceVisible]);
 
   // Manage the sidebar state
   const toggleSidebar = () => {
@@ -75,16 +56,13 @@ export function useSidebarState({ forceVisible = false, isMobile }: SidebarState
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
-
-  const isPathForced = isAllowedPath(location.pathname);
-  const isSidebarForced = isPathForced || shouldForceVisible || isForcedFromSession;
   
   return {
     isExpanded,
     isMobileMenuOpen,
     toggleSidebar,
     toggleMobileMenu,
-    isSidebarForced,
-    shouldForceVisible
+    isSidebarForced: forceVisible,
+    shouldShowSidebar
   };
 }
