@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -539,51 +538,6 @@ const TaskTemplates = () => {
       console.error("[TaskTemplates] Error fetching project users:", error);
       return [];
     }
-  };
-
-  const isValidFormSchema = (schema: any): schema is FormSchema => {
-    if (!schema) {
-      console.warn("[TaskTemplates] Schema is null or undefined");
-      return false;
-    }
-    
-    if (typeof schema === 'string') {
-      console.log("[TaskTemplates] Schema is a string of length:", schema.length);
-      console.log("[TaskTemplates] First 200 chars:", schema.substring(0, 200));
-      try {
-        const parsedSchema = JSON.parse(schema);
-        const isValid = parsedSchema && 
-                      typeof parsedSchema === 'object' && 
-                      !Array.isArray(parsedSchema) && 
-                      Array.isArray(parsedSchema.components);
-                      
-        if (!isValid) {
-          console.warn("[TaskTemplates] Parsed schema is not valid:", JSON.stringify(parsedSchema).substring(0, 200));
-        } else {
-          console.log("[TaskTemplates] Parsed schema is valid with", 
-                    parsedSchema.components.length, "components");
-        }
-        return isValid;
-      } catch (e) {
-        console.error("[TaskTemplates] Failed to parse schema string:", e);
-        return false;
-      }
-    }
-    
-    const isValid = schema && 
-                  typeof schema === 'object' && 
-                  !Array.isArray(schema) && 
-                  Array.isArray(schema.components);
-                  
-    if (!isValid) {
-      console.warn("[TaskTemplates] Schema is not valid, schema type:", typeof schema);
-      if (typeof schema === 'object') {
-        console.warn("[TaskTemplates] Schema keys:", Object.keys(schema));
-      }
-    } else {
-      console.log("[TaskTemplates] Valid schema with", schema.components.length, "components");
-    }
-    return isValid;
   };
 
   const getEmailFieldsFromForm = (formSchema: Json | null): { key: string, label: string }[] => {
