@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -554,17 +553,14 @@ const TaskTemplates = () => {
       return [];
     }
 
-    // Now we can safely access the components property
-    const fields = schema.components
+    // Now we can safely access the components property because schema is a FormSchema
+    return schema.components
       .filter((component) => 
         component.type === 'email' && component.key)
       .map((component) => ({
         key: component.key,
         label: component.label || component.key
       }));
-      
-    console.log(`[TaskTemplates] getEmailFieldsFromForm - Found ${fields.length} email fields`);
-    return fields;
   };
 
   const getSourceFormFields = () => {
@@ -580,7 +576,7 @@ const TaskTemplates = () => {
       return [];
     }
     
-    // Now we can safely access the components property
+    // Now we can safely access the components property because schema is a FormSchema
     const fields = schema.components
       .filter((component) => component.key && component.type !== 'button')
       .map((component) => ({
@@ -607,7 +603,7 @@ const TaskTemplates = () => {
       return [];
     }
     
-    // Now we can safely access the components property
+    // Now we can safely access the components property because schema is a FormSchema
     const fields = schema.components
       .filter((component) => component.key && component.type !== 'button')
       .map((component) => ({
