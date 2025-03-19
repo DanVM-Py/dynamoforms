@@ -1,11 +1,12 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { Json } from "@/types/supabase";
-import { areFieldTypesCompatible, getSourceFormFields, getTargetFormFields } from "@/utils/taskTemplateUtils";
+import { areFieldTypesCompatible, getSourceFormFields, getTargetFormFields, FormField } from "@/utils/taskTemplateUtils";
+import { debugFormSchema } from "@/utils/formSchemaUtils";
 
 interface InheritanceTabProps {
   sourceFormId: string;
@@ -30,29 +31,61 @@ const InheritanceTab = ({
 }: InheritanceTabProps) => {
   const canAccessAdvancedTabs = !!sourceFormId && !!targetFormId;
   
+  // Debugging effects to track schema state
+  useEffect(() => {
+    if (sourceFormSchema && targetFormSchema) {
+      console.group("[InheritanceTab] Schema Debug");
+      console.log("Source ID:", sourceFormId);
+      console.log("Target ID:", targetFormId);
+      debugFormSchema(sourceFormSchema, "Source Form Schema");
+      debugFormSchema(targetFormSchema, "Target Form Schema");
+      console.groupEnd();
+    }
+  }, [sourceFormId, targetFormId, sourceFormSchema, targetFormSchema]);
+  
   const handleFieldMapping = (sourceKey: string, targetKey: string) => {
+    console.log(`[InheritanceTab] Mapping source field "${sourceKey}" to target field "${targetKey}"`);
+    
     const newMapping = { ...inheritanceMapping };
-    if (sourceKey && sourceKey !== "no-inheritance") {
-      newMapping[sourceKey] = targetKey;
-    } else {
+    
+    // Si se seleccionó "No heredar", eliminamos cualquier mapeo existente para este campo destino
+    if (sourceKey === "no-inheritance") {
+      // Encontrar si hay algún campo de origen mapeado a este destino
       const sourceKeyToRemove = Object.entries(inheritanceMapping)
         .find(([_, value]) => value === targetKey)?.[0];
       
       if (sourceKeyToRemove) {
+        console.log(`[InheritanceTab] Removing inheritance mapping for target: ${targetKey}`);
         delete newMapping[sourceKeyToRemove];
       }
+    } else {
+      // Primero, eliminar cualquier mapeo existente para este campo destino
+      Object.entries(newMapping).forEach(([key, value]) => {
+        if (value === targetKey) {
+          delete newMapping[key];
+        }
+      });
+      
+      // Luego agregar el nuevo mapeo
+      newMapping[sourceKey] = targetKey;
     }
     
+    console.log("[InheritanceTab] New mapping:", newMapping);
     setInheritanceMapping(newMapping);
   };
   
   // Obtenemos los campos de origen y destino
-  const sourceFields = getSourceFormFields(sourceFormSchema);
-  const targetFields = getTargetFormFields(targetFormSchema);
+  const sourceFields = React.useMemo(() => {
+    const fields = getSourceFormFields(sourceFormSchema);
+    console.log("[InheritanceTab] Source Fields:", fields.length, fields);
+    return fields;
+  }, [sourceFormSchema]);
   
-  // Log para depuración
-  console.log("[InheritanceTab] Source Fields:", sourceFields);
-  console.log("[InheritanceTab] Target Fields:", targetFields);
+  const targetFields = React.useMemo(() => {
+    const fields = getTargetFormFields(targetFormSchema);
+    console.log("[InheritanceTab] Target Fields:", fields.length, fields);
+    return fields;
+  }, [targetFormSchema]);
   
   return (
     <div className="space-y-4 pt-4">
@@ -84,8 +117,13 @@ const InheritanceTab = ({
         ) : targetFields.length > 0 ? (
           <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
             {targetFields.map((targetField) => {
+              // Encontrar si hay algún campo de origen mapeado a este destino
               const mappedSourceKey = Object.entries(inheritanceMapping)
                 .find(([_, value]) => value === targetField.key)?.[0] || "";
+                
+              // Filtrar los campos de origen compatibles con este tipo de destino
+              const compatibleSourceFields = sourceFields
+                .filter(sourceField => areFieldTypesCompatible(sourceField.type, targetField.type));
                 
               return (
                 <div key={targetField.key} className="grid grid-cols-2 gap-4 p-3 border rounded-md">
@@ -95,7 +133,7 @@ const InheritanceTab = ({
                   </div>
                   <div>
                     <Select
-                      value={mappedSourceKey}
+                      value={mappedSourceKey || "no-inheritance"}
                       onValueChange={(sourceKey) => handleFieldMapping(sourceKey, targetField.key)}
                     >
                       <SelectTrigger className="w-full">
@@ -103,13 +141,11 @@ const InheritanceTab = ({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="no-inheritance">No heredar</SelectItem>
-                        {sourceFields
-                          .filter(sourceField => areFieldTypesCompatible(sourceField.type, targetField.type))
-                          .map((sourceField) => (
-                            <SelectItem key={sourceField.key} value={sourceField.key}>
-                              {sourceField.label} ({sourceField.type})
-                            </SelectItem>
-                          ))}
+                        {compatibleSourceFields.map((sourceField) => (
+                          <SelectItem key={sourceField.key} value={sourceField.key}>
+                            {sourceField.label} ({sourceField.type})
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

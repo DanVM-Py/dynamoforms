@@ -1,5 +1,7 @@
+
 import { Json } from "@/types/supabase";
 import { supabase } from "@/integrations/supabase/client";
+import { getValidFormSchema, safelyAccessFormSchema } from "@/utils/formSchemaUtils";
 
 export type TaskTemplate = {
   id: string;
@@ -94,38 +96,31 @@ export const getProjectUsers = async (projectId: string): Promise<User[]> => {
 
 // Función para obtener los campos del formulario de origen
 export const getSourceFormFields = (formSchema: Json | null): FormField[] => {
-  if (!formSchema) return [];
+  if (!formSchema) {
+    console.error("[taskTemplateUtils] No form schema provided for getSourceFormFields");
+    return [];
+  }
   
-  // Intentar interpretar el esquema
+  // Usar las funciones de formSchemaUtils para un procesamiento más robusto
+  const schema = safelyAccessFormSchema(formSchema);
+  if (!schema) {
+    console.error("[taskTemplateUtils] Invalid schema structure in getSourceFormFields");
+    return [];
+  }
+  
+  // Extract and transform fields from the valid schema
   try {
-    let schema: any = formSchema;
+    console.log("[taskTemplateUtils] Processing source form components:", schema.components.length);
     
-    // Si es string, intentamos parsearlo
-    if (typeof schema === 'string') {
-      try {
-        schema = JSON.parse(schema);
-      } catch (e) {
-        console.error("[taskTemplateUtils] Error parsing source schema:", e);
-        return [];
-      }
-    }
-    
-    // Verificar si tenemos componentes
-    if (!schema || !schema.components || !Array.isArray(schema.components)) {
-      console.warn("[taskTemplateUtils] Invalid source form schema format:", schema);
-      return [];
-    }
-    
-    // Extraer y transformar los campos
     return schema.components
-      .filter((component: any) => 
+      .filter(component => 
         component.key && 
         (component.input === true || component.input === undefined) &&
         component.type !== 'button' && 
         component.type !== 'content' && 
         component.type !== 'htmlelement'
       )
-      .map((component: any) => ({
+      .map(component => ({
         key: component.key,
         label: component.label || component.key,
         type: component.type || 'textfield'
@@ -139,38 +134,31 @@ export const getSourceFormFields = (formSchema: Json | null): FormField[] => {
 
 // Función para obtener los campos del formulario de destino
 export const getTargetFormFields = (formSchema: Json | null): FormField[] => {
-  if (!formSchema) return [];
+  if (!formSchema) {
+    console.error("[taskTemplateUtils] No form schema provided for getTargetFormFields");
+    return [];
+  }
   
-  // Intentar interpretar el esquema
+  // Usar las funciones de formSchemaUtils para un procesamiento más robusto
+  const schema = safelyAccessFormSchema(formSchema);
+  if (!schema) {
+    console.error("[taskTemplateUtils] Invalid schema structure in getTargetFormFields");
+    return [];
+  }
+  
+  // Extract and transform fields from the valid schema
   try {
-    let schema: any = formSchema;
+    console.log("[taskTemplateUtils] Processing target form components:", schema.components.length);
     
-    // Si es string, intentamos parsearlo
-    if (typeof schema === 'string') {
-      try {
-        schema = JSON.parse(schema);
-      } catch (e) {
-        console.error("[taskTemplateUtils] Error parsing target schema:", e);
-        return [];
-      }
-    }
-    
-    // Verificar si tenemos componentes
-    if (!schema || !schema.components || !Array.isArray(schema.components)) {
-      console.warn("[taskTemplateUtils] Invalid target form schema format:", schema);
-      return [];
-    }
-    
-    // Extraer y transformar los campos
     return schema.components
-      .filter((component: any) => 
+      .filter(component => 
         component.key && 
         (component.input === true || component.input === undefined) &&
         component.type !== 'button' && 
         component.type !== 'content' && 
         component.type !== 'htmlelement'
       )
-      .map((component: any) => ({
+      .map(component => ({
         key: component.key,
         label: component.label || component.key,
         type: component.type || 'textfield'
@@ -183,49 +171,46 @@ export const getTargetFormFields = (formSchema: Json | null): FormField[] => {
 };
 
 export const areFieldTypesCompatible = (sourceType: string, targetType: string): boolean => {
-  // Aquí puedes definir la lógica de compatibilidad de tipos.
-  // Por ejemplo, podrías permitir la herencia de 'number' a 'text', pero no al revés.
-  // Este es solo un ejemplo básico:
+  // Group compatible field types together
+  const textTypes = ['textfield', 'textarea', 'text'];
+  const numberTypes = ['number', 'currency'];
+  const dateTypes = ['datetime', 'date'];
+  const selectionTypes = ['select', 'radio', 'checkbox'];
+  
+  // Check if both types belong to the same group
+  if (textTypes.includes(sourceType) && textTypes.includes(targetType)) return true;
+  if (numberTypes.includes(sourceType) && numberTypes.includes(targetType)) return true;
+  if (dateTypes.includes(sourceType) && dateTypes.includes(targetType)) return true;
+  if (selectionTypes.includes(sourceType) && selectionTypes.includes(targetType)) return true;
+  
+  // Fall back to exact type match
   return sourceType === targetType;
 };
 
 export const getEmailFieldsFromForm = (formSchema: Json | null): FormField[] => {
   if (!formSchema) return [];
 
+  const schema = safelyAccessFormSchema(formSchema);
+  if (!schema) {
+    console.error("[taskTemplateUtils] Invalid schema structure in getEmailFieldsFromForm");
+    return [];
+  }
+
   try {
-    let schema: any = formSchema;
-
-    // Si es string, intentamos parsearlo
-    if (typeof schema === 'string') {
-      try {
-        schema = JSON.parse(schema);
-      } catch (e) {
-        console.error("[taskTemplateUtils] Error parsing schema:", e);
-        return [];
-      }
-    }
-
-    // Verificar si tenemos componentes
-    if (!schema || !schema.components || !Array.isArray(schema.components)) {
-      console.warn("[taskTemplateUtils] Invalid form schema format:", schema);
-      return [];
-    }
-
-    // Extraer y transformar los campos
     return schema.components
-      .filter((component: any) =>
+      .filter(component =>
         component.key &&
         (component.input === true || component.input === undefined) &&
         component.type === 'email'
       )
-      .map((component: any) => ({
+      .map(component => ({
         key: component.key,
         label: component.label || component.key,
         type: component.type || 'email'
       }));
 
   } catch (error) {
-    console.error("[taskTemplateUtils] Error processing form schema:", error);
+    console.error("[taskTemplateUtils] Error processing form schema in getEmailFieldsFromForm:", error);
     return [];
   }
 };
