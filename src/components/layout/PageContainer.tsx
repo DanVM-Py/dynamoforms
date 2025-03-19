@@ -30,7 +30,7 @@ export const PageContainer = ({ children, className, hideSidebar = false, title 
   // Render sidebar if user is authenticated and sidebar should not be hidden
   const shouldShowSidebar = isAuthenticated && !shouldHideSidebar;
   
-  // Debug log
+  // Debug log for diagnosis
   console.log('PageContainer sidebar check:', {
     path: location.pathname,
     hideSidebar,

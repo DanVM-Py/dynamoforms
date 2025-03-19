@@ -26,7 +26,7 @@ export function useSidebarState({ forceVisible = false, isMobile }: SidebarState
   // Force visibility overrides the hide paths check
   const shouldShowSidebar = forceVisible || !shouldHideSidebar;
   
-  // Debug log
+  // Debug log for bug diagnosis
   console.log('useSidebarState hook check:', {
     path: location.pathname,
     forceVisible,

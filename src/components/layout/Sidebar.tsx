@@ -29,7 +29,7 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
     isMobile
   });
 
-  // Debug log
+  // Debug log for diagnosis
   console.log('Sidebar component check:', {
     forceVisible,
     isMobile,

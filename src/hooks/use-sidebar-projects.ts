@@ -10,6 +10,7 @@ export function useSidebarProjects() {
   const location = useLocation();
   const { user, isProjectAdmin, isGlobalAdmin } = useAuth();
 
+  // First effect - get project ID from storage or URL
   useEffect(() => {
     const getProjectIdFromStorage = () => {
       return sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
@@ -31,6 +32,7 @@ export function useSidebarProjects() {
     }
   }, [location.pathname]);
 
+  // Second effect - fetch projects
   useEffect(() => {
     const fetchProjects = async () => {
       if (!user || (!isProjectAdmin && !isGlobalAdmin)) {
