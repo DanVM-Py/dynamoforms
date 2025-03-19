@@ -11,6 +11,7 @@ const Forms = lazy(() => import("./pages/Forms"));
 const FormEdit = lazy(() => import("./pages/FormEdit"));
 const FormResponses = lazy(() => import("./pages/FormResponses"));
 const PublicFormView = lazy(() => import("./pages/PublicFormView"));
+const PrivateFormView = lazy(() => import("./pages/PrivateFormView"));
 const PublicFormSuccess = lazy(() => import("./pages/PublicFormSuccess"));
 const Projects = lazy(() => import("./pages/Projects"));
 const ProjectRoles = lazy(() => import("./pages/ProjectRoles"));
@@ -94,7 +95,7 @@ export const router = createBrowserRouter([
     path: "/forms/:formId",
     element: (
       <ProtectedRoute>
-        <Suspense fallback={<Loading />}><FormEdit /></Suspense>
+        <Suspense fallback={<Loading />}><PrivateFormView /></Suspense>
       </ProtectedRoute>
     ),
   },

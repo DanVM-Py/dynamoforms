@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,15 +17,20 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Redirect to home if user is already logged in
+  // Get redirect URL from query params
+  const searchParams = new URLSearchParams(location.search);
+  const redirectTo = searchParams.get('redirect') || '/';
+
+  // Redirect to specified path if user is already logged in
   useEffect(() => {
     if (user) {
-      navigate("/", { replace: true });
+      navigate(redirectTo, { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, navigate, redirectTo]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +55,8 @@ const Auth = () => {
       
       if (error) throw error;
       
-      navigate("/");
+      // Redirect to the requested page after login
+      navigate(redirectTo);
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error.message);
       toast({
@@ -108,7 +114,11 @@ const Auth = () => {
         <Card className="border-gray-200 shadow-lg">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold text-dynamo-700">Dynamo</CardTitle>
-            <CardDescription>Plataforma de gestión de formularios</CardDescription>
+            <CardDescription>
+              {redirectTo !== '/' ? 
+                "Inicia sesión para acceder al formulario" : 
+                "Plataforma de gestión de formularios"}
+            </CardDescription>
           </CardHeader>
           
           <Tabs defaultValue="login" className="w-full">

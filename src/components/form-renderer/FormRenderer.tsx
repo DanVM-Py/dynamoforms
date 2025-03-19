@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +37,7 @@ export interface FormRendererProps {
   onSuccess?: () => void;
   onSubmit?: (data: any) => void;
   isPublic?: boolean;
+  isSubmitting?: boolean;
 }
 
 export const FormRenderer: React.FC<FormRendererProps> = ({
@@ -47,10 +47,11 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
   onSuccess,
   onSubmit,
   isPublic = false,
+  isSubmitting = false,
 }) => {
   const [formData, setFormData] = useState<any>({});
   const [errors, setErrors] = useState<any>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localSubmitting, setLocalSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   const validateField = (component: any, value: any) => {
@@ -134,7 +135,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
       return;
     }
 
-    setIsSubmitting(true);
+    setLocalSubmitting(true);
     setSubmissionError(null);
 
     try {
@@ -191,7 +192,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setLocalSubmitting(false);
     }
   };
 
@@ -544,8 +545,8 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
       )}
 
       {!readOnly && (
-        <Button disabled={isSubmitting}>
-          {isSubmitting ? (
+        <Button disabled={isSubmitting || localSubmitting}>
+          {isSubmitting || localSubmitting ? (
             <>
               Enviando...
               <Loader2 className="ml-2 h-4 w-4 animate-spin" />

@@ -59,8 +59,9 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
     // Attempt to trigger task creation
     triggerTaskCreation();
 
-    // Redirect based on form type
+    // Make sure we use the correct paths consistently
     if (isPublic) {
+      // Use the correct public form success path
       navigate(`/public/forms/${formId}/success`);
     } else {
       toast({
