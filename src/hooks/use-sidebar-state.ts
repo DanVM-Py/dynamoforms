@@ -23,18 +23,17 @@ export function useSidebarState({ forceVisible = false, isMobile }: SidebarState
     location.pathname.startsWith(`${path}/`)
   );
   
-  // Always show sidebar unless explicitly hidden
-  const shouldShowSidebar = !shouldHideSidebar || forceVisible;
+  // Force visibility overrides the hide paths check
+  const shouldShowSidebar = forceVisible || !shouldHideSidebar;
   
   // Debug log
-  useEffect(() => {
-    console.log('Sidebar visibility check:', {
-      forceVisible,
-      path: location.pathname,
-      shouldHideSidebar,
-      shouldShowSidebar
-    });
-  }, [forceVisible, location.pathname, shouldHideSidebar, shouldShowSidebar]);
+  console.log('useSidebarState hook check:', {
+    path: location.pathname,
+    forceVisible,
+    shouldHideSidebar,
+    shouldShowSidebar,
+    isMobile
+  });
   
   useEffect(() => {
     // Set initial state based on device
