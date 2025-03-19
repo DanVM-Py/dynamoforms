@@ -24,7 +24,7 @@ export const PageContainer = ({ children, className, hideSidebar = false, title 
   const isAuthenticated = !!user && !loading;
   const location = useLocation();
   
-  // Check if current path directly matches or is a sub-path of task-templates
+  // Check if current path matches any of the task-templates paths using a more comprehensive approach
   const isTaskTemplatesPath = 
     location.pathname === '/task-templates' ||
     location.pathname.startsWith('/task-templates/') ||
@@ -34,10 +34,11 @@ export const PageContainer = ({ children, className, hideSidebar = false, title 
   const shouldForceSidebar = isTaskTemplatesPath || 
     ALWAYS_SHOW_SIDEBAR_PATHS.some(path => 
       location.pathname === path || 
-      location.pathname.startsWith(`${path}/`)
+      location.pathname.startsWith(`${path}/`) ||
+      location.pathname.includes(path)
     );
   
-  // Always store the current state in session storage for persistence
+  // Always store the current state in session storage for persistence between page loads
   useEffect(() => {
     if (shouldForceSidebar) {
       sessionStorage.setItem('forceSidebar', 'true');
