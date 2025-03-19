@@ -1,101 +1,77 @@
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
-import { Loader2, Copy } from "lucide-react";
-
-interface Form {
-  id: string;
-  title: string;
-  description: string | null;
-  project_id: string | null;
-  project_name?: string;
-}
-
-interface Project {
-  id: string;
-  name: string;
-}
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 
 interface CloneFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: (newFormId: string) => void;
+  currentProjectId?: string | null;
 }
 
-export const CloneFormModal = ({ open, onOpenChange, onSuccess }: CloneFormModalProps) => {
+export function CloneFormModal({ open, onOpenChange, onSuccess, currentProjectId }: CloneFormModalProps) {
+  const [formId, setFormId] = useState("");
+  const [newTitle, setNewTitle] = useState("");
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [forms, setForms] = useState<Form[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedForm, setSelectedForm] = useState<string>("");
-  const [targetProject, setTargetProject] = useState<string>("");
-  const [newTitle, setNewTitle] = useState<string>("");
-  const [newDescription, setNewDescription] = useState<string>("");
-  const [cloneRoles, setCloneRoles] = useState<boolean>(true);
+  const [forms, setForms] = useState<any[]>([]);
+  const [fetching, setFetching] = useState(false);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const { toast } = useToast();
-  const { isGlobalAdmin } = useAuth();
 
   useEffect(() => {
-    if (open && isGlobalAdmin) {
+    if (open) {
+      setFormId("");
+      setNewTitle("");
       fetchForms();
       fetchProjects();
-    }
-  }, [open, isGlobalAdmin]);
-
-  useEffect(() => {
-    if (selectedForm) {
-      const form = forms.find(f => f.id === selectedForm);
-      if (form) {
-        setNewTitle(`${form.title} (Copia)`);
-        setNewDescription(form.description || "");
+      
+      if (currentProjectId) {
+        setSelectedProjectId(currentProjectId);
       }
     }
-  }, [selectedForm, forms]);
+  }, [open, currentProjectId]);
 
   const fetchForms = async () => {
     try {
-      setLoading(true);
+      setFetching(true);
       
-      const { data, error } = await supabase
-        .from('forms')
-        .select(`
-          *,
-          projects:project_id (name)
-        `);
-        
+      // Get forms from the current project if specified
+      let query = supabase.from('forms').select('id, title, project_id, projects:project_id(name)');
+      
+      if (currentProjectId) {
+        query = query.eq('project_id', currentProjectId);
+      }
+      
+      const { data, error } = await query;
+      
       if (error) throw error;
       
       if (data) {
-        const formattedForms = data.map(form => ({
-          ...form,
-          project_name: form.projects?.name || 'Sin proyecto'
-        }));
-        
-        setForms(formattedForms);
+        setForms(data);
       }
     } catch (error) {
       console.error('Error fetching forms:', error);
       toast({
         title: "Error al cargar formularios",
-        description: "No se pudieron cargar los formularios. Por favor, intenta nuevamente.",
+        description: "No se pudieron cargar los formularios para clonar.",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setFetching(false);
     }
   };
 
   const fetchProjects = async () => {
     try {
+      setFetching(true);
       const { data, error } = await supabase
         .from('projects')
         .select('id, name');
@@ -107,199 +83,154 @@ export const CloneFormModal = ({ open, onOpenChange, onSuccess }: CloneFormModal
       }
     } catch (error) {
       console.error('Error fetching projects:', error);
-      toast({
-        title: "Error al cargar proyectos",
-        description: "No se pudieron cargar los proyectos. Por favor, intenta nuevamente.",
-        variant: "destructive",
-      });
+    } finally {
+      setFetching(false);
     }
   };
 
-  const handleCloneForm = async () => {
-    if (!selectedForm || !targetProject || !newTitle) {
+  const handleFormChange = (id: string) => {
+    setFormId(id);
+    const selectedForm = forms.find(form => form.id === id);
+    if (selectedForm) {
+      setNewTitle(`Copia de ${selectedForm.title}`);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formId) {
       toast({
-        title: "Campos requeridos",
-        description: "Por favor completa todos los campos requeridos",
+        title: "Error",
+        description: "Por favor, selecciona un formulario para clonar.",
         variant: "destructive",
       });
       return;
     }
-
+    
+    if (!newTitle) {
+      toast({
+        title: "Error",
+        description: "Por favor, ingresa un título para el nuevo formulario.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!selectedProjectId) {
+      toast({
+        title: "Error",
+        description: "Por favor, selecciona un proyecto para el nuevo formulario.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
-      setSubmitting(true);
+      setLoading(true);
       
-      const { data, error } = await supabase.functions.invoke('clone-form', {
+      const response = await supabase.functions.invoke('clone-form', {
         body: {
-          sourceFormId: selectedForm,
-          targetProjectId: targetProject,
+          sourceFormId: formId,
           newTitle,
-          newDescription,
-          cloneRoles
-        }
+          projectId: selectedProjectId
+        },
       });
       
-      if (error) throw error;
-      
-      if (data.error) {
-        throw new Error(data.error);
+      if (response.error) {
+        throw new Error(response.error.message);
       }
+      
+      const data = response.data;
       
       toast({
         title: "Formulario clonado",
-        description: "El formulario ha sido clonado exitosamente al proyecto seleccionado",
+        description: "El formulario ha sido clonado exitosamente.",
       });
       
       onOpenChange(false);
       
-      if (onSuccess && data.data.newFormId) {
-        onSuccess(data.data.newFormId);
+      if (onSuccess && data.newFormId) {
+        onSuccess(data.newFormId);
       }
-      
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error cloning form:', error);
       toast({
         title: "Error al clonar formulario",
-        description: error.message || "No se pudo clonar el formulario. Por favor, intenta nuevamente.",
+        description: error?.message || "No se pudo clonar el formulario. Por favor, intenta nuevamente.",
         variant: "destructive",
       });
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 
-  const resetForm = () => {
-    setSelectedForm("");
-    setTargetProject("");
-    setNewTitle("");
-    setNewDescription("");
-    setCloneRoles(true);
-  };
-
-  // Only global admins can access this feature
-  if (!isGlobalAdmin) {
-    return null;
-  }
-
   return (
-    <Dialog open={open} onOpenChange={(newOpen) => {
-      if (!newOpen) {
-        resetForm();
-      }
-      onOpenChange(newOpen);
-    }}>
-      <DialogContent className="sm:max-w-[500px]">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Clonar Formulario</DialogTitle>
-          <DialogDescription>
-            Selecciona un formulario existente para clonarlo en otro proyecto.
-          </DialogDescription>
         </DialogHeader>
-        
-        {loading ? (
-          <div className="flex justify-center p-4">
-            <Loader2 className="h-6 w-6 animate-spin text-dynamo-600" />
+        <form onSubmit={handleSubmit} className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="form-id">Formulario a clonar</Label>
+            <Select value={formId} onValueChange={handleFormChange}>
+              <SelectTrigger id="form-id">
+                <SelectValue placeholder="Seleccionar formulario" />
+              </SelectTrigger>
+              <SelectContent>
+                {forms.map((form) => (
+                  <SelectItem key={form.id} value={form.id}>
+                    {form.title} {form.projects && `(${form.projects.name})`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        ) : (
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="source-form">Formulario origen</Label>
-              <Select 
-                value={selectedForm} 
-                onValueChange={setSelectedForm}
-              >
-                <SelectTrigger id="source-form">
-                  <SelectValue placeholder="Selecciona un formulario" />
-                </SelectTrigger>
-                <SelectContent>
-                  {forms.map((form) => (
-                    <SelectItem key={form.id} value={form.id}>
-                      {form.title} ({form.project_name})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="target-project">Proyecto destino</Label>
-              <Select 
-                value={targetProject} 
-                onValueChange={setTargetProject}
-              >
-                <SelectTrigger id="target-project">
-                  <SelectValue placeholder="Selecciona un proyecto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="new-title">Título del nuevo formulario *</Label>
-              <Input 
-                id="new-title" 
-                value={newTitle} 
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Ingresa un título para el nuevo formulario" 
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="new-description">Descripción (opcional)</Label>
-              <Textarea 
-                id="new-description" 
-                value={newDescription} 
-                onChange={(e) => setNewDescription(e.target.value)}
-                placeholder="Ingresa una descripción para el nuevo formulario" 
-                rows={3}
-              />
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="clone-roles" 
-                checked={cloneRoles}
-                onCheckedChange={(checked) => setCloneRoles(checked as boolean)}
-              />
-              <Label htmlFor="clone-roles" className="cursor-pointer">
-                Copiar configuración de roles de acceso
-              </Label>
-            </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="new-title">Título del nuevo formulario</Label>
+            <Input 
+              id="new-title" 
+              value={newTitle} 
+              onChange={(e) => setNewTitle(e.target.value)} 
+              placeholder="Ingresa un título" 
+            />
           </div>
-        )}
-        
-        <DialogFooter>
-          <Button 
-            variant="outline" 
-            onClick={() => onOpenChange(false)}
-            disabled={submitting}
-          >
-            Cancelar
-          </Button>
-          <Button 
-            onClick={handleCloneForm}
-            disabled={!selectedForm || !targetProject || !newTitle || submitting}
-            className="bg-dynamo-600 hover:bg-dynamo-700"
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Clonando...
-              </>
-            ) : (
-              <>
-                <Copy className="mr-2 h-4 w-4" />
-                Clonar Formulario
-              </>
-            )}
-          </Button>
-        </DialogFooter>
+
+          <div className="space-y-2">
+            <Label htmlFor="project-id">Proyecto destino</Label>
+            <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+              <SelectTrigger id="project-id">
+                <SelectValue placeholder="Seleccionar proyecto destino" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={loading || !formId || !newTitle || !selectedProjectId}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Clonando...
+                </>
+              ) : (
+                "Clonar Formulario"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
-};
+}

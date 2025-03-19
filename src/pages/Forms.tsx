@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CloneFormModal } from "@/components/forms/CloneFormModal";
+import { useSidebarProjects } from "@/hooks/use-sidebar-projects";
 
 interface Form {
   id: string;
@@ -33,11 +34,10 @@ const Forms = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forms, setForms] = useState<Form[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isGlobalAdmin, isProjectAdmin, user, refreshUserProfile } = useAuth();
+  const { currentProjectId } = useSidebarProjects();
   
   const canCreateForms = isGlobalAdmin || isProjectAdmin;
 
@@ -49,16 +49,19 @@ const Forms = () => {
   const [showCloneModal, setShowCloneModal] = useState(false);
 
   useEffect(() => {
-    refreshUserProfile().then(() => {
-      fetchForms();
-      
-      if (isGlobalAdmin) {
-        fetchProjects();
-      } else if (isProjectAdmin) {
-        fetchUserProjects();
-      }
-    });
-  }, [isGlobalAdmin, isProjectAdmin]);
+    if (currentProjectId) {
+      refreshUserProfile().then(() => {
+        fetchForms();
+      });
+    } else if (isGlobalAdmin) {
+      refreshUserProfile().then(() => {
+        fetchForms();
+      });
+    } else {
+      setForms([]);
+      setLoading(false);
+    }
+  }, [isGlobalAdmin, isProjectAdmin, currentProjectId]);
 
   const fetchForms = async () => {
     try {
@@ -79,13 +82,17 @@ const Forms = () => {
 
       console.log("Fetching forms for user:", session.user.id);
       console.log("User roles:", { isGlobalAdmin, isProjectAdmin });
+      console.log("Current project ID:", currentProjectId);
 
       let query = supabase.from('forms').select(`
         *,
         projects:project_id (name)
       `);
       
-      if (!isGlobalAdmin) {
+      if (currentProjectId && (!isGlobalAdmin || (isGlobalAdmin && currentProjectId))) {
+        query = query.eq('project_id', currentProjectId);
+        console.log("Filtering by current project:", currentProjectId);
+      } else if (!isGlobalAdmin) {
         if (isProjectAdmin) {
           const { data: projectAdminData } = await supabase
             .from('project_admins')
@@ -189,55 +196,6 @@ const Forms = () => {
     }
   };
 
-  const fetchProjects = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id, name');
-        
-      if (error) throw error;
-      
-      if (data) {
-        setProjects(data);
-      }
-    } catch (error) {
-      console.error('Error fetching projects:', error);
-    }
-  };
-
-  const fetchUserProjects = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) return;
-      
-      const { data, error } = await supabase
-        .from('project_admins')
-        .select(`
-          project_id,
-          projects:project_id (id, name)
-        `)
-        .eq('user_id', session.user.id);
-        
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        const projectsData = data.map(item => ({
-          id: item.projects.id,
-          name: item.projects.name
-        }));
-        
-        setProjects(projectsData);
-        
-        if (projectsData.length > 0 && !selectedProject) {
-          setSelectedProject(projectsData[0].id);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching user projects:', error);
-    }
-  };
-
   const createForm = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -260,21 +218,13 @@ const Forms = () => {
         return;
       }
       
-      if (isProjectAdmin && !isGlobalAdmin && !selectedProject) {
+      if (!currentProjectId) {
         toast({
           title: "Proyecto requerido",
           description: "Debes seleccionar un proyecto para crear el formulario.",
           variant: "destructive",
         });
         return;
-      }
-      
-      let projectId = null;
-      
-      if (isProjectAdmin && !isGlobalAdmin) {
-        projectId = selectedProject;
-      } else if (isGlobalAdmin && selectedProject) {
-        projectId = selectedProject;
       }
       
       const { data, error } = await supabase
@@ -284,7 +234,7 @@ const Forms = () => {
             title: 'Nuevo formulario', 
             description: 'Descripción del formulario',
             created_by: session.user.id,
-            project_id: projectId,
+            project_id: currentProjectId,
             schema: {}, 
             status: 'draft'
           }
@@ -517,7 +467,13 @@ const Forms = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Formularios</h1>
-          <p className="text-gray-500 mt-1">Gestiona y visualiza formularios según tus permisos</p>
+          <p className="text-gray-500 mt-1">
+            {currentProjectId 
+              ? `Formularios del proyecto actual`
+              : isGlobalAdmin 
+                ? "Formularios de todos los proyectos" 
+                : "Selecciona un proyecto para ver sus formularios"}
+          </p>
         </div>
         <div className="flex space-x-2">
           <Button 
@@ -542,11 +498,11 @@ const Forms = () => {
             </Button>
           )}
           
-          {canCreateForms && activeTab === "editor" && (
+          {canCreateForms && activeTab === "editor" && currentProjectId && (
             <Button 
               className="bg-dynamo-600 hover:bg-dynamo-700"
               onClick={createForm}
-              disabled={loading}
+              disabled={loading || !currentProjectId}
             >
               <Plus className="h-4 w-4 mr-2" /> Crear formulario
             </Button>
@@ -563,7 +519,17 @@ const Forms = () => {
         </Tabs>
       )}
 
-      {loading ? (
+      {!currentProjectId && !isGlobalAdmin ? (
+        <div className="text-center p-8">
+          <div className="mb-4 text-gray-400">
+            <FileText className="h-12 w-12 mx-auto mb-2" />
+            <p className="text-lg font-medium">No hay proyecto seleccionado</p>
+            <p className="text-sm text-gray-500">
+              Selecciona un proyecto de la barra lateral para ver sus formularios
+            </p>
+          </div>
+        </div>
+      ) : loading ? (
         <div className="flex justify-center p-8">
           <div className="animate-pulse text-gray-500">Cargando formularios...</div>
         </div>
@@ -596,7 +562,7 @@ const Forms = () => {
                 <FileText className="h-12 w-12 mx-auto mb-2" />
                 <p className="text-lg font-medium">No hay formularios disponibles</p>
                 <p className="text-sm text-gray-500">
-                  {activeTab === "editor" && canCreateForms 
+                  {activeTab === "editor" && canCreateForms && currentProjectId
                     ? "Crea tu primer formulario para comenzar" 
                     : "No tienes acceso a ningún formulario en este momento"
                   }
@@ -605,7 +571,7 @@ const Forms = () => {
             </div>
           )}
 
-          {activeTab === "editor" && canCreateForms && (
+          {activeTab === "editor" && canCreateForms && currentProjectId && (
             <Card 
               className="flex flex-col items-center justify-center h-full min-h-[220px] border-dashed hover:bg-gray-50 cursor-pointer" 
               onClick={createForm}
@@ -615,7 +581,7 @@ const Forms = () => {
               </div>
               <p className="text-lg font-medium text-dynamo-600">Crear nuevo formulario</p>
               <p className="text-sm text-gray-500 text-center mt-2">
-                Diseña formularios personalizados<br />con lógica avanzada
+                Diseña formularios personalizados<br />para el proyecto actual
               </p>
             </Card>
           )}
@@ -650,6 +616,7 @@ const Forms = () => {
         open={showCloneModal} 
         onOpenChange={setShowCloneModal}
         onSuccess={handleCloneSuccess}
+        currentProjectId={currentProjectId}
       />
     </PageContainer>
   );

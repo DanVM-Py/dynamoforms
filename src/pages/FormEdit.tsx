@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -23,11 +24,13 @@ import {
 } from "@/components/ui/select";
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useSidebarProjects } from "@/hooks/use-sidebar-projects";
 
 const FormEdit = () => {
   const { formId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { currentProjectId } = useSidebarProjects();
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -73,6 +76,17 @@ const FormEdit = () => {
       if (error) throw error;
       
       if (data) {
+        // Check if the form belongs to the current project
+        if (currentProjectId && data.project_id !== currentProjectId) {
+          toast({
+            title: "Acceso denegado",
+            description: "Este formulario no pertenece al proyecto actual.",
+            variant: "destructive",
+          });
+          navigate('/forms');
+          return;
+        }
+        
         let formSchema: FormSchema;
         
         if (data.schema && typeof data.schema === 'object') {

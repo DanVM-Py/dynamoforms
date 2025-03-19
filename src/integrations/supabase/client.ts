@@ -52,6 +52,20 @@ if (environment !== 'production') {
   console.log(`Supabase client initialized for ${environment} environment`);
 }
 
+// Get the current project ID from session storage
+const getCurrentProjectId = () => {
+  return sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
+};
+
+// Add project ID header if it exists
+supabaseClient.headers = () => {
+  const projectId = getCurrentProjectId();
+  if (projectId) {
+    return { 'X-Current-Project': projectId };
+  }
+  return {};
+};
+
 // Export the main API client as the default supabase client
 export const supabase = supabaseClient;
 
