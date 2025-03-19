@@ -79,6 +79,17 @@ interface TaskTemplate {
   assigneeFormField: string;
 }
 
+// Define a more specific type for form schema
+interface FormSchema {
+  components: Array<{
+    type: string;
+    key: string;
+    label: string;
+    [key: string]: any;
+  }>;
+  [key: string]: any;
+}
+
 interface CreateTaskTemplateModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -331,8 +342,16 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
     setAssigneeFormField("");
   };
 
+  // Helper to check if schema is a valid FormSchema object
+  const isValidFormSchema = (schema: any): schema is FormSchema => {
+    return schema && 
+           typeof schema === 'object' && 
+           !Array.isArray(schema) && 
+           Array.isArray(schema.components);
+  };
+
   const getEmailFieldsFromForm = (formSchema: any): { key: string, label: string }[] => {
-    if (!formSchema || !formSchema.components) {
+    if (!isValidFormSchema(formSchema)) {
       return [];
     }
 
@@ -360,7 +379,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
   };
 
   const getSourceFormFields = () => {
-    if (!sourceFormSchema || !sourceFormSchema.components) return [];
+    if (!isValidFormSchema(sourceFormSchema)) return [];
 
     return sourceFormSchema.components
       .filter((component: any) => component.key && component.type !== 'button')
@@ -372,7 +391,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
   };
 
   const getTargetFormFields = () => {
-    if (!targetFormSchema || !targetFormSchema.components) return [];
+    if (!isValidFormSchema(targetFormSchema)) return [];
 
     return targetFormSchema.components
       .filter((component: any) => component.key && component.type !== 'button')

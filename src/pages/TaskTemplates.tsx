@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -80,6 +79,16 @@ interface TaskTemplate {
   assigneeFormField: string;
 }
 
+interface FormSchema {
+  components: Array<{
+    type: string;
+    key: string;
+    label: string;
+    [key: string]: any;
+  }>;
+  [key: string]: any;
+}
+
 const TaskTemplates = () => {
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -108,7 +117,6 @@ const TaskTemplates = () => {
   const queryClient = useQueryClient();
   const { user, userProfile } = useAuth();
 
-  // Get the project ID from session storage or user profile
   useEffect(() => {
     const storedProjectId = sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
     
@@ -173,7 +181,6 @@ const TaskTemplates = () => {
     enabled: true,
   });
 
-  // Optimize forms query with better caching and error handling
   const {
     data: forms,
     isLoading: isLoadingForms,
@@ -237,8 +244,7 @@ const TaskTemplates = () => {
     enabled: !!projectId,
     staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
-  
-  // Use separate queries for source and target form schemas
+
   const {
     data: sourceFormSchema,
     isLoading: isLoadingSourceSchema,
@@ -490,7 +496,6 @@ const TaskTemplates = () => {
     try {
       console.log(`[TaskTemplates] Fetching users for project: ${projectId}`);
       
-      // First get all project_users
       const { data: projectUsersData, error: projectUsersError } = await supabase
         .from('project_users')
         .select('user_id')
@@ -506,7 +511,6 @@ const TaskTemplates = () => {
         return [];
       }
       
-      // Then fetch profile information for those users
       const userIds = projectUsersData.map(pu => pu.user_id);
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
@@ -533,7 +537,7 @@ const TaskTemplates = () => {
   };
 
   const getEmailFieldsFromForm = (formSchema: any): { key: string, label: string }[] => {
-    if (!formSchema || !formSchema.components) {
+    if (!isValidFormSchema(formSchema)) {
       return [];
     }
 
@@ -561,7 +565,7 @@ const TaskTemplates = () => {
   };
 
   const getSourceFormFields = () => {
-    if (!sourceFormSchema || !sourceFormSchema.components) return [];
+    if (!isValidFormSchema(sourceFormSchema)) return [];
     
     return sourceFormSchema.components
       .filter((component: any) => component.key && component.type !== 'button')
@@ -573,7 +577,7 @@ const TaskTemplates = () => {
   };
 
   const getTargetFormFields = () => {
-    if (!targetFormSchema || !targetFormSchema.components) return [];
+    if (!isValidFormSchema(targetFormSchema)) return [];
     
     return targetFormSchema.components
       .filter((component: any) => component.key && component.type !== 'button')
@@ -600,12 +604,17 @@ const TaskTemplates = () => {
     setInheritanceMapping(newMapping);
   };
 
-  // Calculate loading and error states for the inheritance tab
+  const isValidFormSchema = (schema: any): schema is FormSchema => {
+    return schema && 
+           typeof schema === 'object' && 
+           !Array.isArray(schema) && 
+           Array.isArray(schema.components);
+  };
+
   const isLoadingSchemas = isLoadingSourceSchema || isLoadingTargetSchema;
   const hasSchemaError = errorSourceSchema || errorTargetSchema;
   const canAccessAdvancedTabs = !!sourceFormId && !!targetFormId;
 
-  // Log when modal is opened/closed to help with debugging
   useEffect(() => {
     if (editOpen) {
       console.log("[TaskTemplates] Edit modal opened:", {
