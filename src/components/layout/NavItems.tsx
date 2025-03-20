@@ -76,7 +76,7 @@ const NavItems = ({
       
       // Operativos - Visible for all users
       {
-        title: "Formularios Operativos",
+        title: "Formularios",
         href: "/forms",
         icon: FileText,
         section: 'operations',

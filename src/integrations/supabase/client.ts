@@ -47,8 +47,7 @@ const supabaseClient = createClient<Database>(
       schema: 'public'
     },
     global: {
-      headers: getDefaultHeaders(),
-      // Don't override the fetch function as it's causing authentication issues
+      headers: getDefaultHeaders()
     }
   }
 );
@@ -71,6 +70,9 @@ const supabaseAdminClient = createClient<Database>(
     }
   }
 );
+
+// Update headers based on current project ID
+supabaseClient.realtime.setAuth(config.supabaseAnonKey);
 
 // Log initialization in development
 if (environment !== 'production') {

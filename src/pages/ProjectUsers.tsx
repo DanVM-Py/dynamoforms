@@ -223,8 +223,7 @@ const ProjectUsers = () => {
             project_id: projectId,
             user_id: userId,
             status: "pending",
-            invited_by: user.id,
-            created_by: user.id
+            invited_by: user.id
           });
 
         if (insertError) {
