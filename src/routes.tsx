@@ -80,7 +80,7 @@ export const router = createBrowserRouter([
     path: "/forms-editor",
     element: (
       <ProtectedRoute requireGlobalAdmin={true}>
-        <Suspense fallback={<Loading />}><Forms editorMode={true} /></Suspense>
+        <Suspense fallback={<Loading />}><Forms /></Suspense>
       </ProtectedRoute>
     ),
   },
@@ -98,7 +98,7 @@ export const router = createBrowserRouter([
     path: "/forms",
     element: (
       <ProtectedRoute>
-        <Suspense fallback={<Loading />}><Forms editorMode={false} /></Suspense>
+        <Suspense fallback={<Loading />}><Forms /></Suspense>
       </ProtectedRoute>
     ),
   },

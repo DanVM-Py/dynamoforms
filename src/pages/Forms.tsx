@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,11 +40,14 @@ const Forms = () => {
   const { toast } = useToast();
   const { isGlobalAdmin, isProjectAdmin, user, refreshUserProfile } = useAuth();
   const { currentProjectId } = useSidebarProjects();
+  const location = useLocation();
+  
+  const editorMode = location.pathname.includes('/forms-editor');
   
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [formToDelete, setFormToDelete] = useState<Form | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [activeTab, setActiveTab] = useState("forms");
+  const [activeTab, setActiveTab] = useState(editorMode ? "editor" : "forms");
   const [showCloneModal, setShowCloneModal] = useState(false);
 
   useEffect(() => {
@@ -66,7 +68,6 @@ const Forms = () => {
       let data;
       
       if (isGlobalAdmin) {
-        // Los admin globales pueden ver todos los proyectos
         const { data: projectsData, error } = await supabaseAdmin
           .from('projects')
           .select('id, name')
@@ -75,7 +76,6 @@ const Forms = () => {
         if (error) throw error;
         data = projectsData;
       } else if (isProjectAdmin) {
-        // Los admin de proyecto pueden ver solo sus proyectos
         const { data: projectAdminsData, error } = await supabase
           .from('project_admins')
           .select('project_id, projects(id, name)')
@@ -91,7 +91,6 @@ const Forms = () => {
             name: pa.projects.name
           }));
       } else {
-        // Usuarios normales pueden ver los proyectos a los que tienen acceso
         const { data: userProjectsData, error } = await supabase
           .from('project_users')
           .select('project_id, projects(id, name)')
@@ -112,11 +111,9 @@ const Forms = () => {
       if (data && data.length > 0) {
         setProjects(data);
         
-        // Si no hay proyecto seleccionado, seleccionamos el primero
         if (!selectedProjectId) {
           setSelectedProjectId(data[0].id);
         } 
-        // Si el proyecto seleccionado no está en la lista, seleccionamos el primero
         else if (!data.some(p => p.id === selectedProjectId)) {
           setSelectedProjectId(data[0].id);
         }
@@ -152,7 +149,6 @@ const Forms = () => {
         return;
       }
 
-      // Si no hay proyecto seleccionado y no es admin global, no mostramos nada
       if (!selectedProjectId && !isGlobalAdmin) {
         setForms([]);
         setLoading(false);
@@ -169,17 +165,14 @@ const Forms = () => {
         projects:project_id (name)
       `);
       
-      // Filtrar por proyecto seleccionado si hay uno
       if (selectedProjectId) {
         query = query.eq('project_id', selectedProjectId);
       }
       
-      // Para usuarios normales y project_admin, filtramos por status='active' si están en la pestaña de formularios
       if (!isGlobalAdmin && activeTab === 'forms') {
         query = query.eq('status', 'active');
       }
       
-      // Para admin de proyectos sin proyecto seleccionado, mostramos todos sus proyectos
       if (isProjectAdmin && !isGlobalAdmin && !selectedProjectId) {
         const { data: projectAdminData } = await client
           .from('project_admins')
@@ -192,7 +185,6 @@ const Forms = () => {
         }
       }
       
-      // Para usuarios normales sin proyecto seleccionado, mostramos sus formularios según roles
       if (!isGlobalAdmin && !isProjectAdmin && !selectedProjectId) {
         const { data: userRolesData } = await client
           .from('user_roles')
@@ -346,7 +338,7 @@ const Forms = () => {
       });
       
       if (data) {
-        navigate(`/forms/${data.id}/edit`);
+        navigate(`/forms-editor/${data.id}/edit`);
       } else {
         fetchForms();
       }
@@ -458,7 +450,7 @@ const Forms = () => {
   };
 
   const handleViewDetails = (formId: string) => {
-    navigate(`/forms/${formId}/edit`);
+    navigate(`/forms-editor/${formId}/edit`);
   };
 
   const handleViewResponses = (formId: string) => {
@@ -548,7 +540,7 @@ const Forms = () => {
       description: "¿Deseas editar el formulario clonado ahora?",
       action: (
         <Button 
-          onClick={() => navigate(`/forms/${newFormId}/edit`)} 
+          onClick={() => navigate(`/forms-editor/${newFormId}/edit`)} 
           variant="outline"
           size="sm"
         >
@@ -562,7 +554,9 @@ const Forms = () => {
     <PageContainer>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Formularios</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {editorMode ? "Edición de Formularios" : "Formularios"}
+          </h1>
           <p className="text-gray-500 mt-1">
             {isGlobalAdmin 
               ? (selectedProjectId 
@@ -596,7 +590,7 @@ const Forms = () => {
             </Button>
           )}
           
-          {isGlobalAdmin && activeTab === "editor" && (
+          {isGlobalAdmin && editorMode && (
             <Button 
               className="bg-dynamo-600 hover:bg-dynamo-700"
               onClick={createForm}
@@ -608,7 +602,6 @@ const Forms = () => {
         </div>
       </div>
 
-      {/* Selector de proyecto para todos los usuarios */}
       {projects.length > 0 && (
         <div className="mb-6">
           <label htmlFor="project-select" className="block text-sm font-medium text-gray-700 mb-1">
@@ -633,15 +626,6 @@ const Forms = () => {
             </SelectContent>
           </Select>
         </div>
-      )}
-
-      {isGlobalAdmin && (
-        <Tabs defaultValue={activeTab} onValueChange={handleTabChange} className="mb-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="forms">Formularios</TabsTrigger>
-            <TabsTrigger value="editor">Edición de Formularios</TabsTrigger>
-          </TabsList>
-        </Tabs>
       )}
 
       {!selectedProjectId && projects.length === 0 ? (
@@ -687,7 +671,7 @@ const Forms = () => {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {forms.length > 0 ? (
             forms.map((form) => 
-              (!isGlobalAdmin || activeTab === "editor") 
+              editorMode
                 ? renderEditorFormCard(form) 
                 : renderOperationalFormCard(form)
             )
@@ -697,7 +681,7 @@ const Forms = () => {
                 <FileText className="h-12 w-12 mx-auto mb-2" />
                 <p className="text-lg font-medium">No hay formularios disponibles</p>
                 <p className="text-sm text-gray-500">
-                  {activeTab === "editor" && isGlobalAdmin && selectedProjectId
+                  {editorMode && isGlobalAdmin && selectedProjectId
                     ? "Crea tu primer formulario para comenzar" 
                     : "No tienes acceso a ningún formulario en este momento"
                   }
@@ -706,7 +690,7 @@ const Forms = () => {
             </div>
           )}
 
-          {activeTab === "editor" && isGlobalAdmin && selectedProjectId && (
+          {editorMode && isGlobalAdmin && selectedProjectId && (
             <Card 
               className="flex flex-col items-center justify-center h-full min-h-[220px] border-dashed hover:bg-gray-50 cursor-pointer" 
               onClick={createForm}
@@ -758,3 +742,4 @@ const Forms = () => {
 };
 
 export default Forms;
+
