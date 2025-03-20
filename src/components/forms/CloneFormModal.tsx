@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseAdmin } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
 interface CloneFormModalProps {
@@ -14,9 +14,16 @@ interface CloneFormModalProps {
   onOpenChange: (open: boolean) => void;
   onSuccess?: (newFormId: string) => void;
   currentProjectId?: string | null;
+  isGlobalAdmin?: boolean;
 }
 
-export function CloneFormModal({ open, onOpenChange, onSuccess, currentProjectId }: CloneFormModalProps) {
+export function CloneFormModal({ 
+  open, 
+  onOpenChange, 
+  onSuccess, 
+  currentProjectId,
+  isGlobalAdmin = false 
+}: CloneFormModalProps) {
   const [formId, setFormId] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,7 +37,6 @@ export function CloneFormModal({ open, onOpenChange, onSuccess, currentProjectId
     if (open) {
       setFormId("");
       setNewTitle("");
-      fetchForms();
       fetchProjects();
       
       if (currentProjectId) {
@@ -39,14 +45,25 @@ export function CloneFormModal({ open, onOpenChange, onSuccess, currentProjectId
     }
   }, [open, currentProjectId]);
 
+  useEffect(() => {
+    if (open && selectedProjectId) {
+      fetchForms();
+    }
+  }, [open, selectedProjectId]);
+
   const fetchForms = async () => {
     try {
       setFetching(true);
       
-      // Get forms from the current project if specified
-      let query = supabase.from('forms').select('id, title, project_id, projects:project_id(name)');
+      // Use appropriate client based on admin status
+      const client = isGlobalAdmin ? supabaseAdmin : supabase;
       
-      if (currentProjectId) {
+      // Get forms from the selected project
+      let query = client.from('forms').select('id, title, project_id, projects:project_id(name)');
+      
+      if (selectedProjectId) {
+        query = query.eq('project_id', selectedProjectId);
+      } else if (currentProjectId) {
         query = query.eq('project_id', currentProjectId);
       }
       
@@ -72,14 +89,24 @@ export function CloneFormModal({ open, onOpenChange, onSuccess, currentProjectId
   const fetchProjects = async () => {
     try {
       setFetching(true);
-      const { data, error } = await supabase
+      
+      // Use appropriate client based on admin status
+      const client = isGlobalAdmin ? supabaseAdmin : supabase;
+      
+      const { data, error } = await client
         .from('projects')
-        .select('id, name');
+        .select('id, name')
+        .order('name');
         
       if (error) throw error;
       
       if (data) {
         setProjects(data);
+        
+        // If global admin and no project is selected, select the first one
+        if (isGlobalAdmin && data.length > 0 && !selectedProjectId && !currentProjectId) {
+          setSelectedProjectId(data[0].id);
+        }
       }
     } catch (error) {
       console.error('Error fetching projects:', error);
@@ -165,6 +192,13 @@ export function CloneFormModal({ open, onOpenChange, onSuccess, currentProjectId
     }
   };
 
+  const handleProjectChange = (projectId: string) => {
+    setSelectedProjectId(projectId);
+    setFormId(""); // Reset form selection when project changes
+    setNewTitle("");
+    setTimeout(() => fetchForms(), 100);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -172,6 +206,22 @@ export function CloneFormModal({ open, onOpenChange, onSuccess, currentProjectId
           <DialogTitle>Clonar Formulario</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="project-id">Proyecto origen</Label>
+            <Select value={selectedProjectId} onValueChange={handleProjectChange}>
+              <SelectTrigger id="project-id">
+                <SelectValue placeholder="Seleccionar proyecto origen" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="form-id">Formulario a clonar</Label>
             <Select value={formId} onValueChange={handleFormChange}>
@@ -199,9 +249,9 @@ export function CloneFormModal({ open, onOpenChange, onSuccess, currentProjectId
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="project-id">Proyecto destino</Label>
+            <Label htmlFor="target-project-id">Proyecto destino</Label>
             <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-              <SelectTrigger id="project-id">
+              <SelectTrigger id="target-project-id">
                 <SelectValue placeholder="Seleccionar proyecto destino" />
               </SelectTrigger>
               <SelectContent>

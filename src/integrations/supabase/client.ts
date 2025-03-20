@@ -53,13 +53,35 @@ const supabaseClient = createClient<Database>(
   }
 );
 
+// Create an admin client that doesn't include project headers
+// This is useful for global admin operations that aren't scoped to a project
+const supabaseAdminClient = createClient<Database>(
+  config.supabaseUrl, 
+  config.supabaseAnonKey,
+  {
+    auth: {
+      storageKey: config.storage.authTokenKey,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+      storage: localStorage,
+    },
+    db: {
+      schema: 'public'
+    }
+  }
+);
+
 // Log initialization in development
 if (environment !== 'production') {
-  console.log(`Supabase client initialized for ${environment} environment`);
+  console.log(`Supabase clients initialized for ${environment} environment`);
 }
 
 // Export the main API client as the default supabase client
 export const supabase = supabaseClient;
+
+// Export the admin client for global admin operations
+export const supabaseAdmin = supabaseAdminClient;
 
 // Maintain service-specific names for backward compatibility
 // but use the same client instance to avoid multiple client warnings

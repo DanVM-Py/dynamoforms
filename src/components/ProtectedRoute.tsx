@@ -1,3 +1,4 @@
+
 import { ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,6 +40,11 @@ const ProtectedRoute = ({
     location.pathname.startsWith('/task-templates/') ||
     location.pathname.includes('task-templates');
     
+  // Check if path is a form edit path
+  const isFormEditPath = 
+    location.pathname.startsWith('/forms') && 
+    (location.pathname.includes('/edit') || location.pathname === '/forms');
+  
   useEffect(() => {
     if (isTaskTemplatesPath) {
       console.log("ProtectedRoute: task-templates path detected", {
@@ -63,6 +69,12 @@ const ProtectedRoute = ({
   if (!user && location.pathname !== "/auth") {
     console.log("ProtectedRoute: User not authenticated, redirecting to auth page");
     return <Navigate to="/auth" replace />;
+  }
+
+  // Special check for form editor access - only global admins can access
+  if (isFormEditPath && !isGlobalAdmin) {
+    console.log("Access denied: Global admin required for form editor");
+    return <Navigate to="/" replace />;
   }
 
   if (location.pathname === "/admin" && !isGlobalAdmin) {

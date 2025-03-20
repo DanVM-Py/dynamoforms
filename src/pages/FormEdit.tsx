@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseAdmin } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft, Save, Share2, Copy, Check, ExternalLink, Shield } from "lucide-react";
 import { FormBuilder, FormSchema } from "@/components/form-builder/FormBuilder";
@@ -25,12 +25,14 @@ import {
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSidebarProjects } from "@/hooks/use-sidebar-projects";
+import { useAuth } from "@/contexts/AuthContext";
 
 const FormEdit = () => {
   const { formId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { currentProjectId } = useSidebarProjects();
+  const { isGlobalAdmin } = useAuth();
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,6 +42,8 @@ const FormEdit = () => {
   const [formRoles, setFormRoles] = useState<FormRole[]>([]);
   const [selectedRole, setSelectedRole] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [projects, setProjects] = useState<any[]>([]);
+  
   const [form, setForm] = useState({
     id: "",
     title: "",
@@ -51,10 +55,14 @@ const FormEdit = () => {
   });
 
   useEffect(() => {
+    if (isGlobalAdmin) {
+      fetchProjects();
+    }
+    
     if (formId) {
       fetchForm(formId);
     }
-  }, [formId]);
+  }, [formId, isGlobalAdmin]);
 
   useEffect(() => {
     if (form.project_id) {
@@ -63,11 +71,39 @@ const FormEdit = () => {
     }
   }, [form.project_id]);
 
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabaseAdmin
+        .from('projects')
+        .select('id, name')
+        .order('name');
+        
+      if (error) throw error;
+      
+      if (data) {
+        setProjects(data);
+      }
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      toast({
+        title: "Error al cargar proyectos",
+        description: "No se pudieron cargar los proyectos.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchForm = async (id: string) => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
+      // For global admins, we use the admin client to bypass the project header
+      const client = isGlobalAdmin ? supabaseAdmin : supabase;
+      
+      const { data, error } = await client
         .from('forms')
         .select('*')
         .eq('id', id)
@@ -76,8 +112,8 @@ const FormEdit = () => {
       if (error) throw error;
       
       if (data) {
-        // Check if the form belongs to the current project
-        if (currentProjectId && data.project_id !== currentProjectId) {
+        // Global admins can edit any form
+        if (!isGlobalAdmin && currentProjectId && data.project_id !== currentProjectId) {
           toast({
             title: "Acceso denegado",
             description: "Este formulario no pertenece al proyecto actual.",
@@ -131,7 +167,10 @@ const FormEdit = () => {
 
   const fetchRoles = async () => {
     try {
-      const { data, error } = await supabase
+      // For global admins, we use the admin client to bypass the project header
+      const client = isGlobalAdmin ? supabaseAdmin : supabase;
+      
+      const { data, error } = await client
         .from('roles')
         .select('*')
         .eq('project_id', form.project_id)
@@ -147,7 +186,10 @@ const FormEdit = () => {
 
   const fetchFormRoles = async () => {
     try {
-      const { data, error } = await supabase
+      // For global admins, we use the admin client to bypass the project header
+      const client = isGlobalAdmin ? supabaseAdmin : supabase;
+      
+      const { data, error } = await client
         .from('form_roles')
         .select(`
           *,
@@ -172,13 +214,17 @@ const FormEdit = () => {
     try {
       setSaving(true);
       
-      const { error } = await supabase
+      // For global admins, we use the admin client to bypass the project header
+      const client = isGlobalAdmin ? supabaseAdmin : supabase;
+      
+      const { error } = await client
         .from('forms')
         .update({
           title: form.title,
           description: form.description,
           schema: form.schema as any,
           is_public: isPublic,
+          project_id: form.project_id,
           updated_at: new Date().toISOString()
         })
         .eq('id', form.id);
@@ -205,9 +251,12 @@ const FormEdit = () => {
     try {
       setSaving(true);
       
+      // For global admins, we use the admin client to bypass the project header
+      const client = isGlobalAdmin ? supabaseAdmin : supabase;
+      
       const newStatus = form.status === 'draft' ? 'active' : 'draft';
       
-      const { error } = await supabase
+      const { error } = await client
         .from('forms')
         .update({ 
           status: newStatus,
@@ -238,6 +287,21 @@ const FormEdit = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleProjectChange = (projectId: string) => {
+    setForm(prev => ({ ...prev, project_id: projectId }));
+    
+    // Reset roles when project changes
+    setRoles([]);
+    setFormRoles([]);
+    setSelectedRole("");
+    
+    // Fetch new roles for the selected project
+    setTimeout(() => {
+      fetchRoles();
+      fetchFormRoles();
+    }, 100);
   };
 
   const handleSchemaChange = (updatedSchema: FormSchema) => {
@@ -285,10 +349,13 @@ const FormEdit = () => {
     }
     
     try {
+      // For global admins, we use the admin client to bypass the project header
+      const client = isGlobalAdmin ? supabaseAdmin : supabase;
+      
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
       
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('form_roles')
         .insert({
           form_id: formId!,
@@ -338,7 +405,10 @@ const FormEdit = () => {
 
   const handleRemoveRole = async (formRoleId: string) => {
     try {
-      const { error } = await supabase
+      // For global admins, we use the admin client to bypass the project header
+      const client = isGlobalAdmin ? supabaseAdmin : supabase;
+      
+      const { error } = await client
         .from('form_roles')
         .delete()
         .eq('id', formRoleId);
@@ -364,31 +434,7 @@ const FormEdit = () => {
   const handleTogglePublic = (checked: boolean) => {
     setIsPublic(checked);
   };
-
-  const getFilteredComponents = () => {
-    if (!form.schema.components.length) {
-      return [];
-    }
-    
-    const components = [...form.schema.components];
-    
-    return components.filter(component => {
-      if (!component.conditionalDisplay) {
-        return true;
-      }
-      
-      const controllingComponent = components.find(
-        c => c.id === component.conditionalDisplay?.controlledBy
-      );
-      
-      if (!controllingComponent) {
-        return false;
-      }
-      
-      return true;
-    });
-  };
-
+  
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'active': return "Activo";
@@ -492,6 +538,30 @@ const FormEdit = () => {
                   <CardTitle>Información básica</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {isGlobalAdmin && (
+                    <div className="space-y-2">
+                      <Label htmlFor="project-id">Proyecto</Label>
+                      <Select 
+                        value={form.project_id} 
+                        onValueChange={handleProjectChange}
+                      >
+                        <SelectTrigger id="project-id">
+                          <SelectValue placeholder="Seleccionar proyecto" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        El proyecto al que pertenece este formulario. Esto determina qué roles están disponibles para asignar.
+                      </p>
+                    </div>
+                  )}
+                
                   <div className="space-y-2">
                     <Label htmlFor="title">Título</Label>
                     <Input 

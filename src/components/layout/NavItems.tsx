@@ -1,3 +1,4 @@
+
 import {
   FileText,
   FolderKanban,
@@ -12,7 +13,8 @@ import {
   Users,
   ChevronDown,
   ChevronRight,
-  User
+  User,
+  Pencil
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -72,9 +74,9 @@ const NavItems = ({
         color: "text-gray-600",
       },
       
-      // Operación - visible for all users
+      // Operativos - Visible for all users
       {
-        title: "Formularios",
+        title: "Formularios Operativos",
         href: "/forms",
         icon: FileText,
         section: 'operations',
@@ -134,6 +136,14 @@ const NavItems = ({
         title: "Proyectos",
         href: "/projects",
         icon: FolderKanban,
+        requiredRoles: ["global_admin"],
+        section: 'administration',
+        color: "text-gray-600",
+      },
+      {
+        title: "Edición de Formularios",
+        href: "/forms",
+        icon: Pencil,
         requiredRoles: ["global_admin"],
         section: 'administration',
         color: "text-gray-600",
