@@ -1,4 +1,3 @@
-
 import {
   FileText,
   FolderKanban,
@@ -63,10 +62,8 @@ const NavItems = ({
     systems: true
   });
 
-  // Create dynamic navItems based on the current state
   const getNavItems = () => {
     const navItems: NavItem[] = [
-      // Inicio
       {
         title: "Inicio",
         href: "/",
@@ -74,7 +71,6 @@ const NavItems = ({
         color: "text-gray-600",
       },
       
-      // Operativos - Visible for all users
       {
         title: "Formularios",
         href: "/forms",
@@ -97,7 +93,6 @@ const NavItems = ({
         color: "text-gray-600",
       },
       
-      // Administración de Proyecto - visible for project_admin and global_admin
       {
         title: "Plantillas de Tareas",
         href: "/task-templates",
@@ -108,7 +103,6 @@ const NavItems = ({
       }
     ];
     
-    // Only add project-specific links if we have a current project
     if (currentProjectId) {
       navItems.push(
         {
@@ -130,7 +124,6 @@ const NavItems = ({
       );
     }
     
-    // Administration items for global admins
     navItems.push(
       {
         title: "Proyectos",
@@ -141,8 +134,8 @@ const NavItems = ({
         color: "text-gray-600",
       },
       {
-        title: "Edición de Formularios",
-        href: "/forms",
+        title: "Editor de Formularios",
+        href: "/forms-editor",
         icon: Pencil,
         requiredRoles: ["global_admin"],
         section: 'administration',
@@ -157,7 +150,6 @@ const NavItems = ({
         color: "text-gray-600",
       },
       
-      // Systems - only for global_admin
       {
         title: "Monitoreo",
         href: "/systems/monitoring",
@@ -175,10 +167,8 @@ const NavItems = ({
     navigate(href);
   };
 
-  // Get all nav items based on the current state
   const allNavItems = getNavItems();
   
-  // Filter navigation items based on user roles
   const filteredNavItems = allNavItems.filter((item) => {
     if (!item.requiredRoles) return true;
     if (item.requiredRoles.includes("global_admin") && isGlobalAdmin) return true;
@@ -187,10 +177,8 @@ const NavItems = ({
     return false;
   });
 
-  // Get home item
   const homeItem = filteredNavItems.find(item => item.title === "Inicio");
   
-  // Group items by section
   const operationItems = filteredNavItems.filter(item => item.section === 'operations');
   const projectAdminItems = filteredNavItems.filter(item => item.section === 'project_administration');
   const adminItems = filteredNavItems.filter(item => item.section === 'administration');
@@ -228,10 +216,8 @@ const NavItems = ({
 
   const filteredNavSections = navSections
     .filter(section => {
-      // Keep sections with no role requirements
       if (!section.requiredRoles) return true;
       
-      // Filter based on roles
       if (section.requiredRoles.includes("global_admin") && isGlobalAdmin) return true;
       if (section.requiredRoles.includes("project_admin") && (isProjectAdmin || isGlobalAdmin)) return true;
       
@@ -241,7 +227,8 @@ const NavItems = ({
 
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.href || 
-      (item.href.includes("/systems/monitoring") && location.pathname.includes("/monitoring"));
+      (item.href.includes("/systems/monitoring") && location.pathname.includes("/monitoring")) ||
+      (item.href === "/forms-editor" && location.pathname.startsWith("/forms-editor"));
     
     return (
       <Button
@@ -267,7 +254,6 @@ const NavItems = ({
     }));
   };
 
-  // Project selector for admins
   const renderProjectSelector = () => {
     if (!collapsed && (isProjectAdmin || isGlobalAdmin) && projects.length > 0) {
       return (

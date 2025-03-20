@@ -8,7 +8,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 // Lazy-loaded components
 const Auth = lazy(() => import("./pages/Auth"));
 const Forms = lazy(() => import("./pages/Forms"));
-const FormEdit = lazy(() => import("./pages/FormEdit"));
+const FormEditor = lazy(() => import("./pages/FormEdit"));
 const FormResponses = lazy(() => import("./pages/FormResponses"));
 const PublicFormView = lazy(() => import("./pages/PublicFormView"));
 const PrivateFormView = lazy(() => import("./pages/PrivateFormView"));
@@ -75,19 +75,30 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
   },
+  // Nueva ruta para el Editor de Formularios (solo global_admin)
   {
-    path: "/forms",
+    path: "/forms-editor",
     element: (
       <ProtectedRoute requireGlobalAdmin={true}>
-        <Suspense fallback={<Loading />}><Forms /></Suspense>
+        <Suspense fallback={<Loading />}><Forms editorMode={true} /></Suspense>
       </ProtectedRoute>
     ),
   },
+  // Nueva ruta para crear/editar un formulario específico
   {
-    path: "/forms/:formId/edit",
+    path: "/forms-editor/:formId/edit",
     element: (
       <ProtectedRoute requireGlobalAdmin={true}>
-        <Suspense fallback={<Loading />}><FormEdit /></Suspense>
+        <Suspense fallback={<Loading />}><FormEditor /></Suspense>
+      </ProtectedRoute>
+    ),
+  },
+  // Ruta de formularios accesible para todos los usuarios
+  {
+    path: "/forms",
+    element: (
+      <ProtectedRoute>
+        <Suspense fallback={<Loading />}><Forms editorMode={false} /></Suspense>
       </ProtectedRoute>
     ),
   },
