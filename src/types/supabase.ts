@@ -1,4 +1,3 @@
-
 export type Json =
   | string
   | number
@@ -706,16 +705,18 @@ export type FormRole = TableRow<'form_roles'> & {
   };
 }
 
+export type ProjectUserStatus = "active" | "pending" | "inactive" | "rejected";
+
 export type ProjectUser = {
   id: string;
   project_id: string;
   user_id: string;
-  status: "active" | "pending" | "inactive" | "rejected";
+  status: ProjectUserStatus;
   invited_at: string;
   invited_by: string;
-  activated_at: string | null;
   created_at: string;
   created_by: string;
+  activated_at: string | null;
   email?: string;
   full_name?: string;
   role_name?: string;

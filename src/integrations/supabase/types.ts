@@ -333,6 +333,8 @@ export type Database = {
       project_users: {
         Row: {
           activated_at: string | null
+          created_at: string | null
+          created_by: string | null
           id: string
           invited_at: string
           invited_by: string
@@ -342,6 +344,8 @@ export type Database = {
         }
         Insert: {
           activated_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
           id?: string
           invited_at?: string
           invited_by: string
@@ -351,6 +355,8 @@ export type Database = {
         }
         Update: {
           activated_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
           id?: string
           invited_at?: string
           invited_by?: string
@@ -359,6 +365,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "project_users_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "project_users_invited_by_fkey"
             columns: ["invited_by"]
