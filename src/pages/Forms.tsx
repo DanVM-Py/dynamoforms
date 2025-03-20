@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -44,34 +45,83 @@ const Forms = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [formToDelete, setFormToDelete] = useState<Form | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [activeTab, setActiveTab] = useState("editor");
+  const [activeTab, setActiveTab] = useState("forms");
   const [showCloneModal, setShowCloneModal] = useState(false);
 
   useEffect(() => {
+    if (currentProjectId && !selectedProjectId) {
+      setSelectedProjectId(currentProjectId);
+    }
     fetchProjects();
     
     refreshUserProfile().then(() => {
       fetchForms();
     });
-  }, [isGlobalAdmin]);
+  }, [isGlobalAdmin, currentProjectId]);
 
   const fetchProjects = async () => {
     try {
-      if (!isGlobalAdmin) return;
-      
       setLoading(true);
-      const { data, error } = await supabaseAdmin
-        .from('projects')
-        .select('id, name')
-        .order('name');
-        
-      if (error) throw error;
       
-      if (data) {
+      let data;
+      
+      if (isGlobalAdmin) {
+        // Los admin globales pueden ver todos los proyectos
+        const { data: projectsData, error } = await supabaseAdmin
+          .from('projects')
+          .select('id, name')
+          .order('name');
+          
+        if (error) throw error;
+        data = projectsData;
+      } else if (isProjectAdmin) {
+        // Los admin de proyecto pueden ver solo sus proyectos
+        const { data: projectAdminsData, error } = await supabase
+          .from('project_admins')
+          .select('project_id, projects(id, name)')
+          .eq('user_id', user?.id || '')
+          .order('projects(name)', { ascending: true });
+          
+        if (error) throw error;
+        
+        data = projectAdminsData
+          .filter(pa => pa.projects)
+          .map(pa => ({
+            id: pa.projects.id,
+            name: pa.projects.name
+          }));
+      } else {
+        // Usuarios normales pueden ver los proyectos a los que tienen acceso
+        const { data: userProjectsData, error } = await supabase
+          .from('project_users')
+          .select('project_id, projects(id, name)')
+          .eq('user_id', user?.id || '')
+          .eq('status', 'active')
+          .order('projects(name)', { ascending: true });
+          
+        if (error) throw error;
+        
+        data = userProjectsData
+          .filter(up => up.projects)
+          .map(up => ({
+            id: up.projects.id,
+            name: up.projects.name
+          }));
+      }
+      
+      if (data && data.length > 0) {
         setProjects(data);
-        if (data.length > 0 && !selectedProjectId) {
+        
+        // Si no hay proyecto seleccionado, seleccionamos el primero
+        if (!selectedProjectId) {
+          setSelectedProjectId(data[0].id);
+        } 
+        // Si el proyecto seleccionado no está en la lista, seleccionamos el primero
+        else if (!data.some(p => p.id === selectedProjectId)) {
           setSelectedProjectId(data[0].id);
         }
+      } else {
+        setProjects([]);
       }
     } catch (error) {
       console.error('Error fetching projects:', error);
@@ -102,6 +152,13 @@ const Forms = () => {
         return;
       }
 
+      // Si no hay proyecto seleccionado y no es admin global, no mostramos nada
+      if (!selectedProjectId && !isGlobalAdmin) {
+        setForms([]);
+        setLoading(false);
+        return;
+      }
+
       console.log("Fetching forms for user:", session.user.id);
       console.log("User roles:", { isGlobalAdmin, isProjectAdmin });
       console.log("Selected project ID:", selectedProjectId);
@@ -112,13 +169,18 @@ const Forms = () => {
         projects:project_id (name)
       `);
       
-      if (isGlobalAdmin && selectedProjectId) {
+      // Filtrar por proyecto seleccionado si hay uno
+      if (selectedProjectId) {
         query = query.eq('project_id', selectedProjectId);
       }
-      else if (currentProjectId && !isGlobalAdmin) {
-        query = query.eq('project_id', currentProjectId);
+      
+      // Para usuarios normales y project_admin, filtramos por status='active' si están en la pestaña de formularios
+      if (!isGlobalAdmin && activeTab === 'forms') {
+        query = query.eq('status', 'active');
       }
-      else if (isProjectAdmin && !isGlobalAdmin) {
+      
+      // Para admin de proyectos sin proyecto seleccionado, mostramos todos sus proyectos
+      if (isProjectAdmin && !isGlobalAdmin && !selectedProjectId) {
         const { data: projectAdminData } = await client
           .from('project_admins')
           .select('project_id')
@@ -129,7 +191,9 @@ const Forms = () => {
           query = query.in('project_id', projectIds);
         }
       }
-      else if (!isGlobalAdmin && !isProjectAdmin) {
+      
+      // Para usuarios normales sin proyecto seleccionado, mostramos sus formularios según roles
+      if (!isGlobalAdmin && !isProjectAdmin && !selectedProjectId) {
         const { data: userRolesData } = await client
           .from('user_roles')
           .select(`
@@ -149,10 +213,6 @@ const Forms = () => {
         }
       }
 
-      if (activeTab === "operational") {
-        query = query.eq('status', 'active');
-      }
-      
       const { data, error } = await query.order('created_at', { ascending: false });
         
       if (error) {
@@ -508,7 +568,7 @@ const Forms = () => {
               ? (selectedProjectId 
                 ? `Formularios del proyecto seleccionado` 
                 : "Selecciona un proyecto para ver sus formularios")
-              : (currentProjectId 
+              : (selectedProjectId 
                 ? `Formularios del proyecto actual`
                 : "Selecciona un proyecto para ver sus formularios")}
           </p>
@@ -548,42 +608,53 @@ const Forms = () => {
         </div>
       </div>
 
-      {isGlobalAdmin && (
-        <>
-          <div className="mb-6">
-            <label htmlFor="project-select" className="block text-sm font-medium text-gray-700 mb-1">
-              Seleccionar Proyecto
-            </label>
-            <Select 
-              value={selectedProjectId || ''} 
-              onValueChange={(value) => {
-                setSelectedProjectId(value);
-                setTimeout(() => fetchForms(), 100);
-              }}
-            >
-              <SelectTrigger id="project-select" className="w-full md:w-80">
-                <SelectValue placeholder="Seleccionar proyecto" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map(project => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Tabs defaultValue={activeTab} onValueChange={handleTabChange} className="mb-6">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="editor">Edición de Formularios</TabsTrigger>
-              <TabsTrigger value="operational">Formularios Operativos</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </>
+      {/* Selector de proyecto para todos los usuarios */}
+      {projects.length > 0 && (
+        <div className="mb-6">
+          <label htmlFor="project-select" className="block text-sm font-medium text-gray-700 mb-1">
+            Seleccionar Proyecto
+          </label>
+          <Select 
+            value={selectedProjectId || ''} 
+            onValueChange={(value) => {
+              setSelectedProjectId(value);
+              setTimeout(() => fetchForms(), 100);
+            }}
+          >
+            <SelectTrigger id="project-select" className="w-full md:w-80">
+              <SelectValue placeholder="Seleccionar proyecto" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map(project => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       )}
 
-      {!selectedProjectId && isGlobalAdmin ? (
+      {isGlobalAdmin && (
+        <Tabs defaultValue={activeTab} onValueChange={handleTabChange} className="mb-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="forms">Formularios</TabsTrigger>
+            <TabsTrigger value="editor">Edición de Formularios</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
+      {!selectedProjectId && projects.length === 0 ? (
+        <div className="text-center p-8">
+          <div className="mb-4 text-gray-400">
+            <FileText className="h-12 w-12 mx-auto mb-2" />
+            <p className="text-lg font-medium">No tienes acceso a ningún proyecto</p>
+            <p className="text-sm text-gray-500">
+              Contacta al administrador para que te asigne a un proyecto
+            </p>
+          </div>
+        </div>
+      ) : !selectedProjectId ? (
         <div className="text-center p-8">
           <div className="mb-4 text-gray-400">
             <FileText className="h-12 w-12 mx-auto mb-2" />
@@ -616,7 +687,7 @@ const Forms = () => {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {forms.length > 0 ? (
             forms.map((form) => 
-              activeTab === "editor" 
+              (!isGlobalAdmin || activeTab === "editor") 
                 ? renderEditorFormCard(form) 
                 : renderOperationalFormCard(form)
             )
