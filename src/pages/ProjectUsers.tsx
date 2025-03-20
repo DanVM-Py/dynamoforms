@@ -1,27 +1,24 @@
-
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, FileSpreadsheet, UsersRound, UserPlus } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ProjectUserStatus } from "@/types/supabase";
 
-// Import our new components
+// Import our components
 import { UserStatusBadge } from "@/components/project-users/UserStatusBadge";
 import { UserActionButtons } from "@/components/project-users/UserActionButtons";
 import { UserFilters } from "@/components/project-users/UserFilters";
 import { EmptyUsersList } from "@/components/project-users/EmptyUsersList";
-import { InviteUserForm, InviteFormValues, inviteFormSchema } from "@/components/project-users/InviteUserForm";
+import { InviteUserForm, InviteFormValues } from "@/components/project-users/InviteUserForm";
 import { UsersList } from "@/components/project-users/UsersList";
 
 const ProjectUsers = () => {
@@ -119,8 +116,11 @@ const ProjectUsers = () => {
                 }
               }
 
+              const status = pu.status as ProjectUserStatus;
+
               return {
                 ...pu,
+                status,
                 email: profileData?.email || "Unknown email",
                 full_name: profileData?.name || "Unknown name",
                 role_name: roleName
@@ -129,6 +129,7 @@ const ProjectUsers = () => {
               console.error("Error enriching user data:", profileError);
               return {
                 ...pu,
+                status: pu.status as ProjectUserStatus,
                 email: "Error loading email",
                 full_name: "Error loading name",
                 role_name: undefined
@@ -137,7 +138,7 @@ const ProjectUsers = () => {
           })
         );
 
-        return enrichedUsers.filter(Boolean);
+        return enrichedUsers.filter(Boolean) as any[];
       } catch (error) {
         console.error("Error in projectUsers query:", error);
         return [];
@@ -194,9 +195,9 @@ const ProjectUsers = () => {
           .insert({
             project_id: projectId,
             user_id: userId,
-            status: "pending",
+            status: "pending" as ProjectUserStatus,
             invited_by: user.id,
-            created_by: user.id // Agregamos el campo required
+            created_by: user.id
           });
 
         if (insertError) {
@@ -214,7 +215,7 @@ const ProjectUsers = () => {
               user_id: userId,
               role_id: values.roleId,
               project_id: projectId,
-              assigned_by: user.id
+              created_by: user.id
             });
 
           if (roleError) {
@@ -314,7 +315,7 @@ const ProjectUsers = () => {
                 </DialogDescription>
               </DialogHeader>
               <InviteUserForm
-                roles={roles}
+                roles={roles} 
                 isLoading={inviteUserMutation.isPending}
                 onSubmit={handleInviteUser}
                 onCancel={() => setInviteModalOpen(false)}
@@ -390,3 +391,4 @@ const ProjectUsers = () => {
 };
 
 export default ProjectUsers;
+
