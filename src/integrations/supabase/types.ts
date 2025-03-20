@@ -634,6 +634,7 @@ export type Database = {
         Row: {
           assigned_at: string
           assigned_by: string
+          created_by: string | null
           id: string
           project_id: string
           role_id: string
@@ -642,6 +643,7 @@ export type Database = {
         Insert: {
           assigned_at?: string
           assigned_by: string
+          created_by?: string | null
           id?: string
           project_id: string
           role_id: string
@@ -650,6 +652,7 @@ export type Database = {
         Update: {
           assigned_at?: string
           assigned_by?: string
+          created_by?: string | null
           id?: string
           project_id?: string
           role_id?: string
@@ -659,6 +662,13 @@ export type Database = {
           {
             foreignKeyName: "user_roles_assigned_by_fkey"
             columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

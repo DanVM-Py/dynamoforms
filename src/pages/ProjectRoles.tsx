@@ -166,16 +166,37 @@ const ProjectRoles = () => {
   
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: projectUsers, error: projectUsersError } = await supabase
+        .from('project_users')
+        .select('user_id')
+        .eq('project_id', projectId)
+        .eq('status', 'active');
+        
+      if (projectUsersError) throw projectUsersError;
+      
+      if (!projectUsers || projectUsers.length === 0) {
+        setUsers([]);
+        return;
+      }
+      
+      const userIds = projectUsers.map(pu => pu.user_id);
+      
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('id, name, email')
+        .in('id', userIds)
         .order('name', { ascending: true });
         
-      if (error) throw error;
+      if (profilesError) throw profilesError;
       
-      setUsers(data || []);
+      setUsers(profilesData || []);
     } catch (error) {
       console.error('Error fetching users:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los usuarios del proyecto.",
+        variant: "destructive",
+      });
     }
   };
   
@@ -283,7 +304,8 @@ const ProjectRoles = () => {
           user_id: selectedUser,
           role_id: selectedRole,
           project_id: projectId,
-          created_by: user?.id || ''
+          created_by: user?.id || '',
+          assigned_by: user?.id || ''
         })
         .select()
         .single();
