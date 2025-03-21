@@ -55,23 +55,42 @@ export function useAuthState() {
         setUserProfile(null);
       }
       
-      // Step 3: Check if user is project admin for any project
-      const { data: projectUserData, error: projectUserError } = await supabase
-        .from("project_users")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("status", "active");
-        
-      if (projectUserError) {
-        console.error("Error fetching project admin status:", projectUserError);
+      // Step 3: Check if user is project admin for any project - using project_id null to check all projects
+      const currentProjectId = sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
+      
+      if (currentProjectId) {
+        // If we have a current project, use the is_project_admin function to check project admin status
+        const { data: isProjectAdminData, error: isProjectAdminError } = await supabase
+          .rpc('is_project_admin', { 
+            user_uuid: userId,
+            project_uuid: currentProjectId 
+          });
+          
+        if (isProjectAdminError) {
+          console.error("Error checking project admin status:", isProjectAdminError);
+        } else {
+          console.log("User is project admin for current project:", isProjectAdminData);
+          setIsProjectAdmin(isProjectAdminData === true);
+        }
       } else {
-        // Check if any project has admin rights - using type assertion to help TypeScript
-        const isAdmin = projectUserData && projectUserData.some(pu => {
-          const projectUser = pu as unknown as ProjectUser;
-          return projectUser.is_admin === true;
-        });
-        console.log("User is project admin:", isAdmin);
-        setIsProjectAdmin(isAdmin);
+        // Fallback - if no current project, check all project_users
+        const { data: projectUserData, error: projectUserError } = await supabase
+          .from("project_users")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("status", "active");
+          
+        if (projectUserError) {
+          console.error("Error fetching project admin status:", projectUserError);
+        } else {
+          // Check if any project has admin rights - using type assertion to help TypeScript
+          const isAdmin = projectUserData && projectUserData.some(pu => {
+            const projectUser = pu as unknown as ProjectUser;
+            return projectUser.is_admin === true;
+          });
+          console.log("User is project admin (from all projects check):", isAdmin);
+          setIsProjectAdmin(!!isAdmin);
+        }
       }
       
       setFetchComplete(true);
