@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { CheckCircle, AlertCircle } from "lucide-react";
+import { CheckCircle, AlertCircle, UserCheck, XCircle } from "lucide-react";
 import { ProjectUserStatus } from "@/types/supabase";
 
 type UserActionButtonsProps = {
@@ -20,7 +20,7 @@ export const UserActionButtons = ({ status, onStatusChange }: UserActionButtonsP
             className="h-8"
             onClick={() => onStatusChange("active")}
           >
-            <CheckCircle className="mr-1 h-4 w-4" />
+            <CheckCircle className="mr-1 h-4 w-4 text-green-600" />
             Activar
           </Button>
           <Button 
@@ -29,7 +29,7 @@ export const UserActionButtons = ({ status, onStatusChange }: UserActionButtonsP
             className="h-8"
             onClick={() => onStatusChange("rejected")}
           >
-            <AlertCircle className="mr-1 h-4 w-4" />
+            <XCircle className="mr-1 h-4 w-4 text-red-600" />
             Rechazar
           </Button>
         </>
@@ -41,7 +41,7 @@ export const UserActionButtons = ({ status, onStatusChange }: UserActionButtonsP
           className="h-8"
           onClick={() => onStatusChange("inactive")}
         >
-
+          <AlertCircle className="mr-1 h-4 w-4 text-amber-500" />
           Desactivar
         </Button>
       )}
@@ -52,7 +52,7 @@ export const UserActionButtons = ({ status, onStatusChange }: UserActionButtonsP
           className="h-8"
           onClick={() => onStatusChange("active")}
         >
-
+          <UserCheck className="mr-1 h-4 w-4 text-green-600" />
           Activar
         </Button>
       )}
