@@ -209,157 +209,65 @@ export type Database = {
         Row: {
           created_at: string
           email: string
+          email_confirmed: boolean | null
           id: string
           name: string
-          role: Database["public"]["Enums"]["user_role"]
+          role: string
         }
         Insert: {
           created_at?: string
           email: string
+          email_confirmed?: boolean | null
           id: string
           name: string
-          role: Database["public"]["Enums"]["user_role"]
+          role?: string
         }
         Update: {
           created_at?: string
           email?: string
+          email_confirmed?: boolean | null
           id?: string
           name?: string
-          role?: Database["public"]["Enums"]["user_role"]
+          role?: string
         }
         Relationships: []
       }
-      project_admins: {
-        Row: {
-          assigned_at: string
-          assigned_by: string
-          created_at: string | null
-          id: string
-          project_id: string
-          user_id: string
-        }
-        Insert: {
-          assigned_at?: string
-          assigned_by: string
-          created_at?: string | null
-          id?: string
-          project_id: string
-          user_id: string
-        }
-        Update: {
-          assigned_at?: string
-          assigned_by?: string
-          created_at?: string | null
-          id?: string
-          project_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_admins_assigned_by_fkey"
-            columns: ["assigned_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_admins_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_admins_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      project_invitations: {
-        Row: {
-          email: string
-          id: string
-          invited_at: string | null
-          invited_by: string
-          project_id: string
-          role_id: string | null
-          status: string
-        }
-        Insert: {
-          email: string
-          id?: string
-          invited_at?: string | null
-          invited_by: string
-          project_id: string
-          role_id?: string | null
-          status?: string
-        }
-        Update: {
-          email?: string
-          id?: string
-          invited_at?: string | null
-          invited_by?: string
-          project_id?: string
-          role_id?: string | null
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_invitations_invited_by_fkey"
-            columns: ["invited_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_invitations_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_invitations_role_id_fkey"
-            columns: ["role_id"]
-            isOneToOne: false
-            referencedRelation: "roles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       project_users: {
         Row: {
+          access_level: string | null
           activated_at: string | null
           created_at: string | null
           created_by: string | null
           id: string
           invited_at: string
           invited_by: string
+          is_admin: boolean | null
           project_id: string
           status: string
           user_id: string
         }
         Insert: {
+          access_level?: string | null
           activated_at?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
           invited_at?: string
           invited_by: string
+          is_admin?: boolean | null
           project_id: string
           status: string
           user_id: string
         }
         Update: {
+          access_level?: string | null
           activated_at?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
           invited_at?: string
           invited_by?: string
+          is_admin?: boolean | null
           project_id?: string
           status?: string
           user_id?: string
