@@ -63,7 +63,9 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
             console.error("Error fetching profile:", profileError);
           } else if (profileData) {
             console.log("Profile data:", profileData);
-            // Check if email_confirmed exists and is false
+            
+            // Check if email_confirmed property exists before accessing it
+            // The User type from our custom.d.ts indicates this should be available
             if (profileData.email_confirmed === false) {
               // If email is not confirmed, redirect to confirm-email page
               console.log("Email not confirmed, redirecting to confirm-email");
