@@ -31,71 +31,86 @@ const getDefaultHeaders = (): Record<string, string> => {
 };
 
 // Create a single instance of the Supabase client for the main API
-// Set reasonable timeouts to prevent hanging requests
-const supabaseClient = createClient<Database>(
-  config.supabaseUrl, 
-  config.supabaseAnonKey,
-  {
-    auth: {
-      storageKey: config.storage.authTokenKey,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false, // Disable to prevent navigation issues
-      storage: localStorage, // Explicitly define storage mechanism
-    },
-    db: {
-      schema: 'public'
-    },
-    global: {
-      headers: getDefaultHeaders(),
-      fetch: (url, options = {}) => {
-        // Add a request timeout
-        return Promise.race([
-          fetch(url, options),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Request timeout')), 15000)
-          ),
-        ]) as Promise<Response>;
-      }
-    }
-  }
-);
+// IMPORTANT: We create a singleton to avoid multiple instances warning
+let _supabaseClient: any = null;
+let _supabaseAdminClient: any = null;
 
-// Create an admin client without the project header for cross-project operations
-// Only to be used by admin-level components
-const supabaseAdminClient = createClient<Database>(
-  config.supabaseUrl, 
-  config.supabaseAnonKey,
-  {
-    auth: {
-      storageKey: config.storage.authTokenKey,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
-      storage: localStorage,
-    },
-    db: {
-      schema: 'public'
-    },
-    global: {
-      fetch: (url, options = {}) => {
-        // Add a request timeout
-        return Promise.race([
-          fetch(url, options),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Request timeout')), 15000)
-          ),
-        ]) as Promise<Response>;
+// Get the main Supabase client (creates it if it doesn't exist)
+const getSupabaseClient = () => {
+  if (!_supabaseClient) {
+    console.log('Creating new Supabase client instance');
+    _supabaseClient = createClient<Database>(
+      config.supabaseUrl, 
+      config.supabaseAnonKey,
+      {
+        auth: {
+          storageKey: config.storage.authTokenKey,
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false, // Disable to prevent navigation issues
+          storage: localStorage, // Explicitly define storage mechanism
+        },
+        db: {
+          schema: 'public'
+        },
+        global: {
+          headers: getDefaultHeaders(),
+          fetch: (url, options = {}) => {
+            // Add a request timeout
+            return Promise.race([
+              fetch(url, options),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Request timeout')), 30000) // Increased timeout to 30s
+              ),
+            ]) as Promise<Response>;
+          }
+        }
       }
-    }
+    );
   }
-);
+  return _supabaseClient;
+};
+
+// Get the admin Supabase client (creates it if it doesn't exist)
+const getSupabaseAdminClient = () => {
+  if (!_supabaseAdminClient) {
+    console.log('Creating new Supabase admin client instance');
+    _supabaseAdminClient = createClient<Database>(
+      config.supabaseUrl, 
+      config.supabaseAnonKey,
+      {
+        auth: {
+          storageKey: config.storage.authTokenKey,
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+          storage: localStorage,
+        },
+        db: {
+          schema: 'public'
+        },
+        global: {
+          fetch: (url, options = {}) => {
+            // Add a request timeout
+            return Promise.race([
+              fetch(url, options),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Request timeout')), 30000) // Increased timeout to 30s
+              ),
+            ]) as Promise<Response>;
+          }
+        }
+      }
+    );
+  }
+  return _supabaseAdminClient;
+};
 
 // Export the main API client as the default supabase client
-export const supabase = supabaseClient;
+export const supabase = getSupabaseClient();
 
 // Export the admin client for admin-only operations
-export const supabaseAdmin = supabaseAdminClient;
+export const supabaseAdmin = getSupabaseAdminClient();
 
 // Function to get the current session - useful for components that need quick access
 export const getCurrentSession = async () => {

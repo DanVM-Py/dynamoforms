@@ -1,5 +1,5 @@
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export function useAuthInit({
@@ -15,18 +15,27 @@ export function useAuthInit({
   fetchUserProfile: (userId: string, skipLoading?: boolean) => Promise<void>;
   setFetchComplete: (complete: boolean) => void;
 }) {
+  // Use a ref to prevent unnecessary re-renders and track initialization
+  const initialized = useRef(false);
+  const authListenerRef = useRef<any>(null);
+
   useEffect(() => {
+    // Prevent duplicate initialization
+    if (initialized.current) {
+      console.log("Auth already initialized, skipping");
+      return;
+    }
+    initialized.current = true;
+
     // Setting up auth state tracking
-    let authListener: { data: { subscription: { unsubscribe: () => void } } } | null = null;
-    
     const initializeAuth = async () => {
       try {
         console.log("Initializing authentication...");
         setLoading(true);
         setFetchComplete(false);
         
-        // FIRST: Set up auth listener before checking session
-        authListener = supabase.auth.onAuthStateChange(
+        // Set up auth listener FIRST (before checking session)
+        authListenerRef.current = supabase.auth.onAuthStateChange(
           async (event, newSession) => {
             console.log("Auth state changed:", event, !!newSession, "User:", newSession?.user?.email);
             
@@ -62,35 +71,46 @@ export function useAuthInit({
           }
         );
         
-        // SECOND: Check for existing session AFTER listener is set
-        console.log("Checking for existing session...");
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error("Error retrieving session:", sessionError);
-          setFetchComplete(true);
+        // Add a timeout to prevent hanging
+        const authTimeout = setTimeout(() => {
+          console.log("Auth initialization timeout reached, continuing...");
           setLoading(false);
-          return;
-        }
+          setFetchComplete(true);
+        }, 10000);
         
-        console.log("Initial session check:", !!session, "User:", session?.user?.email);
-        
-        // Update state with current session info
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Only fetch profile if we have a user
-        if (session?.user) {
-          console.log("Fetching profile for existing user:", session.user.email);
-          try {
-            await fetchUserProfile(session.user.id, true);
-            console.log("Initial profile fetch succeeded for:", session.user.email);
-          } catch (error) {
-            console.error("Initial profile fetch failed:", error);
+        // SECOND: Check for existing session AFTER listener is set
+        try {
+          console.log("Checking for existing session...");
+          const { data, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError) {
+            console.error("Error retrieving session:", sessionError);
+          } else {
+            console.log("Initial session check:", !!data.session, "User:", data.session?.user?.email);
+            
+            // Update state with current session info
+            setSession(data.session);
+            setUser(data.session?.user ?? null);
+            
+            // Only fetch profile if we have a user
+            if (data.session?.user) {
+              console.log("Fetching profile for existing user:", data.session.user.email);
+              try {
+                await fetchUserProfile(data.session.user.id, true);
+                console.log("Initial profile fetch succeeded for:", data.session.user.email);
+              } catch (error) {
+                console.error("Initial profile fetch failed:", error);
+              }
+            } else {
+              console.log("No existing user session found");
+            }
           }
-        } else {
-          console.log("No existing user session found");
+        } catch (error) {
+          console.error("Session check failed:", error);
         }
+        
+        // Clear the timeout since we've completed the session check
+        clearTimeout(authTimeout);
         
         // Complete initialization regardless of profile fetch
         console.log("Auth initialization complete");
@@ -108,10 +128,11 @@ export function useAuthInit({
     
     // Clean up listener on component unmount
     return () => {
-      if (authListener) {
+      if (authListenerRef.current) {
         try {
           console.log("Cleaning up auth listener");
-          authListener.data.subscription.unsubscribe();
+          authListenerRef.current.data.subscription.unsubscribe();
+          authListenerRef.current = null;
         } catch (error) {
           console.error("Auth listener cleanup failed:", error);
         }

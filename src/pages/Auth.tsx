@@ -33,13 +33,15 @@ const Auth = () => {
     }
   }, [confirmationSuccess, toast, navigate]);
 
-  // Check authentication status
+  // Check authentication status - with timeout to prevent hanging
   useEffect(() => {
+    let isMounted = true;
+    
     const checkAuth = async () => {
       try {
         // Set a timeout to avoid infinite loading
         const timeoutId = setTimeout(() => {
-          if (loading) {
+          if (isMounted && loading) {
             console.log("Auth check timeout reached");
             setLoading(false);
           }
@@ -47,6 +49,9 @@ const Auth = () => {
         
         // Get current session
         const { data, error } = await supabase.auth.getSession();
+        
+        // Only update state if component is still mounted
+        if (!isMounted) return;
         
         // Clear timeout as we got a response
         clearTimeout(timeoutId);
@@ -64,50 +69,24 @@ const Auth = () => {
           return;
         }
         
-        // If user is already logged in, check if email is confirmed
-        const userId = data.session.user.id;
-        
-        // Check if user profile exists and email is confirmed
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", userId)
-          .maybeSingle();
-          
-        if (profileError) {
-          console.error("Profile fetch error:", profileError);
-          setLoading(false);
-          return;
-        }
-        
-        if (profileData) {
-          // Safely check email confirmation status 
-          const needsEmailConfirmation = 'email_confirmed' in profileData && 
-                profileData.email_confirmed === false;
-          
-          if (needsEmailConfirmation) {
-            console.log("Email not confirmed, redirecting to confirm page");
-            navigate("/confirm-email", { replace: true });
-            return;
-          }
-          
-          // Email is confirmed or not tracked, redirect to the target page
-          console.log("Authentication valid, redirecting to:", redirectTo);
-          navigate(redirectTo, { replace: true });
-          return;
-        } else {
-          // No profile found but user is authenticated, let them proceed
-          navigate(redirectTo, { replace: true });
-        }
+        // User is already logged in, redirect to the target page
+        console.log("Authentication valid, redirecting to:", redirectTo);
+        navigate(redirectTo, { replace: true });
       } catch (error) {
-        console.error("Auth check error:", error);
-      } finally {
-        setLoading(false);
+        if (isMounted) {
+          console.error("Auth check error:", error);
+          setLoading(false);
+        }
       }
     };
     
     checkAuth();
-  }, [navigate, redirectTo, loading]);
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate, redirectTo]);
 
   // Show auth card if not loading
   if (!loading) {
