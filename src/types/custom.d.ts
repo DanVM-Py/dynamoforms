@@ -15,6 +15,8 @@ export interface ProjectUser {
   invited_at: string;
   invited_by: string;
   activated_at: string | null;
+  created_by?: string | null;
+  access_level?: string;
   full_name?: string;
   email?: string;
 }
