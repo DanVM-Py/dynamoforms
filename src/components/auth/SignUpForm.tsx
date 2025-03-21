@@ -38,21 +38,11 @@ export const SignUpForm = () => {
       console.log("Starting signup process for:", email);
       console.log("Email redirect URL:", redirectUrl);
       
-      // Check if user already exists
-      const { data: existingUsers, error: checkError } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('email', email)
-        .maybeSingle();
-        
-      if (checkError) {
-        console.error("Error checking existing user:", checkError);
-      } else if (existingUsers) {
-        throw new Error("Este correo electrónico ya está registrado. Por favor, inicia sesión.");
-      }
+      // Clear any existing session first to avoid conflicts
+      await supabase.auth.signOut();
       
-      // Attempt to sign up
-      const { data, error } = await supabase.auth.signUp({
+      // Set a timeout to avoid hanging forever
+      const signupPromise = supabase.auth.signUp({
         email,
         password,
         options: {
@@ -63,34 +53,45 @@ export const SignUpForm = () => {
         }
       });
       
-      console.log("Signup response:", { userData: data?.user, error });
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Tiempo de espera excedido")), 10000);
+      });
       
-      if (error) throw error;
+      // Race the signup against the timeout
+      const { data, error } = await Promise.race([
+        signupPromise,
+        timeoutPromise.then(() => ({ data: null, error: new Error("Tiempo de espera excedido") }))
+      ]) as any;
+      
+      if (error) {
+        if (error.message.includes("Tiempo de espera")) {
+          throw new Error("La solicitud tardó demasiado tiempo. Por favor, intenta de nuevo.");
+        } else {
+          throw error;
+        }
+      }
+      
+      if (!data?.user) {
+        throw new Error("No se pudo registrar. Inténtalo de nuevo.");
+      }
       
       if (data.user && !data.user.confirmed_at) {
         toast({
           title: "Registro exitoso",
           description: "Se ha enviado un correo de confirmación. Por favor, revisa también tu carpeta de spam.",
         });
-      } else {
+        
+        // Redirect to confirm email page
+        navigate("/confirm-email", { replace: true, state: { email } });
+      } else if (data.session) {
+        // Email confirmation might be disabled
         toast({
           title: "Registro exitoso",
           description: "Tu cuenta ha sido creada correctamente.",
         });
-      }
-      
-      // Check if email confirmation is required
-      if (data.user && !data.session) {
-        // No session means email confirmation is required
-        console.log("Email confirmation required, redirecting");
-        navigate("/confirm-email", { replace: true, state: { email } });
-      } else if (data.session) {
-        // Session exists, might mean email confirmation is disabled
-        console.log("Session exists after signup, redirecting to home");
         navigate("/");
       } else {
         // Fallback
-        console.log("Unexpected signup state, redirecting to confirm-email");
         navigate("/confirm-email", { replace: true, state: { email } });
       }
     } catch (error: any) {

@@ -10,11 +10,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 const ConfirmEmail = () => {
   const [loading, setLoading] = useState(false);
+  const [sessionChecking, setSessionChecking] = useState(true);
   const [resendCount, setResendCount] = useState(0);
   const [lastResendTime, setLastResendTime] = useState<Date | null>(null);
-  const [checkingSession, setCheckingSession] = useState(true);
   const [user, setUser] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<any>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -22,11 +21,13 @@ const ConfirmEmail = () => {
   // Get email from location state if available
   const emailFromState = location.state?.email;
   
-  // Check and initialize session
+  // Check session on mount
   useEffect(() => {
     const checkSession = async () => {
-      setCheckingSession(true);
       try {
+        setSessionChecking(true);
+        
+        // Get current session
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -40,40 +41,41 @@ const ConfirmEmail = () => {
           return;
         }
         
+        // No session found
         if (!data.session) {
           console.log("No se encontró sesión activa, redirigiendo a login");
-          toast({
-            title: "Sesión no encontrada",
-            description: "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
-            variant: "destructive",
-          });
-          navigate("/auth", { replace: true });
+          
+          // Only show toast if no email from state (direct access)
+          if (!emailFromState) {
+            toast({
+              title: "Sesión no encontrada",
+              description: "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+              variant: "destructive",
+            });
+            navigate("/auth", { replace: true });
+          }
           return;
         }
         
-        console.log("Sesión encontrada:", !!data.session);
+        // Set user data
         setUser(data.session.user);
         
-        // Fetch user profile
+        // Check if user profile exists and email is confirmed
         if (data.session.user) {
           const { data: profileData, error: profileError } = await supabase
             .from("profiles")
             .select("*")
             .eq("id", data.session.user.id)
-            .single();
+            .maybeSingle();
             
           if (profileError) {
             console.error("Error al obtener perfil:", profileError);
-          } else {
-            setUserProfile(profileData);
+          } else if (profileData) {
+            // Check if email is confirmed
+            const isConfirmed = 'email_confirmed' in profileData ? 
+              profileData.email_confirmed === true : true;
             
-            // If email is confirmed, redirect to home
-            // Safely check for email_confirmed property
-            const emailConfirmed = 'email_confirmed' in profileData ? 
-              Boolean(profileData.email_confirmed) : 
-              true; // Default to true if property doesn't exist
-              
-            if (profileData && emailConfirmed === true) {
+            if (isConfirmed) {
               console.log("Correo ya confirmado, redirigiendo al inicio");
               toast({
                 title: "Correo ya confirmado",
@@ -84,30 +86,25 @@ const ConfirmEmail = () => {
             }
           }
         }
-      } catch (err) {
-        console.error("Error en verificación de sesión:", err);
+      } catch (error) {
+        console.error("Error en verificación de sesión:", error);
       } finally {
-        setCheckingSession(false);
+        setSessionChecking(false);
       }
     };
     
     checkSession();
-  }, [navigate, toast]);
-  
-  // Debug logs
-  useEffect(() => {
-    console.log("Estado del componente ConfirmEmail:", {
-      usuarioExiste: !!user,
-      emailUsuario: user?.email || emailFromState,
-      perfilUsuario: userProfile ? {
-        id: userProfile.id,
-        emailConfirmado: userProfile?.email_confirmed
-      } : null,
-      resendCount,
-      lastResendTime,
-      checkingSession
-    });
-  }, [user, userProfile, resendCount, lastResendTime, checkingSession, emailFromState]);
+    
+    // Set a timeout to avoid infinite loading
+    const timeoutId = setTimeout(() => {
+      if (sessionChecking) {
+        console.log("Session check timeout reached");
+        setSessionChecking(false);
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [navigate, toast, emailFromState]);
 
   const resendConfirmationEmail = async () => {
     const userEmail = user?.email || emailFromState;
@@ -134,15 +131,13 @@ const ConfirmEmail = () => {
       console.log(`Usando URL de redirección: ${redirectUrl}`);
       
       // Call Supabase to resend confirmation email with explicit redirect URL
-      const { data, error } = await supabase.auth.resend({
+      const { error } = await supabase.auth.resend({
         type: 'signup',
         email: userEmail,
         options: {
           emailRedirectTo: redirectUrl
         }
       });
-      
-      console.log("Respuesta de reenvío:", { data, error });
       
       if (error) throw error;
       
@@ -168,7 +163,7 @@ const ConfirmEmail = () => {
       
       console.log("Verificando estado de confirmación de correo...");
       
-      if (!user) {
+      if (!user && !emailFromState) {
         toast({
           title: "Error",
           description: "No se pudo determinar tu sesión. Por favor, inicia sesión nuevamente.",
@@ -178,39 +173,41 @@ const ConfirmEmail = () => {
         return;
       }
       
-      // Refresh the user profile
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
+      if (user) {
+        // Refresh the user profile
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .maybeSingle();
+          
+        if (profileError) {
+          console.error("Error al obtener perfil:", profileError);
+          throw new Error("No se pudo verificar el estado de tu correo");
+        }
         
-      if (profileError) {
-        console.error("Error al obtener perfil:", profileError);
-        throw new Error("No se pudo verificar el estado de tu correo");
+        if (profileData) {
+          // Check if email is confirmed
+          const isConfirmed = 'email_confirmed' in profileData ? 
+            profileData.email_confirmed === true : false;
+          
+          if (isConfirmed) {
+            toast({
+              title: "Correo confirmado",
+              description: "Tu correo ha sido confirmado correctamente. Ahora puedes acceder al sistema.",
+            });
+            navigate("/");
+            return;
+          }
+        }
       }
       
-      setUserProfile(profileData);
-      
-      // Check if email is confirmed
-      // Safely check for email_confirmed property
-      const emailConfirmed = 'email_confirmed' in profileData ? 
-        Boolean(profileData.email_confirmed) : 
-        null; // Use null if property doesn't exist to handle accordingly
-      
-      if (emailConfirmed === true) {
-        toast({
-          title: "Correo confirmado",
-          description: "Tu correo ha sido confirmado correctamente. Ahora puedes acceder al sistema.",
-        });
-        navigate("/");
-      } else {
-        toast({
-          title: "Correo no confirmado",
-          description: "Tu correo aún no ha sido confirmado. Por favor, revisa tu bandeja de entrada y carpeta de spam.",
-          variant: "destructive",
-        });
-      }
+      // If we get here, the email is not confirmed
+      toast({
+        title: "Correo no confirmado",
+        description: "Tu correo aún no ha sido confirmado. Por favor, revisa tu bandeja de entrada y carpeta de spam.",
+        variant: "destructive",
+      });
     } catch (error: any) {
       console.error("Error al verificar estado del correo:", error);
       toast({
@@ -229,7 +226,7 @@ const ConfirmEmail = () => {
   };
 
   // Loading state
-  if (checkingSession) {
+  if (sessionChecking) {
     return (
       <PageContainer hideSidebar className="flex items-center justify-center p-0">
         <div className="w-full max-w-md px-4">
@@ -249,31 +246,8 @@ const ConfirmEmail = () => {
     );
   }
 
-  // No session
-  if (!user) {
-    return (
-      <PageContainer hideSidebar className="flex items-center justify-center p-0">
-        <div className="w-full max-w-md px-4">
-          <Card className="border-gray-200 shadow-lg">
-            <CardHeader className="text-center">
-              <CardTitle className="text-2xl font-bold text-dynamo-700">Error de Sesión</CardTitle>
-              <CardDescription>
-                No se ha detectado una sesión activa. Debes iniciar sesión primero.
-              </CardDescription>
-            </CardHeader>
-            <CardFooter>
-              <Button 
-                onClick={goToLogin}
-                className="w-full bg-dynamo-600 hover:bg-dynamo-700"
-              >
-                Ir a inicio de sesión
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-      </PageContainer>
-    );
-  }
+  // If no user but we have an email, show confirmation form
+  const displayEmail = user?.email || emailFromState;
 
   return (
     <PageContainer hideSidebar className="flex items-center justify-center p-0">
@@ -293,7 +267,7 @@ const ConfirmEmail = () => {
             <div className="bg-amber-50 border border-amber-200 rounded-md p-4 text-amber-800">
               <p className="text-sm">
                 Te hemos enviado un correo de confirmación a{" "}
-                <span className="font-medium">{user?.email || emailFromState}</span>. Por favor, revisa tu bandeja de entrada y haz clic en el enlace de confirmación.
+                <span className="font-medium">{displayEmail}</span>. Por favor, revisa tu bandeja de entrada y haz clic en el enlace de confirmación.
               </p>
               {resendCount > 0 && (
                 <p className="text-xs mt-2">

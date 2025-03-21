@@ -8,8 +8,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { router } from './routes';
 import { EnvironmentIndicator } from './components/environment/EnvironmentIndicator';
 
-// Create query client
-const queryClient = new QueryClient();
+// Create query client with refetch defaults
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false
+    }
+  }
+});
 
 function App() {
   const [mounted, setMounted] = React.useState(false);

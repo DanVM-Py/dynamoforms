@@ -9,10 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 
 const Auth = () => {
-  const [checkingSession, setCheckingSession] = useState(true);
-  const [sessionCheckTimeout, setSessionCheckTimeout] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<any>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -27,121 +25,83 @@ const Auth = () => {
   // Handle confirmation notification
   useConfirmationEffect(confirmationSuccess);
 
-  // Debug logging
+  // Check authentication status
   useEffect(() => {
-    console.log("Auth page state:", {
-      userExists: !!user,
-      userEmail: user?.email,
-      userProfile: userProfile ? {
-        id: userProfile.id,
-        emailConfirmed: userProfile?.email_confirmed
-      } : null,
-      redirectTo,
-      confirmationSuccess,
-      currentPath: location.pathname,
-      checkingSession,
-      sessionCheckTimeout
-    });
-  }, [
-    user, userProfile, redirectTo, confirmationSuccess, 
-    location.pathname, checkingSession, sessionCheckTimeout
-  ]);
-
-  // Set timeout to avoid infinite loading - INCREASED TIMEOUT FROM 3s TO 15s
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (checkingSession) {
-        console.log("Session check timeout reached, forcing state update");
-        setSessionCheckTimeout(true);
-        setCheckingSession(false);
-        
-        toast({
-          title: "Tiempo de espera excedido",
-          description: "La verificación de sesión está tomando más tiempo de lo esperado. Intenta iniciar sesión manualmente.",
-          variant: "default",
-        });
-      }
-    }, 15000); // 15 seconds
-
-    return () => clearTimeout(timeoutId);
-  }, [checkingSession, toast]);
-
-  // Handle auth state and redirections
-  useEffect(() => {
-    const handleAuthState = async () => {
+    const checkAuth = async () => {
       try {
-        setCheckingSession(true);
-        
-        // Explicitly check current session
-        const { data: sessionData, error } = await supabase.auth.getSession();
+        // Get current session
+        const { data, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error("Session check error:", error);
-          setCheckingSession(false);
+          setLoading(false);
           return;
         }
         
-        const currentSession = sessionData?.session;
-        const currentUser = currentSession?.user;
-        const hasActiveSession = !!currentUser;
+        // No active session, just show login form
+        if (!data.session) {
+          console.log("No active session found");
+          setLoading(false);
+          return;
+        }
         
-        setUser(currentUser || null);
+        // Set user data
+        setUser(data.session.user);
         
-        // Check if direct access to auth page when already signed in
-        const isDirectAccess = !location.search.includes('redirect');
-        
-        if (hasActiveSession) {
-          // Fetch user profile
+        // Check if user profile exists and email is confirmed
+        if (data.session.user) {
           const { data: profileData, error: profileError } = await supabase
             .from("profiles")
             .select("*")
-            .eq("id", currentUser.id)
-            .single();
+            .eq("id", data.session.user.id)
+            .maybeSingle();
             
           if (profileError) {
             console.error("Profile fetch error:", profileError);
-          } else {
-            setUserProfile(profileData);
+            setLoading(false);
+            return;
+          }
+          
+          if (profileData) {
+            // Safely check email confirmation status
+            const isConfirmed = !('email_confirmed' in profileData) || 
+                                profileData.email_confirmed !== false;
             
-            // If email not confirmed, redirect to confirm page
-            // Check for email_confirmed property safely
-            const emailConfirmed = 'email_confirmed' in profileData ? 
-              Boolean(profileData.email_confirmed) : 
-              true; // Default to true if property doesn't exist
-            
-            if (profileData && emailConfirmed === false) {
+            if (!isConfirmed) {
               console.log("Email not confirmed, redirecting to confirm page");
               navigate("/confirm-email", { replace: true });
               return;
             }
             
-            // If direct access to auth with confirmed email, redirect to home
-            // Safely check the email_confirmed property
-            if (isDirectAccess && profileData) {
-              const isEmailConfirmed = 'email_confirmed' in profileData ? 
-                Boolean(profileData.email_confirmed) !== false :
-                true; // Default to true if property doesn't exist
-                
-              if (isEmailConfirmed) {
-                console.log("Authenticated with confirmed email, redirecting");
-                navigate(redirectTo, { replace: true });
-                return;
-              }
-            }
+            // Email is confirmed, redirect to the target page
+            console.log("Email confirmed, redirecting to:", redirectTo);
+            navigate(redirectTo, { replace: true });
+            return;
           }
         }
+        
+        setLoading(false);
       } catch (error) {
-        console.error("Authentication state handling error:", error);
-      } finally {
-        setCheckingSession(false);
+        console.error("Auth check error:", error);
+        setLoading(false);
       }
     };
     
-    handleAuthState();
-  }, [navigate, redirectTo, location.search]);
+    // Set a timeout to avoid infinite loading
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.log("Auth check timeout reached");
+        setLoading(false);
+      }
+    }, 5000);
+    
+    checkAuth();
+    
+    return () => clearTimeout(timeoutId);
+  }, [navigate, redirectTo, loading]);
 
-  // Show auth card if session check complete or timed out
-  if (!checkingSession || sessionCheckTimeout) {
+  // Show auth card if not loading
+  if (!loading) {
     return (
       <PageContainer hideSidebar className="flex items-center justify-center p-0">
         <AuthCard 
@@ -152,7 +112,7 @@ const Auth = () => {
     );
   }
 
-  // Otherwise show loading state
+  // Show loading state
   return (
     <PageContainer hideSidebar className="flex items-center justify-center p-0">
       <LoadingAuthState />
