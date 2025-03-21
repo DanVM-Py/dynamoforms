@@ -13,9 +13,50 @@ const ConfirmEmail = () => {
   const [loading, setLoading] = useState(false);
   const [resendCount, setResendCount] = useState(0);
   const [lastResendTime, setLastResendTime] = useState<Date | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
   const { user, userProfile, refreshUserProfile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Handle initial session check
+  useEffect(() => {
+    const checkSession = async () => {
+      setCheckingSession(true);
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Error checking session:", error);
+          toast({
+            title: "Error de sesión",
+            description: "No se pudo verificar tu sesión. Por favor, inicia sesión nuevamente.",
+            variant: "destructive",
+          });
+          navigate("/auth", { replace: true });
+          return;
+        }
+        
+        if (!data.session) {
+          console.log("No active session found, redirecting to login");
+          toast({
+            title: "Sesión no encontrada",
+            description: "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+            variant: "destructive",
+          });
+          navigate("/auth", { replace: true });
+          return;
+        }
+        
+        console.log("Session found:", !!data.session);
+      } catch (err) {
+        console.error("Error in session check:", err);
+      } finally {
+        setCheckingSession(false);
+      }
+    };
+    
+    checkSession();
+  }, [navigate, toast]);
   
   // Debug logs to help diagnose issues
   useEffect(() => {
@@ -27,22 +68,11 @@ const ConfirmEmail = () => {
         emailConfirmed: userProfile?.email_confirmed
       } : null,
       resendCount,
-      lastResendTime
+      lastResendTime,
+      checkingSession
     });
     
-    // If we don't have a user, re-authenticate silently to try to restore the session
-    if (!user) {
-      const checkSession = async () => {
-        const { data } = await supabase.auth.getSession();
-        console.log("Session check result:", !!data.session);
-      };
-      
-      checkSession();
-    }
-  }, [user, userProfile, resendCount, lastResendTime]);
-
-  // Check if we need to redirect (if email is already confirmed)
-  useEffect(() => {
+    // If email is already confirmed, redirect to home
     if (userProfile?.email_confirmed) {
       console.log("Email already confirmed, redirecting to home");
       toast({
@@ -51,7 +81,7 @@ const ConfirmEmail = () => {
       });
       navigate("/", { replace: true });
     }
-  }, [userProfile, navigate, toast]);
+  }, [user, userProfile, resendCount, lastResendTime, checkingSession, navigate, toast]);
 
   const resendConfirmationEmail = async () => {
     if (!user?.email) {
@@ -68,14 +98,19 @@ const ConfirmEmail = () => {
       setResendCount(prev => prev + 1);
       setLastResendTime(new Date());
       
-      console.log(`Attempting to resend confirmation email to ${user.email} (attempt #${resendCount + 1})`);
+      // Get current origin with protocol
+      const origin = window.location.origin;
+      const redirectUrl = `${origin}/auth?confirmation=success`;
       
-      // Call Supabase to resend confirmation email
+      console.log(`Attempting to resend confirmation email to ${user.email} (attempt #${resendCount + 1})`);
+      console.log(`Using redirect URL: ${redirectUrl}`);
+      
+      // Call Supabase to resend confirmation email with explicit redirect URL
       const { data, error } = await supabase.auth.resend({
         type: 'signup',
         email: user.email,
         options: {
-          emailRedirectTo: window.location.origin + '/auth?confirmation=success'
+          emailRedirectTo: redirectUrl
         }
       });
       
@@ -85,7 +120,7 @@ const ConfirmEmail = () => {
       
       toast({
         title: "Correo enviado",
-        description: "Se ha enviado un nuevo correo de confirmación a tu dirección de email.",
+        description: "Se ha enviado un nuevo correo de confirmación a tu dirección de email. Revisa también tu carpeta de spam.",
       });
     } catch (error: any) {
       console.error("Error al reenviar correo:", error);
@@ -118,7 +153,7 @@ const ConfirmEmail = () => {
       } else {
         toast({
           title: "Correo no confirmado",
-          description: "Tu correo aún no ha sido confirmado. Por favor, revisa tu bandeja de entrada.",
+          description: "Tu correo aún no ha sido confirmado. Por favor, revisa tu bandeja de entrada y carpeta de spam.",
           variant: "destructive",
         });
       }
@@ -138,6 +173,27 @@ const ConfirmEmail = () => {
   const goToLogin = () => {
     navigate("/auth");
   };
+
+  // Show loading state while checking session
+  if (checkingSession) {
+    return (
+      <PageContainer hideSidebar className="flex items-center justify-center p-0">
+        <div className="w-full max-w-md px-4">
+          <Card className="border-gray-200 shadow-lg">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl font-bold text-dynamo-700">Verificando sesión</CardTitle>
+              <CardDescription>
+                Por favor espera mientras verificamos tu sesión...
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex justify-center py-6">
+              <Loader2 className="h-8 w-8 animate-spin text-dynamo-600" />
+            </CardContent>
+          </Card>
+        </div>
+      </PageContainer>
+    );
+  }
 
   // Handle case where we somehow got here without being logged in
   if (!user) {
@@ -196,6 +252,17 @@ const ConfirmEmail = () => {
                   Último reenvío: {lastResendTime.toLocaleTimeString()}
                 </p>
               )}
+            </div>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 text-blue-800">
+              <p className="text-sm">
+                <strong>Importante:</strong> Si después de varios intentos no recibes el correo:
+              </p>
+              <ul className="list-disc ml-5 text-xs mt-1">
+                <li>Revisa tu carpeta de spam o correo no deseado</li>
+                <li>Verifica que la dirección de correo sea correcta</li>
+                <li>Contacta al administrador del sistema para verificar la configuración del servicio de correo</li>
+              </ul>
             </div>
           </CardContent>
           

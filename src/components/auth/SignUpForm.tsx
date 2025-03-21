@@ -30,13 +30,19 @@ export const SignUpForm = () => {
     
     try {
       setLoading(true);
+      
+      // Get current origin with protocol for redirection
+      const origin = window.location.origin;
+      const redirectUrl = `${origin}/auth?confirmation=success`;
+      
       console.log("Iniciando proceso de registro para:", email);
+      console.log("Email redirect URL:", redirectUrl);
       
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin + '/auth?confirmation=success',
+          emailRedirectTo: redirectUrl,
           data: {
             name: email.split('@')[0], // Set a default name from email
           }
@@ -49,7 +55,7 @@ export const SignUpForm = () => {
       
       toast({
         title: "Registro exitoso",
-        description: "Se ha enviado un correo de confirmación a tu dirección de email.",
+        description: "Se ha enviado un correo de confirmación a tu dirección de email. Revisa también tu carpeta de spam.",
       });
       
       // Check if redirectTo option is needed
