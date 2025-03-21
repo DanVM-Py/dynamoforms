@@ -41,10 +41,8 @@ export function useAuthState() {
         
       if (error) {
         console.error("Error fetching user profile:", error);
-        return;
-      }
-      
-      if (data) {
+        setUserProfile(null);
+      } else if (data) {
         console.log("User profile found:", data);
         setUserProfile(data);
         
@@ -52,7 +50,40 @@ export function useAuthState() {
         setIsApprover(data.role === "approver");
       } else {
         console.log("No user profile found");
-        setUserProfile(null);
+        
+        // If no profile exists but we have a user, create a basic profile with email_confirmed=false
+        try {
+          // First get the user email from the auth user
+          const { data: userData, error: userError } = await supabase.auth.getUser();
+          
+          if (userError) {
+            console.error("Error getting user data:", userError);
+          } else if (userData?.user) {
+            console.log("Creating new profile for user:", userData.user.email);
+            
+            // Create a basic profile for the user
+            const { data: newProfile, error: insertError } = await supabase
+              .from("profiles")
+              .insert({
+                id: userId,
+                email: userData.user.email,
+                name: userData.user.email?.split('@')[0] || 'User',
+                role: 'user',
+                email_confirmed: false
+              })
+              .select("*")
+              .single();
+              
+            if (insertError) {
+              console.error("Error creating profile:", insertError);
+            } else if (newProfile) {
+              console.log("New profile created:", newProfile);
+              setUserProfile(newProfile);
+            }
+          }
+        } catch (err) {
+          console.error("Error in profile creation workflow:", err);
+        }
       }
       
       // Step 3: Check if user is project admin for any project - using project_id null to check all projects

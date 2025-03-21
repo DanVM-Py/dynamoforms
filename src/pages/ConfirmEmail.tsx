@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,8 +15,39 @@ const ConfirmEmail = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Debug logs to help diagnose issues
+  useEffect(() => {
+    console.log("ConfirmEmail component state:", {
+      userExists: !!user,
+      userEmail: user?.email,
+      userProfile: userProfile ? {
+        id: userProfile.id,
+        emailConfirmed: userProfile.email_confirmed
+      } : null
+    });
+  }, [user, userProfile]);
+
+  // Check if we need to redirect (if email is already confirmed)
+  useEffect(() => {
+    if (userProfile?.email_confirmed) {
+      console.log("Email already confirmed, redirecting to home");
+      toast({
+        title: "Correo ya confirmado",
+        description: "Tu correo ya ha sido confirmado. Redirigiendo al inicio.",
+      });
+      navigate("/", { replace: true });
+    }
+  }, [userProfile, navigate, toast]);
+
   const resendConfirmationEmail = async () => {
-    if (!user?.email) return;
+    if (!user?.email) {
+      toast({
+        title: "Error",
+        description: "No se pudo determinar tu dirección de email.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
       setLoading(true);
@@ -49,7 +80,7 @@ const ConfirmEmail = () => {
     try {
       setLoading(true);
       
-      // Refresh user profile to check if email is confirmed
+      // Force refresh user profile to check if email is confirmed
       await refreshUserProfile();
       
       // If email is confirmed after refresh, navigate to home
@@ -82,6 +113,32 @@ const ConfirmEmail = () => {
   const goToLogin = () => {
     navigate("/auth");
   };
+
+  // Handle case where we somehow got here without being logged in
+  if (!user) {
+    return (
+      <PageContainer hideSidebar className="flex items-center justify-center p-0">
+        <div className="w-full max-w-md px-4">
+          <Card className="border-gray-200 shadow-lg">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl font-bold text-dynamo-700">Error de Sesión</CardTitle>
+              <CardDescription>
+                No se ha detectado una sesión activa. Debes iniciar sesión primero.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter>
+              <Button 
+                onClick={goToLogin}
+                className="w-full bg-dynamo-600 hover:bg-dynamo-700"
+              >
+                Ir a inicio de sesión
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer hideSidebar className="flex items-center justify-center p-0">

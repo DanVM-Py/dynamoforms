@@ -33,7 +33,8 @@ const ProtectedRoute = ({
       loading, 
       isGlobalAdmin, 
       isProjectAdmin,
-      hasProjectAccess
+      hasProjectAccess,
+      userProfile
     });
   }, [user, userProfile, loading, isGlobalAdmin, isProjectAdmin, hasProjectAccess, location.pathname]);
   
@@ -106,16 +107,6 @@ const ProtectedRoute = ({
     return <>{children}</>;
   }
 
-  // Allow access to confirm-email page without requiring project access or email confirmation
-  if (location.pathname === "/confirm-email") {
-    // For confirm-email page, we just need user to be authenticated
-    if (!user) {
-      console.log("No user for confirm-email page, redirecting to auth");
-      return <Navigate to="/auth" replace />;
-    }
-    return <>{children}</>;
-  }
-
   // Step 1: Check if user is authenticated (except for auth page and public routes)
   const isPublicRoute = location.pathname.startsWith("/public") || location.pathname === "/auth";
   if (!user && !isPublicRoute) {
@@ -125,7 +116,14 @@ const ProtectedRoute = ({
     return <Navigate to={`/auth${currentPath !== "/" ? `?redirect=${currentPath}` : ""}`} replace />;
   }
 
-  // Step 2: Check if email is confirmed
+  // Special handling for confirm-email page - we want this to be accessible if the user is authenticated
+  // regardless of email confirmation status
+  if (location.pathname === "/confirm-email") {
+    // For confirm-email page, we just need user to be authenticated
+    return <>{children}</>;
+  }
+
+  // Step 2: Check if email is confirmed for all routes except confirm-email
   if (user && userProfile && !userProfile.email_confirmed && location.pathname !== "/confirm-email") {
     console.log("ProtectedRoute: Email not confirmed, redirecting to confirm email page");
     return <Navigate to="/confirm-email" replace />;

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -38,26 +37,45 @@ const Auth = () => {
     });
   }, [user, userProfile, redirectTo, confirmationSuccess, location.pathname, checkingSession]);
 
-  // Clear any existing session when accessing the auth page directly
+  // Handle authentication and redirections
   useEffect(() => {
-    const clearExistingSession = async () => {
+    const handleAuthSession = async () => {
       try {
         setCheckingSession(true);
         
-        // Check if user is trying to access auth page directly
+        // Check if user is trying to access auth page directly when already logged in
         const directAccess = !location.search.includes('redirect');
         
         if (directAccess && user) {
-          console.log("Direct access to auth page, clearing session");
+          console.log("Direct access to auth page with active session");
+          
+          // If user's email is not confirmed, redirect to confirm-email page
+          if (userProfile && !userProfile.email_confirmed) {
+            console.log("User authenticated but email not confirmed, redirecting to confirm-email");
+            navigate("/confirm-email", { replace: true });
+            return;
+          }
+          
+          // If direct access and email is confirmed, we can either sign out or redirect
+          if (userProfile?.email_confirmed) {
+            // User is fully authenticated, redirect to home or requested page
+            console.log("User already authenticated with confirmed email, redirecting to:", redirectTo);
+            navigate(redirectTo, { replace: true });
+            return;
+          }
+          
+          // Otherwise clear session for new login
           await signOut();
-        } else if (user && userProfile?.email_confirmed) {
-          // If user is authenticated and email is confirmed, redirect
-          console.log("User already authenticated with confirmed email, redirecting to:", redirectTo);
-          navigate(redirectTo, { replace: true });
-        } else if (user && !userProfile?.email_confirmed) {
-          // If user is authenticated but email is not confirmed, redirect to confirm-email
-          console.log("User authenticated but email not confirmed, redirecting to confirm-email");
-          navigate("/confirm-email", { replace: true });
+        } else if (user) {
+          // User is already logged in, check email confirmation
+          if (!userProfile?.email_confirmed) {
+            console.log("User authenticated but email not confirmed, redirecting to confirm-email");
+            navigate("/confirm-email", { replace: true });
+          } else {
+            // User is fully authenticated, redirect to home or requested page
+            console.log("User already authenticated with confirmed email, redirecting to:", redirectTo);
+            navigate(redirectTo, { replace: true });
+          }
         }
       } catch (error) {
         console.error("Error checking session:", error);
@@ -66,7 +84,7 @@ const Auth = () => {
       }
     };
     
-    clearExistingSession();
+    handleAuthSession();
   }, [navigate, redirectTo, signOut, location.search, user, userProfile]);
 
   if (checkingSession) {

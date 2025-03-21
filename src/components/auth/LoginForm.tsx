@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { CardContent, CardFooter } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useNavigate } from "react-router-dom";
 
 interface LoginFormProps {
   redirectTo: string;
@@ -17,6 +18,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,17 +45,40 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       
       console.log("Login successful");
       
-      if (data.user && data.session) {
-        toast({
-          title: "Inicio de sesión exitoso",
-          description: "Has iniciado sesión correctamente."
-        });
+      toast({
+        title: "Inicio de sesión exitoso",
+        description: "Has iniciado sesión correctamente.",
+      });
+      
+      // After login, check if email is confirmed by checking the profile
+      if (data.user) {
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from("profiles")
+            .select("email_confirmed")
+            .eq("id", data.user.id)
+            .maybeSingle();
+            
+          if (profileError) {
+            console.error("Error fetching profile:", profileError);
+          } else if (profileData && !profileData.email_confirmed) {
+            // If email is not confirmed, redirect to confirm-email page
+            console.log("Email not confirmed, redirecting to confirm-email");
+            navigate("/confirm-email", { replace: true });
+            return;
+          }
+        } catch (profileErr) {
+          console.error("Error checking email confirmation:", profileErr);
+        }
       }
+      
+      // If email is confirmed or we couldn't check, redirect to the requested page
+      navigate(redirectTo, { replace: true });
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error.message);
       toast({
         title: "Error al iniciar sesión",
-        description: "Credenciales incorrectas. Por favor verifica tu correo y contraseña.",
+        description: error.message,
         variant: "destructive",
       });
     } finally {
@@ -94,7 +119,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
           disabled={loading}
         >
           {loading ? (
-            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando...</>
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Procesando...</>
           ) : (
             'Iniciar sesión'
           )}
