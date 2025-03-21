@@ -71,8 +71,11 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
           } else if (profileData) {
             console.log("Profile data:", profileData);
             
-            // Check if email is confirmed
-            const emailConfirmed = profileData.email_confirmed;
+            // Check if email is confirmed - using type safety
+            // The email_confirmed property comes from our database schema
+            const emailConfirmed = 'email_confirmed' in profileData ? 
+              profileData.email_confirmed as boolean : 
+              null;
             
             console.log("Email confirmed status:", emailConfirmed);
             
