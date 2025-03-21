@@ -1,8 +1,7 @@
+
 import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
-import { useAuth } from './contexts/AuthContext';
 import { PageContainer } from './components/layout/PageContainer';
-import ProtectedRoute from "./components/ProtectedRoute";
 
 // Lazy-loaded components
 const Auth = lazy(() => import("./pages/Auth"));
@@ -36,81 +35,64 @@ const Loading = () => (
 );
 
 // Route configuration
+// Note: Auth page is public and doesn't need ProtectedRoute
 export const router = createBrowserRouter([
-  {
-    path: "/",
-    element: (
-      <ProtectedRoute>
-        <Suspense fallback={<Loading />}><Index /></Suspense>
-      </ProtectedRoute>
-    ),
-  },
   {
     path: "/auth",
     element: <Suspense fallback={<Loading />}><Auth /></Suspense>,
   },
   {
+    path: "/",
+    element: (
+      <Suspense fallback={<Loading />}><Index /></Suspense>
+    ),
+  },
+  {
     path: "/confirm-email",
     element: (
-      <ProtectedRoute requireProjectAccess={false}>
-        <Suspense fallback={<Loading />}><ConfirmEmail /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><ConfirmEmail /></Suspense>
     ),
   },
   {
     path: "/no-project-access",
     element: (
-      <ProtectedRoute requireProjectAccess={false}>
-        <Suspense fallback={<Loading />}><NoProjectAccess /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><NoProjectAccess /></Suspense>
     ),
   },
   {
     path: "/admin",
     element: (
-      <ProtectedRoute requireGlobalAdmin={true}>
-        <Suspense fallback={<Loading />}><Admin /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><Admin /></Suspense>
     ),
   },
   {
     path: "/forms-editor",
     element: (
-      <ProtectedRoute requireGlobalAdmin={true}>
-        <Suspense fallback={<Loading />}><Forms /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><Forms /></Suspense>
     ),
   },
   {
     path: "/forms-editor/:formId/edit",
     element: (
-      <ProtectedRoute requireGlobalAdmin={true}>
-        <Suspense fallback={<Loading />}><FormEditor /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><FormEditor /></Suspense>
     ),
   },
   {
     path: "/forms",
     element: (
-      <ProtectedRoute>
-        <Suspense fallback={<Loading />}><Forms /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><Forms /></Suspense>
     ),
   },
   {
     path: "/forms/:formId",
     element: (
-      <ProtectedRoute>
-        <Suspense fallback={<Loading />}><PrivateFormView /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><PrivateFormView /></Suspense>
     ),
   },
   {
     path: "/forms/:formId/responses",
     element: (
-      <ProtectedRoute>
-        <Suspense fallback={<Loading />}><FormResponses /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><FormResponses /></Suspense>
     ),
   },
   {
@@ -132,65 +114,49 @@ export const router = createBrowserRouter([
   {
     path: "/projects",
     element: (
-      <ProtectedRoute>
-        <Suspense fallback={<Loading />}><Projects /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><Projects /></Suspense>
     ),
   },
   {
     path: "/projects/:projectId/roles",
     element: (
-      <ProtectedRoute>
-        <Suspense fallback={<Loading />}><ProjectRoles /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><ProjectRoles /></Suspense>
     ),
   },
   {
     path: "/projects/:projectId/users",
     element: (
-      <ProtectedRoute>
-        <Suspense fallback={<Loading />}><ProjectUsers /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><ProjectUsers /></Suspense>
     ),
   },
   {
     path: "/tasks",
     element: (
-      <ProtectedRoute>
-        <Suspense fallback={<Loading />}><Tasks /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><Tasks /></Suspense>
     ),
   },
   {
     path: "/task-templates",
     element: (
-      <ProtectedRoute>
-        <Suspense fallback={<Loading />}><TaskTemplates /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><TaskTemplates /></Suspense>
     ),
   },
   {
     path: "/notifications",
     element: (
-      <ProtectedRoute>
-        <Suspense fallback={<Loading />}><Notifications /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><Notifications /></Suspense>
     ),
   },
   {
     path: "/systems/monitoring",
     element: (
-      <ProtectedRoute requireGlobalAdmin={true}>
-        <Suspense fallback={<Loading />}><Monitoring /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><Monitoring /></Suspense>
     ),
   },
   {
     path: "/monitoring",
     element: (
-      <ProtectedRoute requireGlobalAdmin={true}>
-        <Suspense fallback={<Loading />}><Monitoring /></Suspense>
-      </ProtectedRoute>
+      <Suspense fallback={<Loading />}><Monitoring /></Suspense>
     ),
   },
   {

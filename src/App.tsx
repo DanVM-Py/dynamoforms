@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { router } from './routes';
 import { EnvironmentIndicator } from './components/environment/EnvironmentIndicator';
 
+// Create query client
 const queryClient = new QueryClient();
 
 function App() {
@@ -22,15 +23,15 @@ function App() {
   }
 
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <AuthProvider>
           <RouterProvider router={router} />
           <Toaster />
           <EnvironmentIndicator />
-        </ThemeProvider>
-      </QueryClientProvider>
-    </AuthProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 

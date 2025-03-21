@@ -1,8 +1,6 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { useAuth } from "@/contexts/AuthContext";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
 import { useConfirmationEffect } from "@/hooks/useConfirmationEffect";
@@ -12,9 +10,10 @@ import { useToast } from "@/components/ui/use-toast";
 const Auth = () => {
   const [checkingSession, setCheckingSession] = useState(true);
   const [sessionCheckTimeout, setSessionCheckTimeout] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, userProfile, loading: authContextLoading } = useAuth();
   const { toast } = useToast();
 
   // Check for confirmation success parameter
@@ -40,12 +39,11 @@ const Auth = () => {
       confirmationSuccess,
       currentPath: location.pathname,
       checkingSession,
-      sessionCheckTimeout,
-      authContextLoading
+      sessionCheckTimeout
     });
   }, [
     user, userProfile, redirectTo, confirmationSuccess, 
-    location.pathname, checkingSession, sessionCheckTimeout, authContextLoading
+    location.pathname, checkingSession, sessionCheckTimeout
   ]);
 
   // Set timeout to avoid infinite loading - INCREASED TIMEOUT FROM 3s TO 15s
@@ -62,7 +60,7 @@ const Auth = () => {
           variant: "default",
         });
       }
-    }, 15000); // Increased from 3000 to 15000 (15 seconds)
+    }, 15000); // 15 seconds
 
     return () => clearTimeout(timeoutId);
   }, [checkingSession, toast]);
@@ -83,39 +81,40 @@ const Auth = () => {
         }
         
         const currentSession = sessionData?.session;
-        const hasActiveSession = !!currentSession?.user;
+        const currentUser = currentSession?.user;
+        const hasActiveSession = !!currentUser;
+        
+        setUser(currentUser || null);
         
         // Check if direct access to auth page when already signed in
         const isDirectAccess = !location.search.includes('redirect');
         
-        if (isDirectAccess && hasActiveSession) {
-          console.log("Direct access to auth page with active session");
-          
-          // If user is authenticated but profile shows email not confirmed
-          if (userProfile && userProfile.email_confirmed === false) {
-            console.log("User authenticated but email not confirmed, redirecting");
-            navigate("/confirm-email", { replace: true });
-            return;
-          }
-          
-          // If authenticated with confirmed email, redirect to home
-          if (userProfile && userProfile.email_confirmed !== false) {
-            console.log("User authenticated with confirmed email, redirecting");
-            navigate(redirectTo, { replace: true });
-            return;
-          }
-        } else if (user) {
-          // User already logged in via context
-          if (userProfile === null) {
-            console.log("User authenticated but profile not loaded yet");
-            // Wait for profile to load
-          } else if (userProfile.email_confirmed === false) {
-            console.log("User authenticated but email not confirmed");
-            navigate("/confirm-email", { replace: true });
+        if (hasActiveSession) {
+          // Fetch user profile
+          const { data: profileData, error: profileError } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", currentUser.id)
+            .single();
+            
+          if (profileError) {
+            console.error("Profile fetch error:", profileError);
           } else {
-            // User is fully authenticated, redirect
-            console.log("User fully authenticated, redirecting");
-            navigate(redirectTo, { replace: true });
+            setUserProfile(profileData);
+            
+            // If email not confirmed, redirect to confirm page
+            if (profileData && profileData.email_confirmed === false) {
+              console.log("Email not confirmed, redirecting to confirm page");
+              navigate("/confirm-email", { replace: true });
+              return;
+            }
+            
+            // If direct access to auth with confirmed email, redirect to home
+            if (isDirectAccess && profileData && profileData.email_confirmed !== false) {
+              console.log("Authenticated with confirmed email, redirecting");
+              navigate(redirectTo, { replace: true });
+              return;
+            }
           }
         }
       } catch (error) {
@@ -125,14 +124,11 @@ const Auth = () => {
       }
     };
     
-    // Only run the auth check if context is done loading
-    if (!authContextLoading) {
-      handleAuthState();
-    }
-  }, [navigate, redirectTo, location.search, user, userProfile, authContextLoading]);
+    handleAuthState();
+  }, [navigate, redirectTo, location.search]);
 
   // Show auth card if session check complete or timed out
-  if (!checkingSession || sessionCheckTimeout || !authContextLoading) {
+  if (!checkingSession || sessionCheckTimeout) {
     return (
       <PageContainer hideSidebar className="flex items-center justify-center p-0">
         <AuthCard 

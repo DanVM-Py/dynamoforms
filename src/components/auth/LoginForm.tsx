@@ -50,7 +50,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       });
       
       if (error) {
-        // Handle specific error cases
+        // Handle specific error cases with clear user messages
         if (error.message.includes("Invalid login credentials")) {
           throw new Error("Credenciales inválidas. El correo o la contraseña son incorrectos.");
         } else if (error.message.includes("Email not confirmed")) {
@@ -79,7 +79,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
           
         if (profileError) {
           console.error("Error al obtener perfil:", profileError);
-          // Continue login flow even if profile fetch fails
+          // Continue with standard login flow but log the error
         } else if (profileData) {
           console.log("Perfil recuperado:", JSON.stringify(profileData));
           
@@ -104,7 +104,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         }
       } catch (profileErr) {
         console.error("Error al verificar confirmación de correo:", profileErr);
-        // Continue with login even if there's an error checking confirmation
+        // Continue with login flow but log the error
       }
       
       // If everything is good, show success and redirect
