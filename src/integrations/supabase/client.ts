@@ -61,8 +61,41 @@ const supabaseClient = createClient<Database>(
   }
 );
 
+// Create an admin client without the project header for cross-project operations
+// Only to be used by admin-level components
+const supabaseAdminClient = createClient<Database>(
+  config.supabaseUrl, 
+  config.supabaseAnonKey,
+  {
+    auth: {
+      storageKey: config.storage.authTokenKey,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+      storage: localStorage,
+    },
+    db: {
+      schema: 'public'
+    },
+    global: {
+      fetch: (url, options = {}) => {
+        // Add a request timeout
+        return Promise.race([
+          fetch(url, options),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout')), 15000)
+          ),
+        ]) as Promise<Response>;
+      }
+    }
+  }
+);
+
 // Export the main API client as the default supabase client
 export const supabase = supabaseClient;
+
+// Export the admin client for admin-only operations
+export const supabaseAdmin = supabaseAdminClient;
 
 // Function to get the current session - useful for components that need quick access
 export const getCurrentSession = async () => {
