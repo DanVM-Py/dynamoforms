@@ -8,6 +8,7 @@ import { CardContent, CardFooter } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
+import { User } from "@/types/custom"; // Import User type
 
 interface LoginFormProps {
   redirectTo: string;
@@ -64,10 +65,13 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
           } else if (profileData) {
             console.log("Profile data:", profileData);
             
+            // Use type assertion to tell TypeScript that profileData might have email_confirmed
+            const profile = profileData as any;
+            
             // Check if profileData has email_confirmed property and its value is false
             // Some profiles might not have this field yet
-            const emailConfirmed = profileData.hasOwnProperty('email_confirmed') 
-              ? profileData.email_confirmed 
+            const emailConfirmed = profile.hasOwnProperty('email_confirmed') 
+              ? profile.email_confirmed 
               : true; // Default to true if property doesn't exist
             
             console.log("Email confirmed status:", emailConfirmed);
