@@ -30,11 +30,20 @@ export const SignUpForm = () => {
     
     try {
       setLoading(true);
+      console.log("Iniciando proceso de registro para:", email);
       
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: window.location.origin + '/auth?confirmation=success',
+          data: {
+            name: email.split('@')[0], // Set a default name from email
+          }
+        }
       });
+      
+      console.log("Respuesta de registro:", { data, error });
       
       if (error) throw error;
       

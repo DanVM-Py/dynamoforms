@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const ConfirmEmail = () => {
   const [loading, setLoading] = useState(false);
+  const [resendCount, setResendCount] = useState(0);
   const { user, userProfile, refreshUserProfile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -51,12 +52,20 @@ const ConfirmEmail = () => {
     
     try {
       setLoading(true);
+      setResendCount(prev => prev + 1);
+      
+      console.log(`Attempting to resend confirmation email to ${user.email} (attempt #${resendCount + 1})`);
       
       // Call Supabase to resend confirmation email
-      const { error } = await supabase.auth.resend({
+      const { data, error } = await supabase.auth.resend({
         type: 'signup',
         email: user.email,
+        options: {
+          emailRedirectTo: window.location.origin + '/auth?confirmation=success'
+        }
       });
+      
+      console.log("Resend response:", { data, error });
       
       if (error) throw error;
       
@@ -79,6 +88,8 @@ const ConfirmEmail = () => {
   const checkEmailStatus = async () => {
     try {
       setLoading(true);
+      
+      console.log("Checking email confirmation status...");
       
       // Force refresh user profile to check if email is confirmed
       await refreshUserProfile();
@@ -160,6 +171,12 @@ const ConfirmEmail = () => {
                 Te hemos enviado un correo de confirmación a{" "}
                 <span className="font-medium">{user?.email}</span>. Por favor, revisa tu bandeja de entrada y haz clic en el enlace de confirmación.
               </p>
+              {resendCount > 0 && (
+                <p className="text-xs mt-2">
+                  Se ha intentado reenviar el correo {resendCount} {resendCount === 1 ? 'vez' : 'veces'}. 
+                  Si no lo encuentras, revisa también tu carpeta de spam o correo no deseado.
+                </p>
+              )}
             </div>
           </CardContent>
           
