@@ -28,7 +28,7 @@ export function useAuthInit({
         // FIRST: Set up auth listener before checking session
         authListener = supabase.auth.onAuthStateChange(
           async (event, newSession) => {
-            console.log("Auth state changed:", event, !!newSession);
+            console.log("Auth state changed:", event, !!newSession, "User:", newSession?.user?.email);
             
             // Update session state immediately on any auth event
             setSession(newSession);
@@ -42,9 +42,10 @@ export function useAuthInit({
             } 
             else if (newSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
               // For sign in and token refresh, fetch user profile
-              console.log("User authenticated, fetching profile");
+              console.log("User authenticated, fetching profile for:", newSession.user.email);
               try {
                 await fetchUserProfile(newSession.user.id, true);
+                console.log("Profile fetch completed successfully for:", newSession.user.email);
               } catch (error) {
                 console.error("Profile fetch failed after auth event:", error);
               } finally {
@@ -54,6 +55,7 @@ export function useAuthInit({
             } 
             else {
               // For other events, just update state
+              console.log("Other auth event:", event);
               setFetchComplete(true);
               setLoading(false);
             }
@@ -61,6 +63,7 @@ export function useAuthInit({
         );
         
         // SECOND: Check for existing session AFTER listener is set
+        console.log("Checking for existing session...");
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
@@ -70,7 +73,7 @@ export function useAuthInit({
           return;
         }
         
-        console.log("Initial session check:", !!session);
+        console.log("Initial session check:", !!session, "User:", session?.user?.email);
         
         // Update state with current session info
         setSession(session);
@@ -78,14 +81,19 @@ export function useAuthInit({
         
         // Only fetch profile if we have a user
         if (session?.user) {
+          console.log("Fetching profile for existing user:", session.user.email);
           try {
             await fetchUserProfile(session.user.id, true);
+            console.log("Initial profile fetch succeeded for:", session.user.email);
           } catch (error) {
             console.error("Initial profile fetch failed:", error);
           }
+        } else {
+          console.log("No existing user session found");
         }
         
         // Complete initialization regardless of profile fetch
+        console.log("Auth initialization complete");
         setFetchComplete(true);
         setLoading(false);
       } catch (error) {

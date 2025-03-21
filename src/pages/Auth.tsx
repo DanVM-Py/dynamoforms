@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -47,7 +48,7 @@ const Auth = () => {
     location.pathname, checkingSession, sessionCheckTimeout, authContextLoading
   ]);
 
-  // Set timeout to avoid infinite loading
+  // Set timeout to avoid infinite loading - INCREASED TIMEOUT FROM 3s TO 15s
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (checkingSession) {
@@ -61,7 +62,7 @@ const Auth = () => {
           variant: "default",
         });
       }
-    }, 3000);
+    }, 15000); // Increased from 3000 to 15000 (15 seconds)
 
     return () => clearTimeout(timeoutId);
   }, [checkingSession, toast]);

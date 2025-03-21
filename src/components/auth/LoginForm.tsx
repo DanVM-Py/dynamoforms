@@ -42,6 +42,13 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         password,
       });
       
+      console.log("Login response:", { 
+        success: !!data?.user, 
+        hasError: !!error,
+        userId: data?.user?.id,
+        errorMessage: error?.message
+      });
+      
       if (error) {
         // Handle specific error cases
         if (error.message.includes("Invalid login credentials")) {
@@ -63,6 +70,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       
       // Check email confirmation status
       try {
+        console.log("Checking profile for email confirmation status");
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("*")
@@ -73,7 +81,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
           console.error("Error al obtener perfil:", profileError);
           // Continue login flow even if profile fetch fails
         } else if (profileData) {
-          console.log("Perfil recuperado:", profileData);
+          console.log("Perfil recuperado:", JSON.stringify(profileData));
           
           // Safe way to check for email_confirmed property
           const hasEmailConfirmedProperty = 'email_confirmed' in profileData;
@@ -89,7 +97,8 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
               title: "Correo no confirmado",
               description: "Es necesario confirmar tu correo electrónico para continuar.",
             });
-            navigate("/confirm-email", { replace: true });
+            console.log("Redirecting to confirm-email page");
+            navigate("/confirm-email", { replace: true, state: { email } });
             return;
           }
         }
@@ -103,6 +112,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         title: "Inicio de sesión exitoso",
         description: "Has iniciado sesión correctamente.",
       });
+      console.log("Redirecting to:", redirectTo);
       navigate(redirectTo, { replace: true });
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error.message);
