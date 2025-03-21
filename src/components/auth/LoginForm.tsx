@@ -33,7 +33,10 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
     
     try {
       setLoading(true);
-      console.log("Intentando iniciar sesión con:", email);
+      console.log("Attempting login with:", email);
+      
+      // Clear any previous sessions to avoid conflicts
+      await supabase.auth.signOut();
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -47,10 +50,6 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
           throw new Error("Credenciales inválidas. El correo o la contraseña son incorrectos.");
         } else if (error.message.includes("Email not confirmed")) {
           throw new Error("Correo electrónico no confirmado. Por favor, verifica tu correo.");
-        } else if (error.message.includes("timeout")) {
-          throw new Error("La solicitud tardó demasiado tiempo. Por favor, intenta de nuevo.");
-        } else if (error.message.includes("User not found")) {
-          throw new Error("Este correo electrónico no está registrado en el sistema.");
         } else {
           throw error;
         }
@@ -62,14 +61,14 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       
       console.log("Login successful, user ID:", data.user.id);
       
-      // Solo redireccionar si el inicio de sesión fue exitoso
       toast({
         title: "Inicio de sesión exitoso",
         description: "Has iniciado sesión correctamente.",
       });
       
+      // Simple navigation without state management issues
       console.log("Redirecting to:", redirectTo);
-      navigate(redirectTo, { replace: true });
+      window.location.href = redirectTo; // Force a complete page refresh
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error.message);
       setErrorMessage(error.message);

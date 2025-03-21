@@ -13,11 +13,9 @@ const Auth = () => {
   const location = useLocation();
   const { toast } = useToast();
 
-  // Check for confirmation success parameter
+  // Parse URL parameters
   const searchParams = new URLSearchParams(location.search);
   const confirmationSuccess = searchParams.get('confirmation') === 'success';
-  
-  // Get redirect URL from query params
   const redirectTo = searchParams.get('redirect') || '/';
 
   // Show confirmation toast if needed
@@ -33,28 +31,14 @@ const Auth = () => {
     }
   }, [confirmationSuccess, toast, navigate]);
 
-  // Check authentication status - with timeout to prevent hanging
+  // Check authentication status
   useEffect(() => {
-    let isMounted = true;
-    
     const checkAuth = async () => {
       try {
-        // Set a timeout to avoid infinite loading
-        const timeoutId = setTimeout(() => {
-          if (isMounted && loading) {
-            console.log("Auth check timeout reached");
-            setLoading(false);
-          }
-        }, 5000);
+        console.log("Checking authentication status...");
         
-        // Get current session
+        // Get current session with a simpler approach
         const { data, error } = await supabase.auth.getSession();
-        
-        // Only update state if component is still mounted
-        if (!isMounted) return;
-        
-        // Clear timeout as we got a response
-        clearTimeout(timeoutId);
         
         if (error) {
           console.error("Session check error:", error);
@@ -62,7 +46,6 @@ const Auth = () => {
           return;
         }
         
-        // No active session, just show login form
         if (!data.session) {
           console.log("No active session found");
           setLoading(false);
@@ -70,22 +53,24 @@ const Auth = () => {
         }
         
         // User is already logged in, redirect to the target page
-        console.log("Authentication valid, redirecting to:", redirectTo);
+        console.log("User is already authenticated, redirecting to:", redirectTo);
         navigate(redirectTo, { replace: true });
       } catch (error) {
-        if (isMounted) {
-          console.error("Auth check error:", error);
-          setLoading(false);
-        }
+        console.error("Auth check error:", error);
+        setLoading(false);
       }
     };
     
+    // Check auth with a failsafe timeout
     checkAuth();
     
-    // Cleanup function
-    return () => {
-      isMounted = false;
-    };
+    // Set a backup timeout to prevent infinite loading state
+    const timeoutId = setTimeout(() => {
+      console.log("Auth check timeout reached");
+      setLoading(false);
+    }, 2000); // Reduced timeout to just 2 seconds
+    
+    return () => clearTimeout(timeoutId);
   }, [navigate, redirectTo]);
 
   // Show auth card if not loading
