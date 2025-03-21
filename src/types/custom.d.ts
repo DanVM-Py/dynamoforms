@@ -1,7 +1,7 @@
 
 // This file contains custom type definitions for our application
 
-export type UserRole = 'user' | 'global_admin';
+export type UserRole = 'user' | 'global_admin' | 'approver' | 'project_admin';
 
 export type ProjectUserStatus = 'pending' | 'active' | 'inactive' | 'rejected';
 
