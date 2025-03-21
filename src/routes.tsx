@@ -1,4 +1,3 @@
-
 import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
@@ -52,11 +51,19 @@ export const router = createBrowserRouter([
   },
   {
     path: "/confirm-email",
-    element: <Suspense fallback={<Loading />}><ConfirmEmail /></Suspense>,
+    element: (
+      <ProtectedRoute requireProjectAccess={false}>
+        <Suspense fallback={<Loading />}><ConfirmEmail /></Suspense>
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/no-project-access",
-    element: <Suspense fallback={<Loading />}><NoProjectAccess /></Suspense>,
+    element: (
+      <ProtectedRoute requireProjectAccess={false}>
+        <Suspense fallback={<Loading />}><NoProjectAccess /></Suspense>
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/admin",

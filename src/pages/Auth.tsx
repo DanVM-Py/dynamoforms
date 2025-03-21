@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,10 +15,11 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   // Check for confirmation success query parameter
   const searchParams = new URLSearchParams(location.search);
@@ -41,31 +41,41 @@ const Auth = () => {
     }
   }, [confirmationSuccess, toast, navigate]);
 
-  // Redirect to specified path if user is already logged in
+  // Clear any existing session when accessing the auth page directly
   useEffect(() => {
-    if (user) {
-      console.log("User already authenticated, redirecting to:", redirectTo);
-      navigate(redirectTo, { replace: true });
-    }
-  }, [user, navigate, redirectTo]);
-
-  // Clear any lingering session data on component mount
-  useEffect(() => {
-    // This helps avoid potential auth state inconsistencies
-    const checkAndClearSession = async () => {
+    const clearExistingSession = async () => {
       try {
+        setCheckingSession(true);
+        
+        // Only perform session check and potential logout if user is already logged in
+        // but email is not confirmed
         const { data } = await supabase.auth.getSession();
-        if (!data.session) {
-          // Clear local storage auth data if no valid session exists
-          localStorage.removeItem('supabase.auth.token');
+        
+        if (data?.session) {
+          // Check if user is trying to access auth page directly
+          const directAccess = !location.search.includes('redirect');
+          
+          if (directAccess) {
+            console.log("Direct access to auth page, clearing session");
+            await signOut();
+          } else {
+            // User is being redirected to auth page, keep the session
+            // and redirect to appropriate next step
+            if (user) {
+              console.log("User already authenticated, redirecting to:", redirectTo);
+              navigate(redirectTo, { replace: true });
+            }
+          }
         }
       } catch (error) {
         console.error("Error checking session:", error);
+      } finally {
+        setCheckingSession(false);
       }
     };
     
-    checkAndClearSession();
-  }, []);
+    clearExistingSession();
+  }, [navigate, redirectTo, signOut, location.search, user]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,6 +154,17 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  if (checkingSession) {
+    return (
+      <PageContainer hideSidebar className="flex items-center justify-center p-0">
+        <div className="flex flex-col items-center bg-white p-8 rounded-lg shadow-sm">
+          <Loader2 className="h-8 w-8 animate-spin text-dynamo-600 mb-2" />
+          <p className="text-gray-600 font-medium">Verificando sesión...</p>
+        </div>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer hideSidebar className="flex items-center justify-center p-0">

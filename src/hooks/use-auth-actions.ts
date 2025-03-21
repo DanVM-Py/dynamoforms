@@ -29,6 +29,7 @@ export function useAuthActions(
       
       // Clear local storage manually to ensure all auth data is removed
       localStorage.removeItem(config.storage.authTokenKey);
+      localStorage.removeItem('sb-' + config.supabaseUrl.split('//')[1].split('.')[0] + '-auth-token');
       sessionStorage.removeItem('currentProjectId');
       localStorage.removeItem('currentProjectId');
       
@@ -52,19 +53,13 @@ export function useAuthActions(
         title: "Sesión finalizada",
         description: "Has cerrado sesión correctamente."
       });
-      
-      // Force navigation to auth page
-      window.location.href = "/auth";
     } catch (error: any) {
       console.error("Error in signOut function:", error);
       toast({
         title: "Error al cerrar sesión",
-        description: "No se pudo cerrar sesión completamente, pero se te ha redirigido a la página de inicio de sesión.",
+        description: "No se pudo cerrar sesión completamente.",
         variant: "destructive"
       });
-      
-      // Attempt to force navigation even with error
-      window.location.href = "/auth";
     } finally {
       setLoading(false);
     }

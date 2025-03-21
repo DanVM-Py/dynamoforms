@@ -90,9 +90,11 @@ const ProtectedRoute = ({
 
   // Special case - auth page should be accessible when not logged in
   // But redirect to homepage if already logged in
-  if (location.pathname === "/auth" && user) {
-    console.log("ProtectedRoute: Already authenticated, redirecting to home page");
-    return <Navigate to="/" replace />;
+  if (location.pathname === "/auth") {
+    // If we're on the auth page, don't automatically redirect to confirm-email
+    // Let the Auth component handle this flow to prevent redirect loops
+    console.log("On auth page, letting Auth component handle redirects");
+    return <>{children}</>;
   }
 
   // Step 1: Check if user is authenticated (except for auth page and public routes)
