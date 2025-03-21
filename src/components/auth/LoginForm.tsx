@@ -25,7 +25,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
     
     if (!email || !password) {
       toast({
-        title: "Error",
+        title: "Campos requeridos",
         description: "Por favor ingresa tu correo y contraseña.",
         variant: "destructive",
       });
@@ -36,13 +36,14 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       setLoading(true);
       console.log("Intentando iniciar sesión con:", email);
       
+      // Attempt to sign in
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       
       if (error) {
-        // Manejo de errores específicos con mensajes claros para el usuario
+        // Handle specific error cases
         if (error.message.includes("Invalid login credentials")) {
           throw new Error("Credenciales inválidas. El correo o la contraseña son incorrectos.");
         } else if (error.message.includes("Email not confirmed")) {
@@ -54,48 +55,50 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         }
       }
       
-      console.log("Login successful", data);
-      
-      // Después de iniciar sesión, verificar si el correo está confirmado consultando el perfil
-      if (data.user) {
-        try {
-          const { data: profileData, error: profileError } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", data.user.id)
-            .maybeSingle();
-            
-          if (profileError) {
-            console.error("Error al obtener perfil:", profileError);
-          } else if (profileData) {
-            console.log("Datos del perfil:", profileData);
-            
-            // Verificar si el correo está confirmado - usando seguridad de tipos
-            const emailConfirmed = 'email_confirmed' in profileData ? 
-              profileData.email_confirmed as boolean : 
-              null;
-            
-            console.log("Estado de confirmación de correo:", emailConfirmed);
-            
-            if (emailConfirmed === false) {
-              // Si el correo no está confirmado, redirigir a la página de confirmación
-              console.log("Correo no confirmado, redirigiendo a confirm-email");
-              toast({
-                title: "Correo no confirmado",
-                description: "Es necesario confirmar tu correo electrónico para continuar.",
-              });
-              navigate("/confirm-email", { replace: true });
-              return;
-            }
-          } else {
-            console.log("No se encontró perfil para el usuario");
-          }
-        } catch (profileErr) {
-          console.error("Error al verificar confirmación de correo:", profileErr);
-        }
+      if (!data?.user) {
+        throw new Error("No se pudo iniciar sesión. Inténtalo de nuevo.");
       }
       
-      // Si el correo está confirmado o no pudimos verificarlo, redirigir a la página solicitada
+      console.log("Login successful, user ID:", data.user.id);
+      
+      // Check email confirmation status
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", data.user.id)
+          .single();
+          
+        if (profileError) {
+          console.error("Error al obtener perfil:", profileError);
+          // Continue login flow even if profile fetch fails
+        } else if (profileData) {
+          console.log("Perfil recuperado:", profileData);
+          
+          // Safe way to check for email_confirmed property
+          const hasEmailConfirmedProperty = 'email_confirmed' in profileData;
+          const emailConfirmed = hasEmailConfirmedProperty ? 
+            Boolean(profileData.email_confirmed) : 
+            true; // Default to true if property doesn't exist
+          
+          console.log("Estado de confirmación de correo:", emailConfirmed);
+          
+          if (emailConfirmed === false) {
+            // If email isn't confirmed, redirect to confirmation page
+            toast({
+              title: "Correo no confirmado",
+              description: "Es necesario confirmar tu correo electrónico para continuar.",
+            });
+            navigate("/confirm-email", { replace: true });
+            return;
+          }
+        }
+      } catch (profileErr) {
+        console.error("Error al verificar confirmación de correo:", profileErr);
+        // Continue with login even if there's an error checking confirmation
+      }
+      
+      // If everything is good, show success and redirect
       toast({
         title: "Inicio de sesión exitoso",
         description: "Has iniciado sesión correctamente.",

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -14,117 +13,125 @@ const Auth = () => {
   const [sessionCheckTimeout, setSessionCheckTimeout] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, userProfile, signOut } = useAuth();
+  const { user, userProfile, loading: authContextLoading } = useAuth();
   const { toast } = useToast();
 
-  // Verificar el parámetro de confirmación en la URL
+  // Check for confirmation success parameter
   const searchParams = new URLSearchParams(location.search);
   const confirmationSuccess = searchParams.get('confirmation') === 'success';
   
-  // Obtener URL de redirección de los parámetros de consulta
+  // Get redirect URL from query params
   const redirectTo = searchParams.get('redirect') || '/';
 
-  // Manejar notificación de confirmación exitosa
+  // Handle confirmation notification
   useConfirmationEffect(confirmationSuccess);
 
-  // Registros de depuración para el flujo de autenticación
+  // Debug logging
   useEffect(() => {
-    console.log("Estado del componente Auth:", {
-      usuarioExiste: !!user,
-      emailUsuario: user?.email,
-      perfilUsuario: userProfile ? {
+    console.log("Auth page state:", {
+      userExists: !!user,
+      userEmail: user?.email,
+      userProfile: userProfile ? {
         id: userProfile.id,
-        emailConfirmado: userProfile.email_confirmed
+        emailConfirmed: userProfile?.email_confirmed
       } : null,
       redirectTo,
       confirmationSuccess,
-      rutaActual: location.pathname,
+      currentPath: location.pathname,
       checkingSession,
-      sessionCheckTimeout
+      sessionCheckTimeout,
+      authContextLoading
     });
-  }, [user, userProfile, redirectTo, confirmationSuccess, location.pathname, checkingSession, sessionCheckTimeout]);
+  }, [
+    user, userProfile, redirectTo, confirmationSuccess, 
+    location.pathname, checkingSession, sessionCheckTimeout, authContextLoading
+  ]);
 
-  // Establecer un tiempo límite para evitar carga infinita si la verificación de sesión tarda demasiado
+  // Set timeout to avoid infinite loading
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (checkingSession) {
-        console.log("Tiempo de espera excedido para verificación de sesión, forzando actualización de estado");
+        console.log("Session check timeout reached, forcing state update");
         setSessionCheckTimeout(true);
         setCheckingSession(false);
         
         toast({
           title: "Tiempo de espera excedido",
-          description: "No se pudo verificar la sesión en un tiempo razonable. Por favor, inténtelo de nuevo.",
-          variant: "destructive",
+          description: "La verificación de sesión está tomando más tiempo de lo esperado. Intenta iniciar sesión manualmente.",
+          variant: "default",
         });
       }
-    }, 3000); // Reducido a 3 segundos para mejor experiencia de usuario
+    }, 3000);
 
     return () => clearTimeout(timeoutId);
   }, [checkingSession, toast]);
 
-  // Manejar autenticación y redirecciones
+  // Handle auth state and redirections
   useEffect(() => {
-    const handleAuthSession = async () => {
+    const handleAuthState = async () => {
       try {
         setCheckingSession(true);
         
-        // Verificar explícitamente la sesión actual para abordar posibles problemas de estado de autenticación
+        // Explicitly check current session
         const { data: sessionData, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Error al verificar sesión:", error);
+          console.error("Session check error:", error);
           setCheckingSession(false);
           return;
         }
         
         const currentSession = sessionData?.session;
+        const hasActiveSession = !!currentSession?.user;
         
-        // Verificar si el usuario está intentando acceder a la página de autenticación directamente cuando ya ha iniciado sesión
-        const directAccess = !location.search.includes('redirect');
+        // Check if direct access to auth page when already signed in
+        const isDirectAccess = !location.search.includes('redirect');
         
-        if (directAccess && currentSession?.user) {
-          console.log("Acceso directo a página de autenticación con sesión activa, usuario:", currentSession.user.email);
+        if (isDirectAccess && hasActiveSession) {
+          console.log("Direct access to auth page with active session");
           
-          // Si el correo electrónico del usuario no está confirmado, redirigir a la página confirm-email
+          // If user is authenticated but profile shows email not confirmed
           if (userProfile && userProfile.email_confirmed === false) {
-            console.log("Usuario autenticado pero correo no confirmado, redirigiendo a confirm-email");
+            console.log("User authenticated but email not confirmed, redirecting");
             navigate("/confirm-email", { replace: true });
             return;
           }
           
-          // Si acceso directo y el correo está confirmado, redirigir al inicio
-          if (userProfile && userProfile.email_confirmed === true) {
-            console.log("Usuario ya autenticado con correo confirmado, redirigiendo a:", redirectTo);
+          // If authenticated with confirmed email, redirect to home
+          if (userProfile && userProfile.email_confirmed !== false) {
+            console.log("User authenticated with confirmed email, redirecting");
             navigate(redirectTo, { replace: true });
             return;
           }
         } else if (user) {
-          // El usuario ya ha iniciado sesión, verificar confirmación de correo
+          // User already logged in via context
           if (userProfile === null) {
-            console.log("Usuario autenticado pero perfil no cargado aún, esperando...");
-            // Mantener en la página de autenticación hasta que se cargue el perfil
+            console.log("User authenticated but profile not loaded yet");
+            // Wait for profile to load
           } else if (userProfile.email_confirmed === false) {
-            console.log("Usuario autenticado pero correo no confirmado, redirigiendo a confirm-email");
+            console.log("User authenticated but email not confirmed");
             navigate("/confirm-email", { replace: true });
           } else {
-            // El usuario está completamente autenticado, redirigir al inicio o a la página solicitada
-            console.log("Usuario ya autenticado con correo confirmado, redirigiendo a:", redirectTo);
+            // User is fully authenticated, redirect
+            console.log("User fully authenticated, redirecting");
             navigate(redirectTo, { replace: true });
           }
         }
       } catch (error) {
-        console.error("Error al verificar sesión:", error);
+        console.error("Authentication state handling error:", error);
       } finally {
         setCheckingSession(false);
       }
     };
     
-    handleAuthSession();
-  }, [navigate, redirectTo, signOut, location.search, user, userProfile]);
+    // Only run the auth check if context is done loading
+    if (!authContextLoading) {
+      handleAuthState();
+    }
+  }, [navigate, redirectTo, location.search, user, userProfile, authContextLoading]);
 
-  // Si se ha agotado el tiempo de espera o se ha completado la verificación, mostrar la tarjeta de autenticación
-  if (!checkingSession || sessionCheckTimeout) {
+  // Show auth card if session check complete or timed out
+  if (!checkingSession || sessionCheckTimeout || !authContextLoading) {
     return (
       <PageContainer hideSidebar className="flex items-center justify-center p-0">
         <AuthCard 
@@ -135,7 +142,7 @@ const Auth = () => {
     );
   }
 
-  // De lo contrario, mostrar el estado de carga
+  // Otherwise show loading state
   return (
     <PageContainer hideSidebar className="flex items-center justify-center p-0">
       <LoadingAuthState />

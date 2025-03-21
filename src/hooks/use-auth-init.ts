@@ -16,98 +16,96 @@ export function useAuthInit({
   setFetchComplete: (complete: boolean) => void;
 }) {
   useEffect(() => {
-    // Obtener sesión inicial y configurar escucha de cambios de estado de autenticación
+    // Setting up auth state tracking
     let authListener: { data: { subscription: { unsubscribe: () => void } } } | null = null;
     
     const initializeAuth = async () => {
       try {
+        console.log("Initializing authentication...");
         setLoading(true);
         setFetchComplete(false);
         
-        // Configurar escucha de cambios de estado de autenticación PRIMERO
+        // FIRST: Set up auth listener before checking session
         authListener = supabase.auth.onAuthStateChange(
           async (event, newSession) => {
-            console.log("Estado de autenticación cambiado:", event, !!newSession);
+            console.log("Auth state changed:", event, !!newSession);
             
-            // Actualizar estado según evento de autenticación
+            // Update session state immediately on any auth event
+            setSession(newSession);
+            setUser(newSession?.user ?? null);
+            
             if (event === 'SIGNED_OUT') {
-              // Limpiar todo el estado relacionado con la autenticación
-              setSession(null);
-              setUser(null);
+              // For signout, clear all auth-related state
+              console.log("User signed out, clearing auth state");
               setFetchComplete(true);
               setLoading(false);
-            } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-              // Para otros eventos, actualizar sesión y usuario
-              setSession(newSession);
-              setUser(newSession?.user ?? null);
-              
-              if (newSession?.user) {
-                try {
-                  await fetchUserProfile(newSession.user.id, true);
-                } catch (error) {
-                  console.error("Error al obtener perfil de usuario después de cambio de estado de autenticación:", error);
-                } finally {
-                  setFetchComplete(true);
-                  setLoading(false);
-                }
-              } else {
+            } 
+            else if (newSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+              // For sign in and token refresh, fetch user profile
+              console.log("User authenticated, fetching profile");
+              try {
+                await fetchUserProfile(newSession.user.id, true);
+              } catch (error) {
+                console.error("Profile fetch failed after auth event:", error);
+              } finally {
                 setFetchComplete(true);
                 setLoading(false);
               }
-            } else {
-              // Para otros eventos, solo actualizar sesión y usuario
-              setSession(newSession);
-              setUser(newSession?.user ?? null);
+            } 
+            else {
+              // For other events, just update state
               setFetchComplete(true);
               setLoading(false);
             }
           }
         );
         
-        // LUEGO verificar sesión existente
+        // SECOND: Check for existing session AFTER listener is set
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
-          console.error("Error al obtener sesión:", sessionError);
+          console.error("Error retrieving session:", sessionError);
           setFetchComplete(true);
           setLoading(false);
           return;
         }
         
-        console.log("Estado de autenticación inicializado:", !!session);
+        console.log("Initial session check:", !!session);
         
+        // Update state with current session info
         setSession(session);
         setUser(session?.user ?? null);
         
+        // Only fetch profile if we have a user
         if (session?.user) {
           try {
             await fetchUserProfile(session.user.id, true);
           } catch (error) {
-            console.error("Error al obtener perfil de usuario inicial:", error);
-          } finally {
-            setFetchComplete(true);
-            setLoading(false);
+            console.error("Initial profile fetch failed:", error);
           }
-        } else {
-          setFetchComplete(true);
-          setLoading(false);
         }
+        
+        // Complete initialization regardless of profile fetch
+        setFetchComplete(true);
+        setLoading(false);
       } catch (error) {
-        console.error("Error al inicializar autenticación:", error);
+        console.error("Auth initialization failed:", error);
         setFetchComplete(true);
         setLoading(false);
       }
     };
 
+    // Start the initialization process
     initializeAuth();
     
+    // Clean up listener on component unmount
     return () => {
-      // Limpiar escucha de autenticación al desmontar
       if (authListener) {
         try {
+          console.log("Cleaning up auth listener");
           authListener.data.subscription.unsubscribe();
         } catch (error) {
-          console.error("Error al cancelar suscripción de escucha de autenticación:", error);
+          console.error("Auth listener cleanup failed:", error);
         }
       }
     };

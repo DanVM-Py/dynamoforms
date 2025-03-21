@@ -21,7 +21,7 @@ export const SignUpForm = () => {
     
     if (!email || !password) {
       toast({
-        title: "Error",
+        title: "Campos requeridos",
         description: "Por favor ingresa tu correo y contraseña.",
         variant: "destructive",
       });
@@ -31,14 +31,14 @@ export const SignUpForm = () => {
     try {
       setLoading(true);
       
-      // Obtener origen actual con protocolo para redirección
+      // Get current origin for redirection
       const origin = window.location.origin;
       const redirectUrl = `${origin}/auth?confirmation=success`;
       
-      console.log("Iniciando proceso de registro para:", email);
-      console.log("URL de redirección para email:", redirectUrl);
+      console.log("Starting signup process for:", email);
+      console.log("Email redirect URL:", redirectUrl);
       
-      // Verificar si el usuario ya existe
+      // Check if user already exists
       const { data: existingUsers, error: checkError } = await supabase
         .from('profiles')
         .select('email')
@@ -46,30 +46,31 @@ export const SignUpForm = () => {
         .maybeSingle();
         
       if (checkError) {
-        console.error("Error al verificar usuario existente:", checkError);
+        console.error("Error checking existing user:", checkError);
       } else if (existingUsers) {
         throw new Error("Este correo electrónico ya está registrado. Por favor, inicia sesión.");
       }
       
+      // Attempt to sign up
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: redirectUrl,
           data: {
-            name: email.split('@')[0], // Establecer un nombre predeterminado a partir del correo
+            name: email.split('@')[0], // Default name from email
           }
         }
       });
       
-      console.log("Respuesta de registro:", { data, error });
+      console.log("Signup response:", { userData: data?.user, error });
       
       if (error) throw error;
       
       if (data.user && !data.user.confirmed_at) {
         toast({
           title: "Registro exitoso",
-          description: "Se ha enviado un correo de confirmación a tu dirección de email. Por favor, revisa también tu carpeta de spam.",
+          description: "Se ha enviado un correo de confirmación. Por favor, revisa también tu carpeta de spam.",
         });
       } else {
         toast({
@@ -78,27 +79,27 @@ export const SignUpForm = () => {
         });
       }
       
-      // Verificar si se requiere confirmación de correo electrónico
+      // Check if email confirmation is required
       if (data.user && !data.session) {
-        // Sin sesión significa que se requiere confirmación de correo electrónico
-        console.log("Se requiere confirmación de correo electrónico, redirigiendo a confirm-email");
-        navigate("/confirm-email", { replace: true });
+        // No session means email confirmation is required
+        console.log("Email confirmation required, redirecting");
+        navigate("/confirm-email", { replace: true, state: { email } });
       } else if (data.session) {
-        // Existe una sesión, lo que significa que la confirmación de correo electrónico podría estar desactivada
-        console.log("Existe una sesión después del registro, redirigiendo al inicio");
+        // Session exists, might mean email confirmation is disabled
+        console.log("Session exists after signup, redirecting to home");
         navigate("/");
       } else {
-        // Caso de respaldo
-        console.log("Estado de registro inesperado, redirigiendo a confirm-email");
-        navigate("/confirm-email", { replace: true });
+        // Fallback
+        console.log("Unexpected signup state, redirecting to confirm-email");
+        navigate("/confirm-email", { replace: true, state: { email } });
       }
     } catch (error: any) {
-      console.error("Error al registrarse:", error.message);
+      console.error("Signup error:", error.message);
       
-      // Mensajes de error más amigables para el usuario
+      // User-friendly error messages
       let errorMessage = error.message;
       if (error.message.includes("already registered")) {
-        errorMessage = "Este correo ya está registrado. Por favor, inicia sesión en su lugar.";
+        errorMessage = "Este correo ya está registrado. Por favor, inicia sesión.";
       } else if (error.message.includes("password")) {
         errorMessage = "La contraseña debe tener al menos 6 caracteres.";
       }
