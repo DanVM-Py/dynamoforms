@@ -29,7 +29,10 @@ export function useAuthActions(
       
       // Clear local storage manually to ensure all auth data is removed
       localStorage.removeItem(config.storage.authTokenKey);
-      localStorage.removeItem('sb-' + config.supabaseUrl.split('//')[1].split('.')[0] + '-auth-token');
+      // Clear any Supabase-specific tokens
+      const supabaseKey = 'sb-' + config.supabaseUrl.split('//')[1].split('.')[0] + '-auth-token';
+      localStorage.removeItem(supabaseKey);
+      sessionStorage.removeItem(supabaseKey);
       sessionStorage.removeItem('currentProjectId');
       localStorage.removeItem('currentProjectId');
       

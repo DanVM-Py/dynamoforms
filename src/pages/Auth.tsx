@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,7 +20,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user, signOut } = useAuth();
+  const { user, userProfile, signOut } = useAuth();
 
   // Check for confirmation success query parameter
   const searchParams = new URLSearchParams(location.search);
@@ -47,25 +48,16 @@ const Auth = () => {
       try {
         setCheckingSession(true);
         
-        // Only perform session check and potential logout if user is already logged in
-        // but email is not confirmed
-        const { data } = await supabase.auth.getSession();
+        // Check if user is trying to access auth page directly
+        const directAccess = !location.search.includes('redirect');
         
-        if (data?.session) {
-          // Check if user is trying to access auth page directly
-          const directAccess = !location.search.includes('redirect');
-          
-          if (directAccess) {
-            console.log("Direct access to auth page, clearing session");
-            await signOut();
-          } else {
-            // User is being redirected to auth page, keep the session
-            // and redirect to appropriate next step
-            if (user) {
-              console.log("User already authenticated, redirecting to:", redirectTo);
-              navigate(redirectTo, { replace: true });
-            }
-          }
+        if (directAccess && user) {
+          console.log("Direct access to auth page, clearing session");
+          await signOut();
+        } else if (user && userProfile?.email_confirmed) {
+          // If user is authenticated and email is confirmed, redirect
+          console.log("User already authenticated with confirmed email, redirecting to:", redirectTo);
+          navigate(redirectTo, { replace: true });
         }
       } catch (error) {
         console.error("Error checking session:", error);
@@ -75,7 +67,7 @@ const Auth = () => {
     };
     
     clearExistingSession();
-  }, [navigate, redirectTo, signOut, location.search, user]);
+  }, [navigate, redirectTo, signOut, location.search, user, userProfile]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,10 +92,10 @@ const Auth = () => {
       
       if (error) throw error;
       
-      console.log("Login successful, redirecting to:", redirectTo);
+      console.log("Login successful, checking email confirmation");
       
-      // Redirect to the requested page after login
-      navigate(redirectTo, { replace: true });
+      // We'll let the ProtectedRoute handle the redirection based on email confirmation status
+      navigate("/", { replace: true });
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error.message);
       toast({
@@ -143,6 +135,8 @@ const Auth = () => {
         description: "Se ha enviado un correo de confirmación a tu dirección de email.",
       });
       
+      // Navigate to confirm email page after signup
+      navigate("/confirm-email", { replace: true });
     } catch (error: any) {
       console.error("Error al registrarse:", error.message);
       toast({
