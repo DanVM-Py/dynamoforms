@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertCircle, FileSpreadsheet, UsersRound, UserPlus } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ProjectUserStatus } from "@/types/supabase";
+import { ProjectUserStatus } from "@/types/custom";
 
 // Import our components
 import { UserStatusBadge } from "@/components/project-users/UserStatusBadge";
@@ -197,7 +197,8 @@ const ProjectUsers = () => {
             user_id: userId,
             status: "pending" as ProjectUserStatus,
             invited_by: user.id,
-            created_by: user.id
+            created_by: user.id,
+            is_admin: values.isAdmin || false
           });
 
         if (insertError) {
@@ -391,4 +392,3 @@ const ProjectUsers = () => {
 };
 
 export default ProjectUsers;
-

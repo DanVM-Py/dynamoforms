@@ -1,10 +1,10 @@
 
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ProjectUser } from "@/types/supabase";
+import { ProjectUser } from "@/types/custom";
 import { UserStatusBadge } from "./UserStatusBadge";
 import { UserActionButtons } from "./UserActionButtons";
-import { ProjectUserStatus } from "@/types/supabase";
+import { ProjectUserStatus } from "@/types/custom";
 import { useAuth } from '@/contexts/AuthContext';
 
 type UsersListProps = {

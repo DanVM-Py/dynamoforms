@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const inviteFormSchema = z.object({
   email: z
@@ -24,17 +25,20 @@ export const inviteFormSchema = z.object({
     .email("Por favor ingresa una dirección de correo válida")
     .min(1, "El correo es requerido"),
   isAdmin: z.boolean().default(false),
+  roleId: z.string().optional(),
 });
 
 export type InviteFormValues = z.infer<typeof inviteFormSchema>;
 
 type InviteUserFormProps = {
+  roles?: { id: string; name: string }[];
   isLoading: boolean;
   onSubmit: (values: InviteFormValues) => void;
   onCancel: () => void;
 };
 
 export const InviteUserForm = ({ 
+  roles,
   isLoading,
   onSubmit,
   onCancel
@@ -46,6 +50,7 @@ export const InviteUserForm = ({
     defaultValues: {
       email: "",
       isAdmin: false,
+      roleId: undefined,
     },
   });
 
@@ -94,6 +99,36 @@ export const InviteUserForm = ({
                     Los administradores pueden gestionar usuarios y roles dentro del proyecto
                   </p>
                 </div>
+              </FormItem>
+            )}
+          />
+        )}
+        
+        {roles && roles.length > 0 && (
+          <FormField
+            control={form.control}
+            name="roleId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Rol en el proyecto</FormLabel>
+                <Select 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar un rol" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {roles.map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
               </FormItem>
             )}
           />

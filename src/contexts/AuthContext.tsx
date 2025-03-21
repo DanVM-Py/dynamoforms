@@ -13,6 +13,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   isGlobalAdmin: boolean;
   isProjectAdmin: boolean;
+  isApprover: boolean; // Added this property to fix the error
   refreshUserProfile: () => Promise<void>;
 }
 
@@ -25,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
   const [isProjectAdmin, setIsProjectAdmin] = useState(false);
+  const [isApprover, setIsApprover] = useState(false); // Added for the isApprover property
   const [fetchComplete, setFetchComplete] = useState(false);
 
   const fetchUserProfile = useCallback(async (userId: string, skipLoading = false) => {
@@ -216,12 +218,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user,
     userProfile,
-    loading: loading || !fetchComplete, // Consider loading until fetch is complete
+    loading: loading || !fetchComplete, 
     signOut,
     isGlobalAdmin,
     isProjectAdmin,
+    isApprover, // Added to the context value
     refreshUserProfile
-  }), [session, user, userProfile, loading, fetchComplete, signOut, isGlobalAdmin, isProjectAdmin, refreshUserProfile]);
+  }), [session, user, userProfile, loading, fetchComplete, signOut, isGlobalAdmin, isProjectAdmin, isApprover, refreshUserProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
