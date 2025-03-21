@@ -29,6 +29,8 @@ export function useAuthActions(
       
       // Clear local storage manually to ensure all auth data is removed
       localStorage.removeItem(config.storage.authTokenKey);
+      sessionStorage.removeItem('currentProjectId');
+      localStorage.removeItem('currentProjectId');
       
       try {
         // Then sign out from Supabase - this may fail if session is already gone
@@ -68,11 +70,67 @@ export function useAuthActions(
     }
   }, [setUser, setSession, setUserProfile, setIsGlobalAdmin, setIsProjectAdmin, setIsApprover, setLoading]);
 
-  const refreshUserProfile = useCallback(async (user: any, fetchUserProfile: Function) => {
-    if (user) {
-      await fetchUserProfile(user.id);
+  const refreshUserProfile = useCallback(async () => {
+    if (!supabase.auth || !setUser || !setUserProfile) return;
+    
+    try {
+      setLoading(true);
+      
+      // First get current session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session || !session.user) {
+        return;
+      }
+      
+      const userId = session.user.id;
+      
+      // Check global admin status first (bypasses RLS)
+      const { data: isAdminData, error: isAdminError } = await supabase
+        .rpc('is_global_admin', { user_uuid: userId });
+        
+      if (isAdminError) {
+        console.error("Error checking global admin status:", isAdminError);
+      } else {
+        setIsGlobalAdmin(isAdminData === true);
+      }
+      
+      // Get user profile
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
+        
+      if (profileError) {
+        console.error("Error fetching profile:", profileError);
+      } else if (profileData) {
+        setUserProfile(profileData);
+        setIsApprover(profileData.role === "approver");
+      }
+      
+      // Check project admin status
+      const currentProjectId = sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
+      
+      if (currentProjectId) {
+        const { data: isProjectAdminData, error: isProjectAdminError } = await supabase
+          .rpc('is_project_admin', { 
+            user_uuid: userId,
+            project_uuid: currentProjectId 
+          });
+          
+        if (isProjectAdminError) {
+          console.error("Error checking project admin status:", isProjectAdminError);
+        } else {
+          setIsProjectAdmin(isProjectAdminData === true);
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing user profile:", error);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [setLoading, setIsGlobalAdmin, setUserProfile, setIsApprover, setIsProjectAdmin]);
 
   return { signOut, refreshUserProfile };
 }

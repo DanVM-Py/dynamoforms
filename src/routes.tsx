@@ -7,6 +7,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 // Lazy-loaded components
 const Auth = lazy(() => import("./pages/Auth"));
+const ConfirmEmail = lazy(() => import("./pages/ConfirmEmail"));
+const NoProjectAccess = lazy(() => import("./pages/NoProjectAccess"));
 const Forms = lazy(() => import("./pages/Forms"));
 const FormEditor = lazy(() => import("./pages/FormEdit"));
 const FormResponses = lazy(() => import("./pages/FormResponses"));
@@ -66,6 +68,14 @@ export const router = createBrowserRouter([
   {
     path: "/auth",
     element: <Suspense fallback={<Loading />}><Auth /></Suspense>,
+  },
+  {
+    path: "/confirm-email",
+    element: <Suspense fallback={<Loading />}><ConfirmEmail /></Suspense>,
+  },
+  {
+    path: "/no-project-access",
+    element: <Suspense fallback={<Loading />}><NoProjectAccess /></Suspense>,
   },
   {
     path: "/admin",

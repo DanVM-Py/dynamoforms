@@ -21,9 +21,25 @@ const Auth = () => {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Get redirect URL from query params
+  // Check for confirmation success query parameter
   const searchParams = new URLSearchParams(location.search);
+  const confirmationSuccess = searchParams.get('confirmation') === 'success';
+  
+  // Get redirect URL from query params
   const redirectTo = searchParams.get('redirect') || '/';
+
+  // Show toast if confirmation was successful
+  useEffect(() => {
+    if (confirmationSuccess) {
+      toast({
+        title: "Email confirmado",
+        description: "Tu correo ha sido confirmado correctamente. Ahora puedes iniciar sesión.",
+      });
+      
+      // Remove the query parameter to avoid showing the toast again on refresh
+      navigate('/auth', { replace: true });
+    }
+  }, [confirmationSuccess, toast, navigate]);
 
   // Redirect to specified path if user is already logged in
   useEffect(() => {
