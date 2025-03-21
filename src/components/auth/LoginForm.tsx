@@ -55,17 +55,23 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         try {
           const { data: profileData, error: profileError } = await supabase
             .from("profiles")
-            .select("email_confirmed")
+            .select("*")
             .eq("id", data.user.id)
             .maybeSingle();
             
           if (profileError) {
             console.error("Error fetching profile:", profileError);
-          } else if (profileData && !profileData.email_confirmed) {
-            // If email is not confirmed, redirect to confirm-email page
-            console.log("Email not confirmed, redirecting to confirm-email");
-            navigate("/confirm-email", { replace: true });
-            return;
+          } else if (profileData) {
+            console.log("Profile data:", profileData);
+            // Check if email_confirmed exists and is false
+            if (profileData.email_confirmed === false) {
+              // If email is not confirmed, redirect to confirm-email page
+              console.log("Email not confirmed, redirecting to confirm-email");
+              navigate("/confirm-email", { replace: true });
+              return;
+            }
+          } else {
+            console.log("No profile found for user");
           }
         } catch (profileErr) {
           console.error("Error checking email confirmation:", profileErr);
