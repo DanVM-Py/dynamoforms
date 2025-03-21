@@ -68,7 +68,12 @@ const ConfirmEmail = () => {
             setUserProfile(profileData);
             
             // If email is confirmed, redirect to home
-            if (profileData && profileData.email_confirmed === true) {
+            // Safely check for email_confirmed property
+            const emailConfirmed = 'email_confirmed' in profileData ? 
+              Boolean(profileData.email_confirmed) : 
+              true; // Default to true if property doesn't exist
+              
+            if (profileData && emailConfirmed === true) {
               console.log("Correo ya confirmado, redirigiendo al inicio");
               toast({
                 title: "Correo ya confirmado",
@@ -188,7 +193,12 @@ const ConfirmEmail = () => {
       setUserProfile(profileData);
       
       // Check if email is confirmed
-      if (profileData?.email_confirmed) {
+      // Safely check for email_confirmed property
+      const emailConfirmed = 'email_confirmed' in profileData ? 
+        Boolean(profileData.email_confirmed) : 
+        null; // Use null if property doesn't exist to handle accordingly
+      
+      if (emailConfirmed === true) {
         toast({
           title: "Correo confirmado",
           description: "Tu correo ha sido confirmado correctamente. Ahora puedes acceder al sistema.",

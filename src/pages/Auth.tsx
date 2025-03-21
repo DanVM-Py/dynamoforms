@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -103,17 +104,29 @@ const Auth = () => {
             setUserProfile(profileData);
             
             // If email not confirmed, redirect to confirm page
-            if (profileData && profileData.email_confirmed === false) {
+            // Check for email_confirmed property safely
+            const emailConfirmed = 'email_confirmed' in profileData ? 
+              Boolean(profileData.email_confirmed) : 
+              true; // Default to true if property doesn't exist
+            
+            if (profileData && emailConfirmed === false) {
               console.log("Email not confirmed, redirecting to confirm page");
               navigate("/confirm-email", { replace: true });
               return;
             }
             
             // If direct access to auth with confirmed email, redirect to home
-            if (isDirectAccess && profileData && profileData.email_confirmed !== false) {
-              console.log("Authenticated with confirmed email, redirecting");
-              navigate(redirectTo, { replace: true });
-              return;
+            // Safely check the email_confirmed property
+            if (isDirectAccess && profileData) {
+              const isEmailConfirmed = 'email_confirmed' in profileData ? 
+                Boolean(profileData.email_confirmed) !== false :
+                true; // Default to true if property doesn't exist
+                
+              if (isEmailConfirmed) {
+                console.log("Authenticated with confirmed email, redirecting");
+                navigate(redirectTo, { replace: true });
+                return;
+              }
             }
           }
         }
