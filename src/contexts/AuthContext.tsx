@@ -5,6 +5,7 @@ import { Session } from "@supabase/supabase-js";
 import { toast } from "@/components/ui/use-toast";
 import { config } from "@/config/environment";
 
+// Define the shape of our authentication context
 interface AuthContextType {
   session: Session | null;
   user: any | null;
@@ -13,10 +14,11 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   isGlobalAdmin: boolean;
   isProjectAdmin: boolean;
-  isApprover: boolean; // Added this property to fix the error
+  isApprover: boolean;
   refreshUserProfile: () => Promise<void>;
 }
 
+// Create the context with undefined as initial value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -26,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
   const [isProjectAdmin, setIsProjectAdmin] = useState(false);
-  const [isApprover, setIsApprover] = useState(false); // Added for the isApprover property
+  const [isApprover, setIsApprover] = useState(false);
   const [fetchComplete, setFetchComplete] = useState(false);
 
   const fetchUserProfile = useCallback(async (userId: string, skipLoading = false) => {
@@ -51,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("User profile found:", data);
         setUserProfile(data);
         setIsGlobalAdmin(data.role === "global_admin");
+        setIsApprover(data.role === "approver");
       } else {
         console.log("No user profile found");
         setUserProfile(null);
@@ -61,13 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from("project_users")
         .select("*")
         .eq("user_id", userId)
-        .eq("is_admin", true)
         .eq("status", "active");
         
       if (projectUserError) {
         console.error("Error fetching project admin status:", projectUserError);
       } else {
-        const isAdmin = projectUserData && projectUserData.length > 0;
+        // Check if any project has admin rights
+        const isAdmin = projectUserData && projectUserData.some(pu => pu.is_admin === true);
         console.log("User is project admin:", isAdmin);
         setIsProjectAdmin(isAdmin);
       }
@@ -121,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setUserProfile(null);
               setIsGlobalAdmin(false);
               setIsProjectAdmin(false);
+              setIsApprover(false);
               setFetchComplete(true);
             } else {
               // For other events, update session and user
@@ -171,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserProfile(null);
       setIsGlobalAdmin(false);
       setIsProjectAdmin(false);
+      setIsApprover(false);
       
       // Clear local storage manually to ensure all auth data is removed
       localStorage.removeItem(config.storage.authTokenKey);
@@ -214,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Use memoized context value to prevent unnecessary re-renders
-  const value = useMemo(() => ({
+  const contextValue: AuthContextType = useMemo(() => ({
     session,
     user,
     userProfile,
@@ -222,11 +227,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut,
     isGlobalAdmin,
     isProjectAdmin,
-    isApprover, // Added to the context value
+    isApprover,
     refreshUserProfile
   }), [session, user, userProfile, loading, fetchComplete, signOut, isGlobalAdmin, isProjectAdmin, isApprover, refreshUserProfile]);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
