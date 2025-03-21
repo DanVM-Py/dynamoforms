@@ -20,7 +20,19 @@ export function useAuthState() {
       
       console.log("Fetching user profile for ID:", userId);
       
-      // Try to fetch the user profile
+      // Step 1: Call the is_global_admin function first to avoid recursion
+      // This bypasses RLS completely using SECURITY DEFINER
+      const { data: isAdminData, error: isAdminError } = await supabase
+        .rpc('is_global_admin', { user_uuid: userId });
+        
+      if (isAdminError) {
+        console.error("Error checking global admin status:", isAdminError);
+      } else {
+        console.log("User is global admin:", isAdminData);
+        setIsGlobalAdmin(isAdminData === true);
+      }
+      
+      // Step 2: Fetch user profile - now that we know admin status, RLS should work correctly
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -36,26 +48,14 @@ export function useAuthState() {
         console.log("User profile found:", data);
         setUserProfile(data);
         
-        // En lugar de confiar en el campo role directamente, vamos a verificar el rol
-        // usando la función is_global_admin para admin global
-        const { data: isAdminData, error: isAdminError } = await supabase
-          .rpc('is_global_admin', { user_uuid: userId });
-          
-        if (isAdminError) {
-          console.error("Error checking global admin status:", isAdminError);
-        } else {
-          console.log("User is global admin:", isAdminData);
-          setIsGlobalAdmin(isAdminData === true);
-        }
-        
-        // Para approver, seguimos verificando el campo role
+        // For approver, check the role field
         setIsApprover(data.role === "approver");
       } else {
         console.log("No user profile found");
         setUserProfile(null);
       }
       
-      // Check if user is project admin for any project
+      // Step 3: Check if user is project admin for any project
       const { data: projectUserData, error: projectUserError } = await supabase
         .from("project_users")
         .select("*")
