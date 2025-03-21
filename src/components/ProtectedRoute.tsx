@@ -24,6 +24,18 @@ const ProtectedRoute = ({
   const [hasProjectAccess, setHasProjectAccess] = useState<boolean | null>(null);
   const [checkingProjectAccess, setCheckingProjectAccess] = useState(false);
   
+  // Add a timeout to force continue after 5 seconds to prevent infinite loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loading || checkingProjectAccess) {
+        console.log("Loading timeout reached, continuing with current state");
+        setShowLoading(false);
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [loading, checkingProjectAccess]);
+  
   // Debug logging to track state changes
   useEffect(() => {
     console.log("ProtectedRoute state:", { 
@@ -37,14 +49,6 @@ const ProtectedRoute = ({
       userProfile
     });
   }, [user, userProfile, loading, isGlobalAdmin, isProjectAdmin, hasProjectAccess, location.pathname]);
-  
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowLoading(false);
-    }, 5000);
-    
-    return () => clearTimeout(timer);
-  }, []);
   
   // Check if user has access to any project
   useEffect(() => {
@@ -97,13 +101,14 @@ const ProtectedRoute = ({
         <div className="flex flex-col items-center bg-white p-8 rounded-lg shadow-sm">
           <Loader2 className="h-8 w-8 animate-spin text-dynamo-600 mb-2" />
           <p className="text-gray-600 font-medium">Verificando sesión...</p>
+          <p className="text-gray-400 text-xs mt-2">Si esto tarda demasiado, intenta recargar la página</p>
         </div>
       </div>
     );
   }
 
-  // Always allow access to auth page
-  if (location.pathname === "/auth") {
+  // Always allow access to auth page and public routes
+  if (location.pathname === "/auth" || location.pathname.startsWith("/public")) {
     return <>{children}</>;
   }
 
@@ -124,7 +129,7 @@ const ProtectedRoute = ({
   }
 
   // Step 2: Check if email is confirmed for all routes except confirm-email
-  if (user && userProfile && !userProfile.email_confirmed && location.pathname !== "/confirm-email") {
+  if (user && userProfile && userProfile.email_confirmed === false && location.pathname !== "/confirm-email") {
     console.log("ProtectedRoute: Email not confirmed, redirecting to confirm email page");
     return <Navigate to="/confirm-email" replace />;
   }

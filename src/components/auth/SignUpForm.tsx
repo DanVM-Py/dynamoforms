@@ -53,29 +53,46 @@ export const SignUpForm = () => {
       
       if (error) throw error;
       
-      toast({
-        title: "Registro exitoso",
-        description: "Se ha enviado un correo de confirmación a tu dirección de email. Revisa también tu carpeta de spam.",
-      });
+      if (data.user && !data.user.confirmed_at) {
+        toast({
+          title: "Registro exitoso",
+          description: "Se ha enviado un correo de confirmación a tu dirección de email. Por favor, revisa también tu carpeta de spam.",
+        });
+      } else {
+        toast({
+          title: "Registro exitoso",
+          description: "Tu cuenta ha sido creada correctamente.",
+        });
+      }
       
-      // Check if redirectTo option is needed
+      // Check if email confirmation is required
       if (data.user && !data.session) {
-        // Only navigate to confirm-email if we have a user but no session
-        // This indicates email confirmation is required
+        // No session means email confirmation is required
+        console.log("Email confirmation required, redirecting to confirm-email");
         navigate("/confirm-email", { replace: true });
       } else if (data.session) {
-        // If we have a session, it means email confirmation might be disabled
-        // Just navigate to home
+        // Session exists, meaning email confirmation might be disabled
+        console.log("Session exists after signup, redirecting to home");
         navigate("/");
       } else {
-        // Fallback, navigate to confirm email
+        // Fallback case
+        console.log("Unexpected signup state, redirecting to confirm-email");
         navigate("/confirm-email", { replace: true });
       }
     } catch (error: any) {
       console.error("Error al registrarse:", error.message);
+      
+      // More user-friendly error messages
+      let errorMessage = error.message;
+      if (error.message.includes("already registered")) {
+        errorMessage = "Este correo ya está registrado. Por favor, inicia sesión en su lugar.";
+      } else if (error.message.includes("password")) {
+        errorMessage = "La contraseña debe tener al menos 6 caracteres.";
+      }
+      
       toast({
         title: "Error al registrarse",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

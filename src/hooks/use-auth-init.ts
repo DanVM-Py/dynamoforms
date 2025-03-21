@@ -35,21 +35,31 @@ export function useAuthInit({
               setSession(null);
               setUser(null);
               setFetchComplete(true);
+              setLoading(false);
             } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
               // For other events, update session and user
               setSession(newSession);
               setUser(newSession?.user ?? null);
               
               if (newSession?.user) {
-                await fetchUserProfile(newSession.user.id, true);
+                try {
+                  await fetchUserProfile(newSession.user.id, true);
+                } catch (error) {
+                  console.error("Error fetching user profile after auth state change:", error);
+                } finally {
+                  setFetchComplete(true);
+                  setLoading(false);
+                }
               } else {
                 setFetchComplete(true);
+                setLoading(false);
               }
             } else {
               // For other events, just update session and user
               setSession(newSession);
               setUser(newSession?.user ?? null);
               setFetchComplete(true);
+              setLoading(false);
             }
           }
         );
@@ -59,6 +69,9 @@ export function useAuthInit({
         
         if (sessionError) {
           console.error("Error getting session:", sessionError);
+          setFetchComplete(true);
+          setLoading(false);
+          return;
         }
         
         console.log("Auth state initialized:", !!session);
@@ -67,14 +80,21 @@ export function useAuthInit({
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          await fetchUserProfile(session.user.id, true);
+          try {
+            await fetchUserProfile(session.user.id, true);
+          } catch (error) {
+            console.error("Error fetching initial user profile:", error);
+          } finally {
+            setFetchComplete(true);
+            setLoading(false);
+          }
         } else {
           setFetchComplete(true);
+          setLoading(false);
         }
       } catch (error) {
         console.error("Error initializing auth:", error);
         setFetchComplete(true);
-      } finally {
         setLoading(false);
       }
     };
@@ -84,7 +104,11 @@ export function useAuthInit({
     return () => {
       // Clean up auth listener on unmount
       if (authListener) {
-        authListener.data.subscription.unsubscribe();
+        try {
+          authListener.data.subscription.unsubscribe();
+        } catch (error) {
+          console.error("Error unsubscribing from auth listener:", error);
+        }
       }
     };
   }, [setSession, setUser, setLoading, fetchUserProfile, setFetchComplete]);

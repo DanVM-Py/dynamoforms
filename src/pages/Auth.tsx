@@ -6,12 +6,15 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
 import { useConfirmationEffect } from "@/hooks/useConfirmationEffect";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 const Auth = () => {
   const [checkingSession, setCheckingSession] = useState(true);
+  const [sessionCheckTimeout, setSessionCheckTimeout] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, userProfile, signOut } = useAuth();
+  const { toast } = useToast();
 
   // Check for confirmation success query parameter
   const searchParams = new URLSearchParams(location.search);
@@ -35,9 +38,29 @@ const Auth = () => {
       redirectTo,
       confirmationSuccess,
       currentPath: location.pathname,
-      checkingSession
+      checkingSession,
+      sessionCheckTimeout
     });
-  }, [user, userProfile, redirectTo, confirmationSuccess, location.pathname, checkingSession]);
+  }, [user, userProfile, redirectTo, confirmationSuccess, location.pathname, checkingSession, sessionCheckTimeout]);
+
+  // Set a timeout to prevent infinite loading if session check takes too long
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (checkingSession) {
+        console.log("Session check timeout reached, forcing state update");
+        setSessionCheckTimeout(true);
+        setCheckingSession(false);
+        
+        toast({
+          title: "Tiempo de espera excedido",
+          description: "No se pudo verificar la sesión en un tiempo razonable. Por favor, inténtelo de nuevo.",
+          variant: "destructive",
+        });
+      }
+    }, 5000); // 5 second timeout
+
+    return () => clearTimeout(timeoutId);
+  }, [checkingSession, toast]);
 
   // Handle authentication and redirections
   useEffect(() => {
@@ -46,7 +69,14 @@ const Auth = () => {
         setCheckingSession(true);
         
         // Explicitly check current session to address potential auth state issues
-        const { data: sessionData } = await supabase.auth.getSession();
+        const { data: sessionData, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Error checking session:", error);
+          setCheckingSession(false);
+          return;
+        }
+        
         const currentSession = sessionData?.session;
         
         // Check if user is trying to access auth page directly when already logged in
@@ -68,9 +98,6 @@ const Auth = () => {
             navigate(redirectTo, { replace: true });
             return;
           }
-          
-          // If we don't have profile info yet but have a session, leave on this page
-          // The AuthContext will handle fetching the profile
         } else if (user) {
           // User is already logged in, check email confirmation
           if (userProfile === null) {
@@ -95,20 +122,22 @@ const Auth = () => {
     handleAuthSession();
   }, [navigate, redirectTo, signOut, location.search, user, userProfile]);
 
-  if (checkingSession) {
+  // If we've timed out or finished checking, show the auth card
+  if (!checkingSession || sessionCheckTimeout) {
     return (
       <PageContainer hideSidebar className="flex items-center justify-center p-0">
-        <LoadingAuthState />
+        <AuthCard 
+          redirectTo={redirectTo} 
+          confirmationSuccess={confirmationSuccess} 
+        />
       </PageContainer>
     );
   }
 
+  // Otherwise show loading state
   return (
     <PageContainer hideSidebar className="flex items-center justify-center p-0">
-      <AuthCard 
-        redirectTo={redirectTo} 
-        confirmationSuccess={confirmationSuccess} 
-      />
+      <LoadingAuthState />
     </PageContainer>
   );
 };

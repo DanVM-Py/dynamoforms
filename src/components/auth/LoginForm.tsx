@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,14 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         password,
       });
       
-      if (error) throw error;
+      if (error) {
+        // Handle specific error cases
+        if (error.message.includes("Invalid login credentials")) {
+          throw new Error("Credenciales inválidas. Por favor verifica tu correo y contraseña.");
+        } else {
+          throw error;
+        }
+      }
       
       console.log("Login successful");
       
@@ -63,14 +71,8 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
           } else if (profileData) {
             console.log("Profile data:", profileData);
             
-            // Use type assertion to tell TypeScript that profileData might have email_confirmed
-            const profile = profileData as any;
-            
-            // Check if profileData has email_confirmed property and its value is false
-            // Some profiles might not have this field yet
-            const emailConfirmed = profile.hasOwnProperty('email_confirmed') 
-              ? profile.email_confirmed 
-              : true; // Default to true if property doesn't exist
+            // Check if email is confirmed
+            const emailConfirmed = profileData.email_confirmed;
             
             console.log("Email confirmed status:", emailConfirmed);
             
