@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useMemo, use
 import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
 import { toast } from "@/components/ui/use-toast";
-import { config } from "@/config/environment"; // Add this import for the config object
+import { config } from "@/config/environment";
 
 interface AuthContextType {
   session: Session | null;
@@ -13,7 +13,6 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   isGlobalAdmin: boolean;
   isProjectAdmin: boolean;
-  isApprover: boolean;
   refreshUserProfile: () => Promise<void>;
 }
 
@@ -26,7 +25,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
   const [isProjectAdmin, setIsProjectAdmin] = useState(false);
-  const [isApprover, setIsApprover] = useState(false);
   const [fetchComplete, setFetchComplete] = useState(false);
 
   const fetchUserProfile = useCallback(async (userId: string, skipLoading = false) => {
@@ -51,22 +49,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("User profile found:", data);
         setUserProfile(data);
         setIsGlobalAdmin(data.role === "global_admin");
-        setIsApprover(data.role === "approver");
       } else {
         console.log("No user profile found");
         setUserProfile(null);
       }
       
       // Check if user is project admin for any project
-      const { data: projectAdminData, error: projectAdminError } = await supabase
-        .from("project_admins")
+      const { data: projectUserData, error: projectUserError } = await supabase
+        .from("project_users")
         .select("*")
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .eq("is_admin", true)
+        .eq("status", "active");
         
-      if (projectAdminError) {
-        console.error("Error fetching project admin status:", projectAdminError);
+      if (projectUserError) {
+        console.error("Error fetching project admin status:", projectUserError);
       } else {
-        const isAdmin = projectAdminData && projectAdminData.length > 0;
+        const isAdmin = projectUserData && projectUserData.length > 0;
         console.log("User is project admin:", isAdmin);
         setIsProjectAdmin(isAdmin);
       }
@@ -120,7 +119,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setUserProfile(null);
               setIsGlobalAdmin(false);
               setIsProjectAdmin(false);
-              setIsApprover(false);
               setFetchComplete(true);
             } else {
               // For other events, update session and user
@@ -171,7 +169,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserProfile(null);
       setIsGlobalAdmin(false);
       setIsProjectAdmin(false);
-      setIsApprover(false);
       
       // Clear local storage manually to ensure all auth data is removed
       localStorage.removeItem(config.storage.authTokenKey);
@@ -223,9 +220,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut,
     isGlobalAdmin,
     isProjectAdmin,
-    isApprover,
     refreshUserProfile
-  }), [session, user, userProfile, loading, fetchComplete, signOut, isGlobalAdmin, isProjectAdmin, isApprover, refreshUserProfile]);
+  }), [session, user, userProfile, loading, fetchComplete, signOut, isGlobalAdmin, isProjectAdmin, refreshUserProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -13,45 +13,39 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
-import { Role } from "@/types/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const inviteFormSchema = z.object({
   email: z
     .string()
     .email("Por favor ingresa una dirección de correo válida")
     .min(1, "El correo es requerido"),
-  roleId: z.string().optional(),
+  isAdmin: z.boolean().default(false),
 });
 
 export type InviteFormValues = z.infer<typeof inviteFormSchema>;
 
 type InviteUserFormProps = {
-  roles?: Role[];
   isLoading: boolean;
   onSubmit: (values: InviteFormValues) => void;
   onCancel: () => void;
 };
 
 export const InviteUserForm = ({ 
-  roles,
   isLoading,
   onSubmit,
   onCancel
 }: InviteUserFormProps) => {
+  const { isGlobalAdmin } = useAuth();
+  
   const form = useForm<InviteFormValues>({
     resolver: zodResolver(inviteFormSchema),
     defaultValues: {
       email: "",
-      roleId: undefined,
+      isAdmin: false,
     },
   });
 
@@ -80,31 +74,26 @@ export const InviteUserForm = ({
           )}
         />
         
-        {roles && roles.length > 0 && (
+        {isGlobalAdmin && (
           <FormField
             control={form.control}
-            name="roleId"
+            name="isAdmin"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Rol (Opcional)</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar un rol" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {roles.map((role) => (
-                      <SelectItem key={role.id} value={role.id}>
-                        {role.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>
+                    Administrador del proyecto
+                  </FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    Los administradores pueden gestionar usuarios y roles dentro del proyecto
+                  </p>
+                </div>
               </FormItem>
             )}
           />

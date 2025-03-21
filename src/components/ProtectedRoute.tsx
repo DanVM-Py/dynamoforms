@@ -8,22 +8,16 @@ interface ProtectedRouteProps {
   children: ReactNode;
   requireGlobalAdmin?: boolean;
   requireProjectAdmin?: boolean;
-  requireRegularUser?: boolean;
-  requireApprover?: boolean;
-  requireFormAccess?: boolean;
-  requiredRole?: string;
+  requireProjectAccess?: boolean;
 }
 
 const ProtectedRoute = ({ 
   children, 
   requireGlobalAdmin = false,
   requireProjectAdmin = false,
-  requireRegularUser = false,
-  requireApprover = false,
-  requireFormAccess = false,
-  requiredRole
+  requireProjectAccess = false
 }: ProtectedRouteProps) => {
-  const { user, userProfile, loading, isGlobalAdmin, isProjectAdmin, isApprover } = useAuth();
+  const { user, userProfile, loading, isGlobalAdmin, isProjectAdmin } = useAuth();
   const location = useLocation();
   const [showLoading, setShowLoading] = useState(true);
   
@@ -34,21 +28,6 @@ const ProtectedRoute = ({
     
     return () => clearTimeout(timer);
   }, []);
-  
-  const isTaskTemplatesPath = 
-    location.pathname === '/task-templates' ||
-    location.pathname.startsWith('/task-templates/') ||
-    location.pathname.includes('task-templates');
-    
-  useEffect(() => {
-    if (isTaskTemplatesPath) {
-      console.log("ProtectedRoute: task-templates path detected", {
-        path: location.pathname,
-        user: !!user,
-        loading
-      });
-    }
-  }, [isTaskTemplatesPath, location.pathname, user, loading]);
   
   if (loading && showLoading) {
     return (
@@ -66,33 +45,20 @@ const ProtectedRoute = ({
     return <Navigate to="/auth" replace />;
   }
 
-  if (location.pathname === "/admin" && !isGlobalAdmin) {
-    console.log("Access denied: Global admin required for admin page");
-    return <Navigate to="/" replace />;
+  // Check if email is confirmed for all access
+  if (user && userProfile && !userProfile.email_confirmed && location.pathname !== "/confirm-email") {
+    return <Navigate to="/confirm-email" replace />;
   }
 
-  if (requiredRole === "global_admin" && !isGlobalAdmin) {
-    console.log("Access denied: Global admin required");
-    return <Navigate to="/" replace />;
-  }
-
+  // Check for global admin access
   if (requireGlobalAdmin && !isGlobalAdmin) {
     console.log("Access denied: Global admin required");
     return <Navigate to="/" replace />;
   }
 
+  // Check for project admin access
   if (requireProjectAdmin && !isProjectAdmin && !isGlobalAdmin) {
     console.log("Access denied: Project admin required");
-    return <Navigate to="/" replace />;
-  }
-
-  if (requireRegularUser && (isGlobalAdmin || isProjectAdmin)) {
-    console.log("Access denied: Regular user required");
-    return <Navigate to="/" replace />;
-  }
-
-  if (requireApprover && !isApprover && !isGlobalAdmin) {
-    console.log("Access denied: Approver required");
     return <Navigate to="/" replace />;
   }
 

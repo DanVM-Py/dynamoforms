@@ -35,7 +35,7 @@ export function useSidebarProjects() {
   // Second effect - fetch projects
   useEffect(() => {
     const fetchProjects = async () => {
-      if (!user || (!isProjectAdmin && !isGlobalAdmin)) {
+      if (!user) {
         return;
       }
       
@@ -43,15 +43,18 @@ export function useSidebarProjects() {
         let query;
         
         if (isGlobalAdmin) {
+          // Global admins can see all projects
           query = supabase
             .from('projects')
             .select('id, name')
             .order('name', { ascending: true });
-        } else if (isProjectAdmin) {
+        } else {
+          // Regular users and project admins see projects they belong to
           query = supabase
-            .from('project_admins')
+            .from('project_users')
             .select('project_id, projects(id, name)')
             .eq('user_id', user.id)
+            .eq('status', 'active')
             .order('projects(name)', { ascending: true });
         }
         
@@ -75,10 +78,7 @@ export function useSidebarProjects() {
             setProjects(projectsData);
             
             if (projectsData.length > 0 && !currentProjectId) {
-              const firstProjectId = isGlobalAdmin ? 
-                projectsData[0].id : 
-                projectsData[0].id;
-                
+              const firstProjectId = projectsData[0].id;
               setCurrentProjectId(firstProjectId);
               sessionStorage.setItem('currentProjectId', firstProjectId);
             }

@@ -5,13 +5,17 @@ import { ProjectUser } from "@/types/supabase";
 import { UserStatusBadge } from "./UserStatusBadge";
 import { UserActionButtons } from "./UserActionButtons";
 import { ProjectUserStatus } from "@/types/supabase";
+import { useAuth } from '@/contexts/AuthContext';
 
 type UsersListProps = {
   users: ProjectUser[];
   onStatusChange: (userId: string, status: ProjectUserStatus) => void;
+  onAdminToggle?: (userId: string, isAdmin: boolean) => void;
 };
 
-export const UsersList = ({ users, onStatusChange }: UsersListProps) => {
+export const UsersList = ({ users, onStatusChange, onAdminToggle }: UsersListProps) => {
+  const { isGlobalAdmin } = useAuth();
+  
   return (
     <Table>
       <TableHeader>
@@ -28,14 +32,18 @@ export const UsersList = ({ users, onStatusChange }: UsersListProps) => {
           <TableRow key={user.id}>
             <TableCell>{user.full_name || "—"}</TableCell>
             <TableCell>{user.email}</TableCell>
-            <TableCell>{user.role_name || "—"}</TableCell>
+            <TableCell>{user.is_admin ? "Administrador" : "Usuario"}</TableCell>
             <TableCell>
               <UserStatusBadge status={user.status} />
             </TableCell>
             <TableCell>
               <UserActionButtons 
                 status={user.status} 
-                onStatusChange={(status) => onStatusChange(user.user_id, status)} 
+                onStatusChange={(status) => onStatusChange(user.user_id, status)}
+                isAdmin={!!user.is_admin}
+                onAdminToggle={isGlobalAdmin && onAdminToggle ? 
+                  (isAdmin) => onAdminToggle(user.user_id, isAdmin) : 
+                  undefined}
               />
             </TableCell>
           </TableRow>
