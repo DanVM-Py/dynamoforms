@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { 
     session, user, userProfile, loading, isGlobalAdmin, isProjectAdmin, 
     isApprover, fetchComplete, fetchUserProfile, setSession, setUser, 
-    setUserProfile, setIsGlobalAdmin, setIsProjectAdmin, setIsApprover, setLoading 
+    setUserProfile, setIsGlobalAdmin, setIsProjectAdmin, setIsApprover, setLoading, setFetchComplete
   } = authState;
 
   // Initialize auth actions
