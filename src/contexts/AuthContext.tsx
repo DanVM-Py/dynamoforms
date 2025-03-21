@@ -60,10 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       // Check if user is project admin for any project
-      // Ahora verificamos is_admin directamente de project_users
+      // Make sure we're selecting all columns including is_admin
       const { data: projectUserData, error: projectUserError } = await supabase
         .from("project_users")
-        .select("id, project_id, user_id, status, is_admin")
+        .select("*")
         .eq("user_id", userId)
         .eq("status", "active");
         
