@@ -31,12 +31,25 @@ export const SignUpForm = () => {
     try {
       setLoading(true);
       
-      // Get current origin with protocol for redirection
+      // Obtener origen actual con protocolo para redirección
       const origin = window.location.origin;
       const redirectUrl = `${origin}/auth?confirmation=success`;
       
       console.log("Iniciando proceso de registro para:", email);
-      console.log("Email redirect URL:", redirectUrl);
+      console.log("URL de redirección para email:", redirectUrl);
+      
+      // Verificar si el usuario ya existe
+      const { data: existingUsers, error: checkError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', email)
+        .maybeSingle();
+        
+      if (checkError) {
+        console.error("Error al verificar usuario existente:", checkError);
+      } else if (existingUsers) {
+        throw new Error("Este correo electrónico ya está registrado. Por favor, inicia sesión.");
+      }
       
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -44,7 +57,7 @@ export const SignUpForm = () => {
         options: {
           emailRedirectTo: redirectUrl,
           data: {
-            name: email.split('@')[0], // Set a default name from email
+            name: email.split('@')[0], // Establecer un nombre predeterminado a partir del correo
           }
         }
       });
@@ -65,24 +78,24 @@ export const SignUpForm = () => {
         });
       }
       
-      // Check if email confirmation is required
+      // Verificar si se requiere confirmación de correo electrónico
       if (data.user && !data.session) {
-        // No session means email confirmation is required
-        console.log("Email confirmation required, redirecting to confirm-email");
+        // Sin sesión significa que se requiere confirmación de correo electrónico
+        console.log("Se requiere confirmación de correo electrónico, redirigiendo a confirm-email");
         navigate("/confirm-email", { replace: true });
       } else if (data.session) {
-        // Session exists, meaning email confirmation might be disabled
-        console.log("Session exists after signup, redirecting to home");
+        // Existe una sesión, lo que significa que la confirmación de correo electrónico podría estar desactivada
+        console.log("Existe una sesión después del registro, redirigiendo al inicio");
         navigate("/");
       } else {
-        // Fallback case
-        console.log("Unexpected signup state, redirecting to confirm-email");
+        // Caso de respaldo
+        console.log("Estado de registro inesperado, redirigiendo a confirm-email");
         navigate("/confirm-email", { replace: true });
       }
     } catch (error: any) {
       console.error("Error al registrarse:", error.message);
       
-      // More user-friendly error messages
+      // Mensajes de error más amigables para el usuario
       let errorMessage = error.message;
       if (error.message.includes("already registered")) {
         errorMessage = "Este correo ya está registrado. Por favor, inicia sesión en su lugar.";

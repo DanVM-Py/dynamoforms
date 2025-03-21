@@ -18,7 +18,7 @@ const ConfirmEmail = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Handle initial session check
+  // Manejar verificación inicial de la sesión
   useEffect(() => {
     const checkSession = async () => {
       setCheckingSession(true);
@@ -26,7 +26,7 @@ const ConfirmEmail = () => {
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Error checking session:", error);
+          console.error("Error al verificar sesión:", error);
           toast({
             title: "Error de sesión",
             description: "No se pudo verificar tu sesión. Por favor, inicia sesión nuevamente.",
@@ -37,7 +37,7 @@ const ConfirmEmail = () => {
         }
         
         if (!data.session) {
-          console.log("No active session found, redirecting to login");
+          console.log("No se encontró sesión activa, redirigiendo a login");
           toast({
             title: "Sesión no encontrada",
             description: "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
@@ -47,9 +47,9 @@ const ConfirmEmail = () => {
           return;
         }
         
-        console.log("Session found:", !!data.session);
+        console.log("Sesión encontrada:", !!data.session);
       } catch (err) {
-        console.error("Error in session check:", err);
+        console.error("Error en verificación de sesión:", err);
       } finally {
         setCheckingSession(false);
       }
@@ -58,23 +58,23 @@ const ConfirmEmail = () => {
     checkSession();
   }, [navigate, toast]);
   
-  // Debug logs to help diagnose issues
+  // Registros de depuración para ayudar a diagnosticar problemas
   useEffect(() => {
-    console.log("ConfirmEmail component state:", {
-      userExists: !!user,
-      userEmail: user?.email,
-      userProfile: userProfile ? {
+    console.log("Estado del componente ConfirmEmail:", {
+      usuarioExiste: !!user,
+      emailUsuario: user?.email,
+      perfilUsuario: userProfile ? {
         id: userProfile.id,
-        emailConfirmed: userProfile?.email_confirmed
+        emailConfirmado: userProfile?.email_confirmed
       } : null,
       resendCount,
       lastResendTime,
       checkingSession
     });
     
-    // If email is already confirmed, redirect to home
+    // Si el correo ya está confirmado, redirigir al inicio
     if (userProfile?.email_confirmed) {
-      console.log("Email already confirmed, redirecting to home");
+      console.log("Correo ya confirmado, redirigiendo al inicio");
       toast({
         title: "Correo ya confirmado",
         description: "Tu correo ya ha sido confirmado. Redirigiendo al inicio.",
@@ -98,14 +98,14 @@ const ConfirmEmail = () => {
       setResendCount(prev => prev + 1);
       setLastResendTime(new Date());
       
-      // Get current origin with protocol
+      // Obtener origen actual con protocolo
       const origin = window.location.origin;
       const redirectUrl = `${origin}/auth?confirmation=success`;
       
-      console.log(`Attempting to resend confirmation email to ${user.email} (attempt #${resendCount + 1})`);
-      console.log(`Using redirect URL: ${redirectUrl}`);
+      console.log(`Intentando reenviar correo de confirmación a ${user.email} (intento #${resendCount + 1})`);
+      console.log(`Usando URL de redirección: ${redirectUrl}`);
       
-      // Call Supabase to resend confirmation email with explicit redirect URL
+      // Llamar a Supabase para reenviar correo de confirmación con URL de redirección explícita
       const { data, error } = await supabase.auth.resend({
         type: 'signup',
         email: user.email,
@@ -114,7 +114,7 @@ const ConfirmEmail = () => {
         }
       });
       
-      console.log("Resend response:", { data, error });
+      console.log("Respuesta de reenvío:", { data, error });
       
       if (error) throw error;
       
@@ -138,12 +138,12 @@ const ConfirmEmail = () => {
     try {
       setLoading(true);
       
-      console.log("Checking email confirmation status...");
+      console.log("Verificando estado de confirmación de correo...");
       
-      // Force refresh user profile to check if email is confirmed
+      // Forzar actualización del perfil de usuario para verificar si el correo está confirmado
       await refreshUserProfile();
       
-      // If email is confirmed after refresh, navigate to home
+      // Si el correo está confirmado después de la actualización, navegar al inicio
       if (userProfile?.email_confirmed) {
         toast({
           title: "Correo confirmado",
@@ -169,12 +169,12 @@ const ConfirmEmail = () => {
     }
   };
 
-  // Add a button to go back to login
+  // Agregar un botón para volver al inicio de sesión
   const goToLogin = () => {
     navigate("/auth");
   };
 
-  // Show loading state while checking session
+  // Mostrar estado de carga mientras se verifica la sesión
   if (checkingSession) {
     return (
       <PageContainer hideSidebar className="flex items-center justify-center p-0">
@@ -195,7 +195,7 @@ const ConfirmEmail = () => {
     );
   }
 
-  // Handle case where we somehow got here without being logged in
+  // Manejar el caso en que de alguna manera llegamos aquí sin iniciar sesión
   if (!user) {
     return (
       <PageContainer hideSidebar className="flex items-center justify-center p-0">

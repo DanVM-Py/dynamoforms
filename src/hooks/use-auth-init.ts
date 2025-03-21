@@ -16,7 +16,7 @@ export function useAuthInit({
   setFetchComplete: (complete: boolean) => void;
 }) {
   useEffect(() => {
-    // Get initial session and set up auth state change listener
+    // Obtener sesión inicial y configurar escucha de cambios de estado de autenticación
     let authListener: { data: { subscription: { unsubscribe: () => void } } } | null = null;
     
     const initializeAuth = async () => {
@@ -24,20 +24,20 @@ export function useAuthInit({
         setLoading(true);
         setFetchComplete(false);
         
-        // Set up auth state change listener FIRST
+        // Configurar escucha de cambios de estado de autenticación PRIMERO
         authListener = supabase.auth.onAuthStateChange(
           async (event, newSession) => {
-            console.log("Auth state changed:", event, !!newSession);
+            console.log("Estado de autenticación cambiado:", event, !!newSession);
             
-            // Update state based on auth event
+            // Actualizar estado según evento de autenticación
             if (event === 'SIGNED_OUT') {
-              // Clear all auth-related state
+              // Limpiar todo el estado relacionado con la autenticación
               setSession(null);
               setUser(null);
               setFetchComplete(true);
               setLoading(false);
             } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-              // For other events, update session and user
+              // Para otros eventos, actualizar sesión y usuario
               setSession(newSession);
               setUser(newSession?.user ?? null);
               
@@ -45,7 +45,7 @@ export function useAuthInit({
                 try {
                   await fetchUserProfile(newSession.user.id, true);
                 } catch (error) {
-                  console.error("Error fetching user profile after auth state change:", error);
+                  console.error("Error al obtener perfil de usuario después de cambio de estado de autenticación:", error);
                 } finally {
                   setFetchComplete(true);
                   setLoading(false);
@@ -55,7 +55,7 @@ export function useAuthInit({
                 setLoading(false);
               }
             } else {
-              // For other events, just update session and user
+              // Para otros eventos, solo actualizar sesión y usuario
               setSession(newSession);
               setUser(newSession?.user ?? null);
               setFetchComplete(true);
@@ -64,17 +64,17 @@ export function useAuthInit({
           }
         );
         
-        // THEN check for existing session
+        // LUEGO verificar sesión existente
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
-          console.error("Error getting session:", sessionError);
+          console.error("Error al obtener sesión:", sessionError);
           setFetchComplete(true);
           setLoading(false);
           return;
         }
         
-        console.log("Auth state initialized:", !!session);
+        console.log("Estado de autenticación inicializado:", !!session);
         
         setSession(session);
         setUser(session?.user ?? null);
@@ -83,7 +83,7 @@ export function useAuthInit({
           try {
             await fetchUserProfile(session.user.id, true);
           } catch (error) {
-            console.error("Error fetching initial user profile:", error);
+            console.error("Error al obtener perfil de usuario inicial:", error);
           } finally {
             setFetchComplete(true);
             setLoading(false);
@@ -93,7 +93,7 @@ export function useAuthInit({
           setLoading(false);
         }
       } catch (error) {
-        console.error("Error initializing auth:", error);
+        console.error("Error al inicializar autenticación:", error);
         setFetchComplete(true);
         setLoading(false);
       }
@@ -102,12 +102,12 @@ export function useAuthInit({
     initializeAuth();
     
     return () => {
-      // Clean up auth listener on unmount
+      // Limpiar escucha de autenticación al desmontar
       if (authListener) {
         try {
           authListener.data.subscription.unsubscribe();
         } catch (error) {
-          console.error("Error unsubscribing from auth listener:", error);
+          console.error("Error al cancelar suscripción de escucha de autenticación:", error);
         }
       }
     };

@@ -24,21 +24,21 @@ const ProtectedRoute = ({
   const [hasProjectAccess, setHasProjectAccess] = useState<boolean | null>(null);
   const [checkingProjectAccess, setCheckingProjectAccess] = useState(false);
   
-  // Add a timeout to force continue after 5 seconds to prevent infinite loading
+  // Agregar un tiempo límite para forzar la continuación después de 3 segundos para evitar carga infinita
   useEffect(() => {
     const timer = setTimeout(() => {
       if (loading || checkingProjectAccess) {
-        console.log("Loading timeout reached, continuing with current state");
+        console.log("Tiempo de espera para carga alcanzado, continuando con estado actual");
         setShowLoading(false);
       }
-    }, 5000);
+    }, 3000);
     
     return () => clearTimeout(timer);
   }, [loading, checkingProjectAccess]);
   
-  // Debug logging to track state changes
+  // Registro de depuración para seguir cambios de estado
   useEffect(() => {
-    console.log("ProtectedRoute state:", { 
+    console.log("Estado de ProtectedRoute:", { 
       path: location.pathname,
       isAuthenticated: !!user,
       emailConfirmed: userProfile?.email_confirmed,
@@ -50,7 +50,7 @@ const ProtectedRoute = ({
     });
   }, [user, userProfile, loading, isGlobalAdmin, isProjectAdmin, hasProjectAccess, location.pathname]);
   
-  // Check if user has access to any project
+  // Verificar si el usuario tiene acceso a algún proyecto
   useEffect(() => {
     const checkProjectAccess = async () => {
       if (!user || !requireProjectAccess) {
@@ -61,13 +61,13 @@ const ProtectedRoute = ({
       try {
         setCheckingProjectAccess(true);
         
-        // Global admins automatically have access to all projects
+        // Los administradores globales automáticamente tienen acceso a todos los proyectos
         if (isGlobalAdmin) {
           setHasProjectAccess(true);
           return;
         }
         
-        // Check if user has active membership in any project
+        // Verificar si el usuario tiene membresía activa en algún proyecto
         const { data, error } = await supabase
           .from("project_users")
           .select("*")
@@ -76,14 +76,14 @@ const ProtectedRoute = ({
           .limit(1);
           
         if (error) {
-          console.error("Error checking project access:", error);
+          console.error("Error al verificar acceso a proyecto:", error);
           setHasProjectAccess(false);
           return;
         }
         
         setHasProjectAccess(data && data.length > 0);
       } catch (error) {
-        console.error("Error in checkProjectAccess:", error);
+        console.error("Error en checkProjectAccess:", error);
         setHasProjectAccess(false);
       } finally {
         setCheckingProjectAccess(false);
@@ -107,52 +107,52 @@ const ProtectedRoute = ({
     );
   }
 
-  // Always allow access to auth page and public routes
+  // Siempre permitir acceso a página de autenticación y rutas públicas
   if (location.pathname === "/auth" || location.pathname.startsWith("/public")) {
     return <>{children}</>;
   }
 
-  // Step 1: Check if user is authenticated (except for auth page and public routes)
+  // Paso 1: Verificar si el usuario está autenticado (excepto para la página de autenticación y rutas públicas)
   const isPublicRoute = location.pathname.startsWith("/public") || location.pathname === "/auth";
   if (!user && !isPublicRoute) {
-    console.log("ProtectedRoute: User not authenticated, redirecting to auth page");
-    // Save the current path to redirect back after login
+    console.log("ProtectedRoute: Usuario no autenticado, redirigiendo a página de autenticación");
+    // Guardar la ruta actual para redirigir después del inicio de sesión
     const currentPath = location.pathname;
     return <Navigate to={`/auth${currentPath !== "/" ? `?redirect=${currentPath}` : ""}`} replace />;
   }
 
-  // Special handling for confirm-email page - we want this to be accessible if the user is authenticated
-  // regardless of email confirmation status
+  // Manejo especial para la página confirm-email - queremos que sea accesible si el usuario está autenticado
+  // independientemente del estado de confirmación del correo electrónico
   if (location.pathname === "/confirm-email") {
-    // For confirm-email page, we just need user to be authenticated
+    // Para la página confirm-email, solo necesitamos que el usuario esté autenticado
     return <>{children}</>;
   }
 
-  // Step 2: Check if email is confirmed for all routes except confirm-email
+  // Paso 2: Verificar si el correo electrónico está confirmado para todas las rutas excepto confirm-email
   if (user && userProfile && userProfile.email_confirmed === false && location.pathname !== "/confirm-email") {
-    console.log("ProtectedRoute: Email not confirmed, redirecting to confirm email page");
+    console.log("ProtectedRoute: Correo no confirmado, redirigiendo a página de confirmación de correo");
     return <Navigate to="/confirm-email" replace />;
   }
 
-  // Step 3: Check if user has access to any project
+  // Paso 3: Verificar si el usuario tiene acceso a algún proyecto
   if (requireProjectAccess && hasProjectAccess === false && location.pathname !== "/no-project-access") {
-    console.log("ProtectedRoute: No project access, redirecting to no project access page");
+    console.log("ProtectedRoute: Sin acceso a proyecto, redirigiendo a página de sin acceso a proyecto");
     return <Navigate to="/no-project-access" replace />;
   }
 
-  // Step 4: Check for global admin access
+  // Paso 4: Verificar acceso de administrador global
   if (requireGlobalAdmin && !isGlobalAdmin) {
-    console.log("Access denied: Global admin required");
+    console.log("Acceso denegado: Se requiere administrador global");
     return <Navigate to="/" replace />;
   }
 
-  // Step 5: Check for project admin access
+  // Paso 5: Verificar acceso de administrador de proyecto
   if (requireProjectAdmin && !isProjectAdmin && !isGlobalAdmin) {
-    console.log("Access denied: Project admin required");
+    console.log("Acceso denegado: Se requiere administrador de proyecto");
     return <Navigate to="/" replace />;
   }
 
-  // If we got here, render the children
+  // Si llegamos aquí, renderizar los children
   return <>{children}</>;
 };
 

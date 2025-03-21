@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -16,38 +17,38 @@ const Auth = () => {
   const { user, userProfile, signOut } = useAuth();
   const { toast } = useToast();
 
-  // Check for confirmation success query parameter
+  // Verificar el parámetro de confirmación en la URL
   const searchParams = new URLSearchParams(location.search);
   const confirmationSuccess = searchParams.get('confirmation') === 'success';
   
-  // Get redirect URL from query params
+  // Obtener URL de redirección de los parámetros de consulta
   const redirectTo = searchParams.get('redirect') || '/';
 
-  // Handle confirmation success notification
+  // Manejar notificación de confirmación exitosa
   useConfirmationEffect(confirmationSuccess);
 
-  // Debug logging for auth flow
+  // Registros de depuración para el flujo de autenticación
   useEffect(() => {
-    console.log("Auth component state:", {
-      userExists: !!user,
-      userEmail: user?.email,
-      userProfile: userProfile ? {
+    console.log("Estado del componente Auth:", {
+      usuarioExiste: !!user,
+      emailUsuario: user?.email,
+      perfilUsuario: userProfile ? {
         id: userProfile.id,
-        emailConfirmed: userProfile.email_confirmed
+        emailConfirmado: userProfile.email_confirmed
       } : null,
       redirectTo,
       confirmationSuccess,
-      currentPath: location.pathname,
+      rutaActual: location.pathname,
       checkingSession,
       sessionCheckTimeout
     });
   }, [user, userProfile, redirectTo, confirmationSuccess, location.pathname, checkingSession, sessionCheckTimeout]);
 
-  // Set a timeout to prevent infinite loading if session check takes too long
+  // Establecer un tiempo límite para evitar carga infinita si la verificación de sesión tarda demasiado
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (checkingSession) {
-        console.log("Session check timeout reached, forcing state update");
+        console.log("Tiempo de espera excedido para verificación de sesión, forzando actualización de estado");
         setSessionCheckTimeout(true);
         setCheckingSession(false);
         
@@ -57,63 +58,63 @@ const Auth = () => {
           variant: "destructive",
         });
       }
-    }, 5000); // 5 second timeout
+    }, 3000); // Reducido a 3 segundos para mejor experiencia de usuario
 
     return () => clearTimeout(timeoutId);
   }, [checkingSession, toast]);
 
-  // Handle authentication and redirections
+  // Manejar autenticación y redirecciones
   useEffect(() => {
     const handleAuthSession = async () => {
       try {
         setCheckingSession(true);
         
-        // Explicitly check current session to address potential auth state issues
+        // Verificar explícitamente la sesión actual para abordar posibles problemas de estado de autenticación
         const { data: sessionData, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Error checking session:", error);
+          console.error("Error al verificar sesión:", error);
           setCheckingSession(false);
           return;
         }
         
         const currentSession = sessionData?.session;
         
-        // Check if user is trying to access auth page directly when already logged in
+        // Verificar si el usuario está intentando acceder a la página de autenticación directamente cuando ya ha iniciado sesión
         const directAccess = !location.search.includes('redirect');
         
         if (directAccess && currentSession?.user) {
-          console.log("Direct access to auth page with active session, user:", currentSession.user.email);
+          console.log("Acceso directo a página de autenticación con sesión activa, usuario:", currentSession.user.email);
           
-          // If user's email is not confirmed, redirect to confirm-email page
+          // Si el correo electrónico del usuario no está confirmado, redirigir a la página confirm-email
           if (userProfile && userProfile.email_confirmed === false) {
-            console.log("User authenticated but email not confirmed, redirecting to confirm-email");
+            console.log("Usuario autenticado pero correo no confirmado, redirigiendo a confirm-email");
             navigate("/confirm-email", { replace: true });
             return;
           }
           
-          // If direct access and email is confirmed, redirect to home
-          if (userProfile?.email_confirmed === true) {
-            console.log("User already authenticated with confirmed email, redirecting to:", redirectTo);
+          // Si acceso directo y el correo está confirmado, redirigir al inicio
+          if (userProfile && userProfile.email_confirmed === true) {
+            console.log("Usuario ya autenticado con correo confirmado, redirigiendo a:", redirectTo);
             navigate(redirectTo, { replace: true });
             return;
           }
         } else if (user) {
-          // User is already logged in, check email confirmation
+          // El usuario ya ha iniciado sesión, verificar confirmación de correo
           if (userProfile === null) {
-            console.log("User authenticated but profile not loaded yet, waiting...");
-            // Keep on auth page until profile loads
+            console.log("Usuario autenticado pero perfil no cargado aún, esperando...");
+            // Mantener en la página de autenticación hasta que se cargue el perfil
           } else if (userProfile.email_confirmed === false) {
-            console.log("User authenticated but email not confirmed, redirecting to confirm-email");
+            console.log("Usuario autenticado pero correo no confirmado, redirigiendo a confirm-email");
             navigate("/confirm-email", { replace: true });
           } else {
-            // User is fully authenticated, redirect to home or requested page
-            console.log("User already authenticated with confirmed email, redirecting to:", redirectTo);
+            // El usuario está completamente autenticado, redirigir al inicio o a la página solicitada
+            console.log("Usuario ya autenticado con correo confirmado, redirigiendo a:", redirectTo);
             navigate(redirectTo, { replace: true });
           }
         }
       } catch (error) {
-        console.error("Error checking session:", error);
+        console.error("Error al verificar sesión:", error);
       } finally {
         setCheckingSession(false);
       }
@@ -122,7 +123,7 @@ const Auth = () => {
     handleAuthSession();
   }, [navigate, redirectTo, signOut, location.search, user, userProfile]);
 
-  // If we've timed out or finished checking, show the auth card
+  // Si se ha agotado el tiempo de espera o se ha completado la verificación, mostrar la tarjeta de autenticación
   if (!checkingSession || sessionCheckTimeout) {
     return (
       <PageContainer hideSidebar className="flex items-center justify-center p-0">
@@ -134,7 +135,7 @@ const Auth = () => {
     );
   }
 
-  // Otherwise show loading state
+  // De lo contrario, mostrar el estado de carga
   return (
     <PageContainer hideSidebar className="flex items-center justify-center p-0">
       <LoadingAuthState />

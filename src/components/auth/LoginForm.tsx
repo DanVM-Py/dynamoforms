@@ -42,22 +42,21 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       });
       
       if (error) {
-        // Handle specific error cases
+        // Manejo de errores específicos con mensajes claros para el usuario
         if (error.message.includes("Invalid login credentials")) {
-          throw new Error("Credenciales inválidas. Por favor verifica tu correo y contraseña.");
+          throw new Error("Credenciales inválidas. El correo o la contraseña son incorrectos.");
+        } else if (error.message.includes("Email not confirmed")) {
+          throw new Error("Correo electrónico no confirmado. Por favor, verifica tu correo.");
+        } else if (error.message.includes("User not found")) {
+          throw new Error("Este correo electrónico no está registrado en el sistema.");
         } else {
           throw error;
         }
       }
       
-      console.log("Login successful");
+      console.log("Login successful", data);
       
-      toast({
-        title: "Inicio de sesión exitoso",
-        description: "Has iniciado sesión correctamente.",
-      });
-      
-      // After login, check if email is confirmed by checking the profile
+      // Después de iniciar sesión, verificar si el correo está confirmado consultando el perfil
       if (data.user) {
         try {
           const { data: profileData, error: profileError } = await supabase
@@ -67,33 +66,40 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
             .maybeSingle();
             
           if (profileError) {
-            console.error("Error fetching profile:", profileError);
+            console.error("Error al obtener perfil:", profileError);
           } else if (profileData) {
-            console.log("Profile data:", profileData);
+            console.log("Datos del perfil:", profileData);
             
-            // Check if email is confirmed - using type safety
-            // The email_confirmed property comes from our database schema
+            // Verificar si el correo está confirmado - usando seguridad de tipos
             const emailConfirmed = 'email_confirmed' in profileData ? 
               profileData.email_confirmed as boolean : 
               null;
             
-            console.log("Email confirmed status:", emailConfirmed);
+            console.log("Estado de confirmación de correo:", emailConfirmed);
             
             if (emailConfirmed === false) {
-              // If email is not confirmed, redirect to confirm-email page
-              console.log("Email not confirmed, redirecting to confirm-email");
+              // Si el correo no está confirmado, redirigir a la página de confirmación
+              console.log("Correo no confirmado, redirigiendo a confirm-email");
+              toast({
+                title: "Correo no confirmado",
+                description: "Es necesario confirmar tu correo electrónico para continuar.",
+              });
               navigate("/confirm-email", { replace: true });
               return;
             }
           } else {
-            console.log("No profile found for user");
+            console.log("No se encontró perfil para el usuario");
           }
         } catch (profileErr) {
-          console.error("Error checking email confirmation:", profileErr);
+          console.error("Error al verificar confirmación de correo:", profileErr);
         }
       }
       
-      // If email is confirmed or we couldn't check, redirect to the requested page
+      // Si el correo está confirmado o no pudimos verificarlo, redirigir a la página solicitada
+      toast({
+        title: "Inicio de sesión exitoso",
+        description: "Has iniciado sesión correctamente.",
+      });
       navigate(redirectTo, { replace: true });
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error.message);
