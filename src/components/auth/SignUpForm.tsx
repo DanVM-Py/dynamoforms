@@ -52,8 +52,19 @@ export const SignUpForm = () => {
         description: "Se ha enviado un correo de confirmación a tu dirección de email.",
       });
       
-      // Navigate to confirm email page after signup
-      navigate("/confirm-email", { replace: true });
+      // Check if redirectTo option is needed
+      if (data.user && !data.session) {
+        // Only navigate to confirm-email if we have a user but no session
+        // This indicates email confirmation is required
+        navigate("/confirm-email", { replace: true });
+      } else if (data.session) {
+        // If we have a session, it means email confirmation might be disabled
+        // Just navigate to home
+        navigate("/");
+      } else {
+        // Fallback, navigate to confirm email
+        navigate("/confirm-email", { replace: true });
+      }
     } catch (error: any) {
       console.error("Error al registrarse:", error.message);
       toast({

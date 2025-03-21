@@ -12,10 +12,11 @@ import { supabase } from "@/integrations/supabase/client";
 const ConfirmEmail = () => {
   const [loading, setLoading] = useState(false);
   const [resendCount, setResendCount] = useState(0);
+  const [lastResendTime, setLastResendTime] = useState<Date | null>(null);
   const { user, userProfile, refreshUserProfile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-
+  
   // Debug logs to help diagnose issues
   useEffect(() => {
     console.log("ConfirmEmail component state:", {
@@ -23,10 +24,22 @@ const ConfirmEmail = () => {
       userEmail: user?.email,
       userProfile: userProfile ? {
         id: userProfile.id,
-        emailConfirmed: userProfile.email_confirmed
-      } : null
+        emailConfirmed: userProfile?.email_confirmed
+      } : null,
+      resendCount,
+      lastResendTime
     });
-  }, [user, userProfile]);
+    
+    // If we don't have a user, re-authenticate silently to try to restore the session
+    if (!user) {
+      const checkSession = async () => {
+        const { data } = await supabase.auth.getSession();
+        console.log("Session check result:", !!data.session);
+      };
+      
+      checkSession();
+    }
+  }, [user, userProfile, resendCount, lastResendTime]);
 
   // Check if we need to redirect (if email is already confirmed)
   useEffect(() => {
@@ -53,6 +66,7 @@ const ConfirmEmail = () => {
     try {
       setLoading(true);
       setResendCount(prev => prev + 1);
+      setLastResendTime(new Date());
       
       console.log(`Attempting to resend confirmation email to ${user.email} (attempt #${resendCount + 1})`);
       
@@ -175,6 +189,11 @@ const ConfirmEmail = () => {
                 <p className="text-xs mt-2">
                   Se ha intentado reenviar el correo {resendCount} {resendCount === 1 ? 'vez' : 'veces'}. 
                   Si no lo encuentras, revisa también tu carpeta de spam o correo no deseado.
+                </p>
+              )}
+              {lastResendTime && (
+                <p className="text-xs mt-1">
+                  Último reenvío: {lastResendTime.toLocaleTimeString()}
                 </p>
               )}
             </div>

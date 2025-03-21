@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
 import { useConfirmationEffect } from "@/hooks/useConfirmationEffect";
+import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
   const [checkingSession, setCheckingSession] = useState(true);
@@ -26,6 +27,7 @@ const Auth = () => {
   useEffect(() => {
     console.log("Auth component state:", {
       userExists: !!user,
+      userEmail: user?.email,
       userProfile: userProfile ? {
         id: userProfile.id,
         emailConfirmed: userProfile.email_confirmed
@@ -43,32 +45,38 @@ const Auth = () => {
       try {
         setCheckingSession(true);
         
+        // Explicitly check current session to address potential auth state issues
+        const { data: sessionData } = await supabase.auth.getSession();
+        const currentSession = sessionData?.session;
+        
         // Check if user is trying to access auth page directly when already logged in
         const directAccess = !location.search.includes('redirect');
         
-        if (directAccess && user) {
-          console.log("Direct access to auth page with active session");
+        if (directAccess && currentSession?.user) {
+          console.log("Direct access to auth page with active session, user:", currentSession.user.email);
           
           // If user's email is not confirmed, redirect to confirm-email page
-          if (userProfile && !userProfile.email_confirmed) {
+          if (userProfile && userProfile.email_confirmed === false) {
             console.log("User authenticated but email not confirmed, redirecting to confirm-email");
             navigate("/confirm-email", { replace: true });
             return;
           }
           
-          // If direct access and email is confirmed, we can either sign out or redirect
-          if (userProfile?.email_confirmed) {
-            // User is fully authenticated, redirect to home or requested page
+          // If direct access and email is confirmed, redirect to home
+          if (userProfile?.email_confirmed === true) {
             console.log("User already authenticated with confirmed email, redirecting to:", redirectTo);
             navigate(redirectTo, { replace: true });
             return;
           }
           
-          // Otherwise clear session for new login
-          await signOut();
+          // If we don't have profile info yet but have a session, leave on this page
+          // The AuthContext will handle fetching the profile
         } else if (user) {
           // User is already logged in, check email confirmation
-          if (!userProfile?.email_confirmed) {
+          if (userProfile === null) {
+            console.log("User authenticated but profile not loaded yet, waiting...");
+            // Keep on auth page until profile loads
+          } else if (userProfile.email_confirmed === false) {
             console.log("User authenticated but email not confirmed, redirecting to confirm-email");
             navigate("/confirm-email", { replace: true });
           } else {
