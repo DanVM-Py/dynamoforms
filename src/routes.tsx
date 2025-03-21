@@ -1,3 +1,4 @@
+
 import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
@@ -157,7 +158,7 @@ export const router = createBrowserRouter([
     path: "/task-templates",
     element: (
       <ProtectedRoute>
-        <TaskTemplatesWrapper />
+        <Suspense fallback={<Loading />}><TaskTemplates /></Suspense>
       </ProtectedRoute>
     ),
   },
