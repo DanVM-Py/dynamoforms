@@ -28,6 +28,15 @@ export const SignUpForm = () => {
       return;
     }
     
+    if (password.length < 6) {
+      toast({
+        title: "Contraseña inválida",
+        description: "La contraseña debe tener al menos 6 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
       setLoading(true);
       
@@ -41,20 +50,28 @@ export const SignUpForm = () => {
       // Clear any existing session first to avoid conflicts
       await supabase.auth.signOut();
       
-      // Set a timeout to avoid hanging forever
-      const signupPromise = supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            name: email.split('@')[0], // Default name from email
-          }
+      // Attempt to sign up with timeout
+      const signupPromise = new Promise<any>(async (resolve, reject) => {
+        try {
+          const response = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: redirectUrl,
+              data: {
+                name: email.split('@')[0], // Default name from email
+              }
+            }
+          });
+          resolve(response);
+        } catch (err) {
+          reject(err);
         }
       });
       
+      // Set a timeout to avoid hanging forever
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Tiempo de espera excedido")), 10000);
+        setTimeout(() => reject(new Error("Tiempo de espera excedido")), 5000);
       });
       
       // Race the signup against the timeout
@@ -64,7 +81,9 @@ export const SignUpForm = () => {
       ]) as any;
       
       if (error) {
-        if (error.message.includes("Tiempo de espera")) {
+        if (error.message.includes("already registered")) {
+          throw new Error("Este correo ya está registrado. Por favor, inicia sesión.");
+        } else if (error.message.includes("Tiempo de espera")) {
           throw new Error("La solicitud tardó demasiado tiempo. Por favor, intenta de nuevo.");
         } else {
           throw error;
@@ -75,29 +94,17 @@ export const SignUpForm = () => {
         throw new Error("No se pudo registrar. Inténtalo de nuevo.");
       }
       
-      if (data.user && !data.user.confirmed_at) {
-        toast({
-          title: "Registro exitoso",
-          description: "Se ha enviado un correo de confirmación. Por favor, revisa también tu carpeta de spam.",
-        });
-        
-        // Redirect to confirm email page
-        navigate("/confirm-email", { replace: true, state: { email } });
-      } else if (data.session) {
-        // Email confirmation might be disabled
-        toast({
-          title: "Registro exitoso",
-          description: "Tu cuenta ha sido creada correctamente.",
-        });
-        navigate("/");
-      } else {
-        // Fallback
-        navigate("/confirm-email", { replace: true, state: { email } });
-      }
+      toast({
+        title: "Registro exitoso",
+        description: "Se ha enviado un correo de confirmación. Por favor, revisa también tu carpeta de spam.",
+      });
+      
+      // Redirect to confirm email page
+      navigate("/confirm-email", { replace: true, state: { email } });
+      
     } catch (error: any) {
       console.error("Signup error:", error.message);
       
-      // User-friendly error messages
       let errorMessage = error.message;
       if (error.message.includes("already registered")) {
         errorMessage = "Este correo ya está registrado. Por favor, inicia sesión.";
@@ -139,6 +146,7 @@ export const SignUpForm = () => {
             onChange={(e) => setPassword(e.target.value)}
             disabled={loading}
           />
+          <p className="text-xs text-gray-500">La contraseña debe tener al menos 6 caracteres</p>
         </div>
       </CardContent>
       <CardFooter>

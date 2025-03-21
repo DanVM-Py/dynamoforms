@@ -4,13 +4,11 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
-import { useConfirmationEffect } from "@/hooks/useConfirmationEffect";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 
 const Auth = () => {
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -22,8 +20,18 @@ const Auth = () => {
   // Get redirect URL from query params
   const redirectTo = searchParams.get('redirect') || '/';
 
-  // Handle confirmation notification
-  useConfirmationEffect(confirmationSuccess);
+  // Show confirmation toast if needed
+  useEffect(() => {
+    if (confirmationSuccess) {
+      toast({
+        title: "Email confirmado",
+        description: "Tu correo ha sido confirmado correctamente. Ahora puedes iniciar sesión.",
+      });
+      
+      // Remove the query parameter to avoid showing the toast again on refresh
+      navigate('/auth', { replace: true });
+    }
+  }, [confirmationSuccess, toast, navigate]);
 
   // Check authentication status
   useEffect(() => {
@@ -45,60 +53,60 @@ const Auth = () => {
           return;
         }
         
-        // Set user data
-        setUser(data.session.user);
+        // If user is already logged in, check if email is confirmed
+        const userId = data.session.user.id;
         
         // Check if user profile exists and email is confirmed
-        if (data.session.user) {
-          const { data: profileData, error: profileError } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", data.session.user.id)
-            .maybeSingle();
-            
-          if (profileError) {
-            console.error("Profile fetch error:", profileError);
-            setLoading(false);
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle();
+          
+        if (profileError) {
+          console.error("Profile fetch error:", profileError);
+          setLoading(false);
+          return;
+        }
+        
+        if (profileData) {
+          // Safely check email confirmation status 
+          const needsEmailConfirmation = 'email_confirmed' in profileData && 
+                profileData.email_confirmed === false;
+          
+          if (needsEmailConfirmation) {
+            console.log("Email not confirmed, redirecting to confirm page");
+            navigate("/confirm-email", { replace: true });
             return;
           }
           
-          if (profileData) {
-            // Safely check email confirmation status
-            const isConfirmed = !('email_confirmed' in profileData) || 
-                                profileData.email_confirmed !== false;
-            
-            if (!isConfirmed) {
-              console.log("Email not confirmed, redirecting to confirm page");
-              navigate("/confirm-email", { replace: true });
-              return;
-            }
-            
-            // Email is confirmed, redirect to the target page
-            console.log("Email confirmed, redirecting to:", redirectTo);
-            navigate(redirectTo, { replace: true });
-            return;
-          }
+          // Email is confirmed or not tracked, redirect to the target page
+          console.log("Authentication valid, redirecting to:", redirectTo);
+          navigate(redirectTo, { replace: true });
+          return;
+        } else {
+          // No profile found but user is authenticated, let them proceed
+          navigate(redirectTo, { replace: true });
         }
-        
-        setLoading(false);
       } catch (error) {
         console.error("Auth check error:", error);
+      } finally {
         setLoading(false);
       }
     };
     
-    // Set a timeout to avoid infinite loading
+    // Set a reasonable timeout to avoid infinite loading
     const timeoutId = setTimeout(() => {
       if (loading) {
         console.log("Auth check timeout reached");
         setLoading(false);
       }
-    }, 5000);
+    }, 3000);
     
     checkAuth();
     
     return () => clearTimeout(timeoutId);
-  }, [navigate, redirectTo, loading]);
+  }, [navigate, redirectTo]);
 
   // Show auth card if not loading
   if (!loading) {

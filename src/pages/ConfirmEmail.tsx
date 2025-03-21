@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 const ConfirmEmail = () => {
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [sessionChecking, setSessionChecking] = useState(true);
   const [resendCount, setResendCount] = useState(0);
   const [lastResendTime, setLastResendTime] = useState<Date | null>(null);
@@ -41,27 +43,30 @@ const ConfirmEmail = () => {
           return;
         }
         
-        // No session found
-        if (!data.session) {
-          console.log("No se encontró sesión activa, redirigiendo a login");
-          
-          // Only show toast if no email from state (direct access)
-          if (!emailFromState) {
-            toast({
-              title: "Sesión no encontrada",
-              description: "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
-              variant: "destructive",
-            });
-            navigate("/auth", { replace: true });
-          }
+        // No session found but we have email from state
+        if (!data.session && emailFromState) {
+          console.log("No se encontró sesión activa, pero tenemos email de estado");
+          setSessionChecking(false);
           return;
         }
         
-        // Set user data
-        setUser(data.session.user);
+        // No session found and no email from state
+        if (!data.session && !emailFromState) {
+          console.log("No se encontró sesión activa ni email de estado, redirigiendo a login");
+          toast({
+            title: "Sesión no encontrada",
+            description: "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+            variant: "destructive",
+          });
+          navigate("/auth", { replace: true });
+          return;
+        }
         
-        // Check if user profile exists and email is confirmed
-        if (data.session.user) {
+        // Set user data if we have a session
+        if (data.session?.user) {
+          setUser(data.session.user);
+          
+          // Check if user profile exists and email is confirmed
           const { data: profileData, error: profileError } = await supabase
             .from("profiles")
             .select("*")
@@ -72,8 +77,8 @@ const ConfirmEmail = () => {
             console.error("Error al obtener perfil:", profileError);
           } else if (profileData) {
             // Check if email is confirmed
-            const isConfirmed = 'email_confirmed' in profileData ? 
-              profileData.email_confirmed === true : true;
+            const isConfirmed = !('email_confirmed' in profileData) || 
+                              profileData.email_confirmed === true;
             
             if (isConfirmed) {
               console.log("Correo ya confirmado, redirigiendo al inicio");
@@ -101,7 +106,7 @@ const ConfirmEmail = () => {
         console.log("Session check timeout reached");
         setSessionChecking(false);
       }
-    }, 5000);
+    }, 3000);
     
     return () => clearTimeout(timeoutId);
   }, [navigate, toast, emailFromState]);
@@ -119,7 +124,7 @@ const ConfirmEmail = () => {
     }
     
     try {
-      setLoading(true);
+      setResending(true);
       setResendCount(prev => prev + 1);
       setLastResendTime(new Date());
       
@@ -153,13 +158,13 @@ const ConfirmEmail = () => {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setResending(false);
     }
   };
 
   const checkEmailStatus = async () => {
     try {
-      setLoading(true);
+      setChecking(true);
       
       console.log("Verificando estado de confirmación de correo...");
       
@@ -174,7 +179,7 @@ const ConfirmEmail = () => {
       }
       
       if (user) {
-        // Refresh the user profile
+        // Refresh the user profile to get the latest status
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("*")
@@ -187,9 +192,9 @@ const ConfirmEmail = () => {
         }
         
         if (profileData) {
-          // Check if email is confirmed
-          const isConfirmed = 'email_confirmed' in profileData ? 
-            profileData.email_confirmed === true : false;
+          // Default to confirmed if property doesn't exist
+          const isConfirmed = !('email_confirmed' in profileData) || 
+            profileData.email_confirmed === true;
           
           if (isConfirmed) {
             toast({
@@ -199,6 +204,26 @@ const ConfirmEmail = () => {
             navigate("/");
             return;
           }
+        }
+      } else if (emailFromState) {
+        // If we only have email from state, we can try to sign in to check status
+        try {
+          const { data } = await supabase.auth.signInWithOtp({
+            email: emailFromState,
+            options: {
+              shouldCreateUser: false
+            }
+          });
+          
+          if (data) {
+            toast({
+              title: "Verificación enviada",
+              description: "Se ha enviado un enlace de verificación a tu correo. Por favor, revisa tu bandeja de entrada.",
+            });
+            return;
+          }
+        } catch (e) {
+          console.error("Error checking auth status:", e);
         }
       }
       
@@ -216,7 +241,7 @@ const ConfirmEmail = () => {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setChecking(false);
     }
   };
 
@@ -298,9 +323,9 @@ const ConfirmEmail = () => {
             <Button 
               onClick={checkEmailStatus}
               className="w-full bg-dynamo-600 hover:bg-dynamo-700"
-              disabled={loading}
+              disabled={checking}
             >
-              {loading ? (
+              {checking ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verificando...</>
               ) : (
                 'Ya confirmé mi correo'
@@ -311,9 +336,9 @@ const ConfirmEmail = () => {
               variant="outline"
               onClick={resendConfirmationEmail}
               className="w-full"
-              disabled={loading}
+              disabled={resending}
             >
-              {loading ? (
+              {resending ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</>
               ) : (
                 'Reenviar correo de confirmación'
@@ -324,7 +349,6 @@ const ConfirmEmail = () => {
               variant="ghost"
               onClick={goToLogin}
               className="w-full text-gray-600"
-              disabled={loading}
             >
               Volver a inicio de sesión
             </Button>

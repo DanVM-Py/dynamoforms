@@ -39,33 +39,19 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       // Clear any existing session first to avoid conflicts
       await supabase.auth.signOut();
       
-      // Attempt to sign in with explicit timeout
-      const signinPromise = supabase.auth.signInWithPassword({
+      // Attempt to sign in
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       
-      // Set a timeout to avoid hanging forever
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Tiempo de espera excedido")), 10000);
-      });
-      
-      // Race the signin against the timeout
-      const { data, error } = await Promise.race([
-        signinPromise,
-        timeoutPromise.then(() => ({ data: null, error: new Error("Tiempo de espera excedido") }))
-      ]) as any;
-      
       if (error) {
-        // Handle specific error cases
         if (error.message.includes("Invalid login credentials")) {
           throw new Error("Credenciales inválidas. El correo o la contraseña son incorrectos.");
         } else if (error.message.includes("Email not confirmed")) {
           throw new Error("Correo electrónico no confirmado. Por favor, verifica tu correo.");
         } else if (error.message.includes("User not found")) {
           throw new Error("Este correo electrónico no está registrado en el sistema.");
-        } else if (error.message.includes("Tiempo de espera")) {
-          throw new Error("La solicitud tardó demasiado tiempo. Por favor, intenta de nuevo.");
         } else {
           throw error;
         }
@@ -86,18 +72,18 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         
       if (profileError) {
         console.error("Error al obtener perfil:", profileError);
-        // Continue with standard login flow but log the error
       } else if (profileData) {
-        // Check email confirmation status
+        // Check if email confirmation is required and not confirmed
         const needsConfirmation = 'email_confirmed' in profileData && 
-                                  profileData.email_confirmed === false;
+                                 profileData.email_confirmed === false;
         
         if (needsConfirmation) {
+          console.log("Email not confirmed, redirecting to confirmation page");
           toast({
             title: "Correo no confirmado",
             description: "Es necesario confirmar tu correo electrónico para continuar.",
           });
-          navigate("/confirm-email", { replace: true });
+          navigate("/confirm-email", { replace: true, state: { email } });
           return;
         }
       }

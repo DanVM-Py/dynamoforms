@@ -1,7 +1,5 @@
-
 import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
-import { PageContainer } from './components/layout/PageContainer';
 
 // Lazy-loaded components
 const Auth = lazy(() => import("./pages/Auth"));
@@ -35,23 +33,19 @@ const Loading = () => (
 );
 
 // Route configuration
-// Note: Auth page is public and doesn't need ProtectedRoute
+// Note: Auth and confirm-email pages are public routes without ProtectedRoute
 export const router = createBrowserRouter([
   {
     path: "/auth",
     element: <Suspense fallback={<Loading />}><Auth /></Suspense>,
   },
   {
-    path: "/",
-    element: (
-      <Suspense fallback={<Loading />}><Index /></Suspense>
-    ),
+    path: "/confirm-email",
+    element: <Suspense fallback={<Loading />}><ConfirmEmail /></Suspense>,
   },
   {
-    path: "/confirm-email",
-    element: (
-      <Suspense fallback={<Loading />}><ConfirmEmail /></Suspense>
-    ),
+    path: "/",
+    element: <Suspense fallback={<Loading />}><Index /></Suspense>,
   },
   {
     path: "/no-project-access",
