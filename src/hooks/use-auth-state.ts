@@ -34,7 +34,20 @@ export function useAuthState() {
       if (data) {
         console.log("User profile found:", data);
         setUserProfile(data);
-        setIsGlobalAdmin(data.role === "global_admin");
+        
+        // En lugar de confiar en el campo role directamente, vamos a verificar el rol
+        // usando la función is_global_admin para admin global
+        const { data: isAdminData, error: isAdminError } = await supabase
+          .rpc('is_global_admin', { user_uuid: userId });
+          
+        if (isAdminError) {
+          console.error("Error checking global admin status:", isAdminError);
+        } else {
+          console.log("User is global admin:", isAdminData);
+          setIsGlobalAdmin(isAdminData === true);
+        }
+        
+        // Para approver, seguimos verificando el campo role
         setIsApprover(data.role === "approver");
       } else {
         console.log("No user profile found");
