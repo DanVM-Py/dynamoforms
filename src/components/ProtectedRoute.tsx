@@ -88,10 +88,20 @@ const ProtectedRoute = ({
     );
   }
 
-  // Step 1: Check if user is authenticated
-  if (!user && location.pathname !== "/auth") {
+  // Special case - auth page should be accessible when not logged in
+  // But redirect to homepage if already logged in
+  if (location.pathname === "/auth" && user) {
+    console.log("ProtectedRoute: Already authenticated, redirecting to home page");
+    return <Navigate to="/" replace />;
+  }
+
+  // Step 1: Check if user is authenticated (except for auth page and public routes)
+  const isPublicRoute = location.pathname.startsWith("/public") || location.pathname === "/auth";
+  if (!user && !isPublicRoute) {
     console.log("ProtectedRoute: User not authenticated, redirecting to auth page");
-    return <Navigate to="/auth" replace />;
+    // Save the current path to redirect back after login
+    const currentPath = location.pathname;
+    return <Navigate to={`/auth${currentPath !== "/" ? `?redirect=${currentPath}` : ""}`} replace />;
   }
 
   // Step 2: Check if email is confirmed
@@ -118,6 +128,7 @@ const ProtectedRoute = ({
     return <Navigate to="/" replace />;
   }
 
+  // If we got here, render the children
   return <>{children}</>;
 };
 

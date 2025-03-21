@@ -1,4 +1,3 @@
-
 import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
@@ -25,25 +24,6 @@ const Notifications = lazy(() => import("./pages/Notifications"));
 const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Monitoring = lazy(() => import("./pages/Monitoring"));
-
-// Log before rendering the task-templates route
-const TaskTemplatesWrapper = () => {
-  const { user, loading } = useAuth();
-  
-  console.log('ProtectedRoute: task-templates path detected', {
-    path: '/task-templates',
-    user: !!user,
-    loading
-  });
-  
-  return (
-    <PageContainer>
-      <Suspense fallback={<div>Loading...</div>}>
-        <TaskTemplates />
-      </Suspense>
-    </PageContainer>
-  );
-};
 
 // Loading component with better feedback
 const Loading = () => (
@@ -85,7 +65,6 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
   },
-  // Nueva ruta para el Editor de Formularios (solo global_admin)
   {
     path: "/forms-editor",
     element: (
@@ -94,7 +73,6 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
   },
-  // Nueva ruta para crear/editar un formulario específico
   {
     path: "/forms-editor/:formId/edit",
     element: (
@@ -103,7 +81,6 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
   },
-  // Ruta de formularios accesible para todos los usuarios
   {
     path: "/forms",
     element: (

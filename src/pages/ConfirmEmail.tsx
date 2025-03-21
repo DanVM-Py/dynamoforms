@@ -78,6 +78,11 @@ const ConfirmEmail = () => {
     }
   };
 
+  // Add a button to go back to login
+  const goToLogin = () => {
+    navigate("/auth");
+  };
+
   return (
     <PageContainer hideSidebar className="flex items-center justify-center p-0">
       <div className="w-full max-w-md px-4">
@@ -125,6 +130,15 @@ const ConfirmEmail = () => {
               ) : (
                 'Reenviar correo de confirmación'
               )}
+            </Button>
+            
+            <Button 
+              variant="ghost"
+              onClick={goToLogin}
+              className="w-full text-gray-600"
+              disabled={loading}
+            >
+              Volver a inicio de sesión
             </Button>
           </CardFooter>
         </Card>
