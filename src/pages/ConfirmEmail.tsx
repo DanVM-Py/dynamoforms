@@ -4,9 +4,10 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { Loader2, MailCheck } from "lucide-react";
+import { Loader2, MailCheck, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const ConfirmEmail = () => {
   const [loading, setLoading] = useState(false);
@@ -16,6 +17,7 @@ const ConfirmEmail = () => {
   const [resendCount, setResendCount] = useState(0);
   const [lastResendTime, setLastResendTime] = useState<Date | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -28,18 +30,26 @@ const ConfirmEmail = () => {
     const checkSession = async () => {
       try {
         setSessionChecking(true);
+        setErrorMessage(null);
+        
+        // Set a timeout to avoid infinite loading
+        const timeoutId = setTimeout(() => {
+          if (sessionChecking) {
+            console.log("Session check timeout reached");
+            setSessionChecking(false);
+          }
+        }, 5000);
         
         // Get current session
         const { data, error } = await supabase.auth.getSession();
         
+        // Clear timeout as we got a response
+        clearTimeout(timeoutId);
+        
         if (error) {
           console.error("Error al verificar sesión:", error);
-          toast({
-            title: "Error de sesión",
-            description: "No se pudo verificar tu sesión. Por favor, inicia sesión nuevamente.",
-            variant: "destructive",
-          });
-          navigate("/auth", { replace: true });
+          setErrorMessage("No se pudo verificar tu sesión. Por favor, inicia sesión nuevamente.");
+          setTimeout(() => navigate("/auth", { replace: true }), 3000);
           return;
         }
         
@@ -53,12 +63,8 @@ const ConfirmEmail = () => {
         // No session found and no email from state
         if (!data.session && !emailFromState) {
           console.log("No se encontró sesión activa ni email de estado, redirigiendo a login");
-          toast({
-            title: "Sesión no encontrada",
-            description: "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
-            variant: "destructive",
-          });
-          navigate("/auth", { replace: true });
+          setErrorMessage("Tu sesión ha expirado. Por favor, inicia sesión nuevamente.");
+          setTimeout(() => navigate("/auth", { replace: true }), 3000);
           return;
         }
         
@@ -86,40 +92,28 @@ const ConfirmEmail = () => {
                 title: "Correo ya confirmado",
                 description: "Tu correo ya ha sido confirmado. Redirigiendo al inicio.",
               });
-              navigate("/", { replace: true });
+              setTimeout(() => navigate("/", { replace: true }), 1500);
               return;
             }
           }
         }
       } catch (error) {
         console.error("Error en verificación de sesión:", error);
+        setErrorMessage("Ocurrió un error al verificar tu sesión.");
       } finally {
         setSessionChecking(false);
       }
     };
     
     checkSession();
-    
-    // Set a timeout to avoid infinite loading
-    const timeoutId = setTimeout(() => {
-      if (sessionChecking) {
-        console.log("Session check timeout reached");
-        setSessionChecking(false);
-      }
-    }, 3000);
-    
-    return () => clearTimeout(timeoutId);
-  }, [navigate, toast, emailFromState]);
+  }, [navigate, toast, emailFromState, sessionChecking]);
 
   const resendConfirmationEmail = async () => {
     const userEmail = user?.email || emailFromState;
+    setErrorMessage(null);
     
     if (!userEmail) {
-      toast({
-        title: "Error",
-        description: "No se pudo determinar tu dirección de email.",
-        variant: "destructive",
-      });
+      setErrorMessage("No se pudo determinar tu dirección de email.");
       return;
     }
     
@@ -152,11 +146,7 @@ const ConfirmEmail = () => {
       });
     } catch (error: any) {
       console.error("Error al reenviar correo:", error);
-      toast({
-        title: "Error al enviar correo",
-        description: error.message || "No se pudo enviar el correo de confirmación",
-        variant: "destructive",
-      });
+      setErrorMessage(error.message || "No se pudo enviar el correo de confirmación");
     } finally {
       setResending(false);
     }
@@ -165,16 +155,13 @@ const ConfirmEmail = () => {
   const checkEmailStatus = async () => {
     try {
       setChecking(true);
+      setErrorMessage(null);
       
       console.log("Verificando estado de confirmación de correo...");
       
       if (!user && !emailFromState) {
-        toast({
-          title: "Error",
-          description: "No se pudo determinar tu sesión. Por favor, inicia sesión nuevamente.",
-          variant: "destructive",
-        });
-        navigate("/auth");
+        setErrorMessage("No se pudo determinar tu sesión. Por favor, inicia sesión nuevamente.");
+        setTimeout(() => navigate("/auth"), 2000);
         return;
       }
       
@@ -228,18 +215,10 @@ const ConfirmEmail = () => {
       }
       
       // If we get here, the email is not confirmed
-      toast({
-        title: "Correo no confirmado",
-        description: "Tu correo aún no ha sido confirmado. Por favor, revisa tu bandeja de entrada y carpeta de spam.",
-        variant: "destructive",
-      });
+      setErrorMessage("Tu correo aún no ha sido confirmado. Por favor, revisa tu bandeja de entrada y carpeta de spam.");
     } catch (error: any) {
       console.error("Error al verificar estado del correo:", error);
-      toast({
-        title: "Error al verificar correo",
-        description: error.message || "No se pudo verificar el estado de confirmación de tu correo",
-        variant: "destructive",
-      });
+      setErrorMessage(error.message || "No se pudo verificar el estado de confirmación de tu correo");
     } finally {
       setChecking(false);
     }
@@ -289,6 +268,13 @@ const ConfirmEmail = () => {
           </CardHeader>
           
           <CardContent className="space-y-4">
+            {errorMessage && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
+            
             <div className="bg-amber-50 border border-amber-200 rounded-md p-4 text-amber-800">
               <p className="text-sm">
                 Te hemos enviado un correo de confirmación a{" "}

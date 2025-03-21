@@ -24,14 +24,14 @@ const ProtectedRoute = ({
   const [hasProjectAccess, setHasProjectAccess] = useState<boolean | null>(null);
   const [checkingProjectAccess, setCheckingProjectAccess] = useState(false);
   
-  // Add a time limit to force continuation after 15 seconds (increased from 3) to avoid infinite loading
+  // Set a time limit for loading states to prevent infinite loading
   useEffect(() => {
     const timer = setTimeout(() => {
       if (loading || checkingProjectAccess) {
         console.log("Tiempo de espera para carga alcanzado, continuando con estado actual");
         setShowLoading(false);
       }
-    }, 15000);
+    }, 10000); // 10 seconds
     
     return () => clearTimeout(timer);
   }, [loading, checkingProjectAccess]);
@@ -45,8 +45,7 @@ const ProtectedRoute = ({
       loading, 
       isGlobalAdmin, 
       isProjectAdmin,
-      hasProjectAccess,
-      userProfile
+      hasProjectAccess
     });
   }, [user, userProfile, loading, isGlobalAdmin, isProjectAdmin, hasProjectAccess, location.pathname]);
   
@@ -95,6 +94,7 @@ const ProtectedRoute = ({
     }
   }, [user, isGlobalAdmin, requireProjectAccess]);
   
+  // Show loading state
   if ((loading || checkingProjectAccess) && showLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
@@ -108,45 +108,39 @@ const ProtectedRoute = ({
   }
 
   // Always allow access to authentication page and public routes
-  if (location.pathname === "/auth" || location.pathname.startsWith("/public")) {
+  if (location.pathname === "/auth" || 
+      location.pathname.startsWith("/public") || 
+      location.pathname === "/confirm-email") {
     return <>{children}</>;
   }
 
-  // Step 1: Check if user is authenticated (except for auth page and public routes)
-  const isPublicRoute = location.pathname.startsWith("/public") || location.pathname === "/auth";
-  if (!user && !isPublicRoute) {
+  // Check if user is authenticated (except for auth page and public routes)
+  if (!user) {
     console.log("ProtectedRoute: Usuario no autenticado, redirigiendo a página de autenticación");
     // Save current path for redirect after login
     const currentPath = location.pathname;
     return <Navigate to={`/auth${currentPath !== "/" ? `?redirect=${currentPath}` : ""}`} replace />;
   }
 
-  // Special handling for confirm-email page - accessible if user is authenticated
-  // regardless of email confirmation status
-  if (location.pathname === "/confirm-email") {
-    // For confirm-email page, only need user to be authenticated
-    return <>{children}</>;
-  }
-
-  // Step 2: Check if email is confirmed for all routes except confirm-email
-  if (user && userProfile && userProfile.email_confirmed === false && location.pathname !== "/confirm-email") {
+  // Check if email is confirmed for all protected routes
+  if (user && userProfile && userProfile.email_confirmed === false) {
     console.log("ProtectedRoute: Correo no confirmado, redirigiendo a página de confirmación de correo");
     return <Navigate to="/confirm-email" replace />;
   }
 
-  // Step 3: Check if user has access to any project
+  // Check if user has access to any project
   if (requireProjectAccess && hasProjectAccess === false && location.pathname !== "/no-project-access") {
     console.log("ProtectedRoute: Sin acceso a proyecto, redirigiendo a página de sin acceso a proyecto");
     return <Navigate to="/no-project-access" replace />;
   }
 
-  // Step 4: Check global admin access
+  // Check global admin access
   if (requireGlobalAdmin && !isGlobalAdmin) {
     console.log("Acceso denegado: Se requiere administrador global");
     return <Navigate to="/" replace />;
   }
 
-  // Step 5: Check project admin access
+  // Check project admin access
   if (requireProjectAdmin && !isProjectAdmin && !isGlobalAdmin) {
     console.log("Acceso denegado: Se requiere administrador de proyecto");
     return <Navigate to="/" replace />;

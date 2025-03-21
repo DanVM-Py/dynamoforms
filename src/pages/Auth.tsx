@@ -37,8 +37,19 @@ const Auth = () => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // Set a timeout to avoid infinite loading
+        const timeoutId = setTimeout(() => {
+          if (loading) {
+            console.log("Auth check timeout reached");
+            setLoading(false);
+          }
+        }, 5000);
+        
         // Get current session
         const { data, error } = await supabase.auth.getSession();
+        
+        // Clear timeout as we got a response
+        clearTimeout(timeoutId);
         
         if (error) {
           console.error("Session check error:", error);
@@ -95,18 +106,8 @@ const Auth = () => {
       }
     };
     
-    // Set a reasonable timeout to avoid infinite loading
-    const timeoutId = setTimeout(() => {
-      if (loading) {
-        console.log("Auth check timeout reached");
-        setLoading(false);
-      }
-    }, 3000);
-    
     checkAuth();
-    
-    return () => clearTimeout(timeoutId);
-  }, [navigate, redirectTo]);
+  }, [navigate, redirectTo, loading]);
 
   // Show auth card if not loading
   if (!loading) {

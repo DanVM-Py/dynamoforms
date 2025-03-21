@@ -3,6 +3,8 @@ import { Card, CardHeader, CardDescription, CardTitle } from "@/components/ui/ca
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoginForm } from "./LoginForm";
 import { SignUpForm } from "./SignUpForm";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle2 } from "lucide-react";
 
 interface AuthCardProps {
   redirectTo: string;
@@ -21,6 +23,17 @@ export const AuthCard = ({ redirectTo, confirmationSuccess }: AuthCardProps) => 
               "Plataforma de gestión de formularios"}
           </CardDescription>
         </CardHeader>
+        
+        {confirmationSuccess && (
+          <div className="mx-6 mb-4">
+            <Alert className="bg-green-50 border-green-200">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-700">
+                Tu correo ha sido confirmado correctamente. Ahora puedes iniciar sesión.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
         
         <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid grid-cols-2 mb-4">

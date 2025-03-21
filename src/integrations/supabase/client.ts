@@ -47,51 +47,22 @@ const supabaseClient = createClient<Database>(
       schema: 'public'
     },
     global: {
-      headers: getDefaultHeaders()
+      headers: getDefaultHeaders(),
+      fetch: (url, options = {}) => {
+        // Add a request timeout
+        return Promise.race([
+          fetch(url, options),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout')), 15000)
+          ),
+        ]) as Promise<Response>;
+      }
     }
   }
 );
-
-// Create an admin client that doesn't include project headers
-// This is useful for global admin operations that aren't scoped to a project
-const supabaseAdminClient = createClient<Database>(
-  config.supabaseUrl, 
-  config.supabaseAnonKey,
-  {
-    auth: {
-      storageKey: config.storage.authTokenKey,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
-      storage: localStorage,
-    },
-    db: {
-      schema: 'public'
-    }
-  }
-);
-
-// Update headers based on current project ID
-supabaseClient.realtime.setAuth(config.supabaseAnonKey);
-
-// Log initialization in development
-if (environment !== 'production') {
-  console.log(`Supabase clients initialized for ${environment} environment`);
-}
 
 // Export the main API client as the default supabase client
 export const supabase = supabaseClient;
-
-// Export the admin client for global admin operations
-export const supabaseAdmin = supabaseAdminClient;
-
-// Maintain service-specific names for backward compatibility
-// but use the same client instance to avoid multiple client warnings
-export const authClient = supabase;
-export const projectsClient = supabase;
-export const formsClient = supabase;
-export const tasksClient = supabase;
-export const notificationsClient = supabase;
 
 // Function to get the current session - useful for components that need quick access
 export const getCurrentSession = async () => {
@@ -110,3 +81,10 @@ export const isAuthenticated = async () => {
   const session = await getCurrentSession();
   return !!session;
 };
+
+// Export the service clients using the same instance
+export const authClient = supabase;
+export const projectsClient = supabase;
+export const formsClient = supabase;
+export const tasksClient = supabase;
+export const notificationsClient = supabase;
