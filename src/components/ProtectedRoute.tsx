@@ -24,6 +24,19 @@ const ProtectedRoute = ({
   const [hasProjectAccess, setHasProjectAccess] = useState<boolean | null>(null);
   const [checkingProjectAccess, setCheckingProjectAccess] = useState(false);
   
+  // Debug logging to track state changes
+  useEffect(() => {
+    console.log("ProtectedRoute state:", { 
+      path: location.pathname,
+      isAuthenticated: !!user,
+      emailConfirmed: userProfile?.email_confirmed,
+      loading, 
+      isGlobalAdmin, 
+      isProjectAdmin,
+      hasProjectAccess
+    });
+  }, [user, userProfile, loading, isGlobalAdmin, isProjectAdmin, hasProjectAccess, location.pathname]);
+  
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowLoading(false);
@@ -88,12 +101,18 @@ const ProtectedRoute = ({
     );
   }
 
-  // Special case - auth page should be accessible when not logged in
-  // But redirect to homepage if already logged in
+  // Always allow access to auth page
   if (location.pathname === "/auth") {
-    // If we're on the auth page, don't automatically redirect to confirm-email
-    // Let the Auth component handle this flow to prevent redirect loops
-    console.log("On auth page, letting Auth component handle redirects");
+    return <>{children}</>;
+  }
+
+  // Allow access to confirm-email page without requiring project access or email confirmation
+  if (location.pathname === "/confirm-email") {
+    // For confirm-email page, we just need user to be authenticated
+    if (!user) {
+      console.log("No user for confirm-email page, redirecting to auth");
+      return <Navigate to="/auth" replace />;
+    }
     return <>{children}</>;
   }
 

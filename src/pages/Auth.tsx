@@ -29,6 +29,21 @@ const Auth = () => {
   // Get redirect URL from query params
   const redirectTo = searchParams.get('redirect') || '/';
 
+  // Debug logging for auth flow
+  useEffect(() => {
+    console.log("Auth component state:", {
+      userExists: !!user,
+      userProfile: userProfile ? {
+        id: userProfile.id,
+        emailConfirmed: userProfile.email_confirmed
+      } : null,
+      redirectTo,
+      confirmationSuccess,
+      currentPath: location.pathname,
+      checkingSession
+    });
+  }, [user, userProfile, redirectTo, confirmationSuccess, location.pathname, checkingSession]);
+
   // Show toast if confirmation was successful
   useEffect(() => {
     if (confirmationSuccess) {
@@ -58,6 +73,10 @@ const Auth = () => {
           // If user is authenticated and email is confirmed, redirect
           console.log("User already authenticated with confirmed email, redirecting to:", redirectTo);
           navigate(redirectTo, { replace: true });
+        } else if (user && !userProfile?.email_confirmed) {
+          // If user is authenticated but email is not confirmed, redirect to confirm-email
+          console.log("User authenticated but email not confirmed, redirecting to confirm-email");
+          navigate("/confirm-email", { replace: true });
         }
       } catch (error) {
         console.error("Error checking session:", error);
@@ -92,10 +111,17 @@ const Auth = () => {
       
       if (error) throw error;
       
-      console.log("Login successful, checking email confirmation");
+      console.log("Login successful");
       
-      // We'll let the ProtectedRoute handle the redirection based on email confirmation status
-      navigate("/", { replace: true });
+      // Check if email is confirmed through the user metadata
+      if (data.user && data.session) {
+        // If we have a user and session, we succeeded
+        // Let the auth flow handle redirects based on email confirmation status
+        toast({
+          title: "Inicio de sesión exitoso",
+          description: "Has iniciado sesión correctamente."
+        });
+      }
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error.message);
       toast({

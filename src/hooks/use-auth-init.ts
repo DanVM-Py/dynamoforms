@@ -24,7 +24,37 @@ export function useAuthInit({
         setLoading(true);
         setFetchComplete(false);
         
-        // Get current session
+        // Set up auth state change listener FIRST
+        authListener = supabase.auth.onAuthStateChange(
+          async (event, newSession) => {
+            console.log("Auth state changed:", event, !!newSession);
+            
+            // Update state based on auth event
+            if (event === 'SIGNED_OUT') {
+              // Clear all auth-related state
+              setSession(null);
+              setUser(null);
+              setFetchComplete(true);
+            } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+              // For other events, update session and user
+              setSession(newSession);
+              setUser(newSession?.user ?? null);
+              
+              if (newSession?.user) {
+                await fetchUserProfile(newSession.user.id, true);
+              } else {
+                setFetchComplete(true);
+              }
+            } else {
+              // For other events, just update session and user
+              setSession(newSession);
+              setUser(newSession?.user ?? null);
+              setFetchComplete(true);
+            }
+          }
+        );
+        
+        // THEN check for existing session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
@@ -41,29 +71,6 @@ export function useAuthInit({
         } else {
           setFetchComplete(true);
         }
-        
-        // Set up auth state change listener
-        authListener = supabase.auth.onAuthStateChange(
-          async (event, newSession) => {
-            console.log("Auth state changed:", event, !!newSession);
-            
-            // Update state based on auth event
-            if (event === 'SIGNED_OUT') {
-              // Clear all auth-related state is handled in signOut function
-              setFetchComplete(true);
-            } else {
-              // For other events, update session and user
-              setSession(newSession);
-              setUser(newSession?.user ?? null);
-              
-              if (newSession?.user) {
-                await fetchUserProfile(newSession.user.id, true);
-              } else {
-                setFetchComplete(true);
-              }
-            }
-          }
-        );
       } catch (error) {
         console.error("Error initializing auth:", error);
         setFetchComplete(true);
