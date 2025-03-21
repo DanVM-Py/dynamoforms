@@ -2,6 +2,7 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
+import { ProjectUser } from "@/types/custom";
 
 export function useAuthState() {
   const [session, setSession] = useState<Session | null>(null);
@@ -64,8 +65,11 @@ export function useAuthState() {
       if (projectUserError) {
         console.error("Error fetching project admin status:", projectUserError);
       } else {
-        // Check if any project has admin rights
-        const isAdmin = projectUserData && projectUserData.some(pu => pu.is_admin === true);
+        // Check if any project has admin rights - using type assertion to help TypeScript
+        const isAdmin = projectUserData && projectUserData.some(pu => {
+          const projectUser = pu as unknown as ProjectUser;
+          return projectUser.is_admin === true;
+        });
         console.log("User is project admin:", isAdmin);
         setIsProjectAdmin(isAdmin);
       }
