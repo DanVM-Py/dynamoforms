@@ -60,12 +60,14 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         console.error("Login error:", error.message);
         
         if (error.message.includes("Invalid login credentials")) {
-          throw new Error("Credenciales inválidas. El correo o la contraseña son incorrectos.");
+          setErrorMessage("Correo electrónico o contraseña incorrectos");
         } else if (error.message.includes("Email not confirmed")) {
-          throw new Error("Correo electrónico no confirmado. Por favor, verifica tu correo.");
+          setErrorMessage("Correo electrónico no confirmado. Por favor, verifica tu correo.");
         } else {
-          throw error;
+          setErrorMessage("Ha ocurrido un error al iniciar sesión. Inténtalo de nuevo.");
         }
+        setAuthStage("error");
+        return;
       }
       
       if (!data?.user) {
