@@ -1,4 +1,3 @@
-
 import { ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -174,7 +173,7 @@ const ProtectedRoute = ({
   // Check if email is confirmed for all protected routes
   if (user && userProfile && userProfile.email_confirmed === false) {
     console.log("ProtectedRoute: Correo no confirmado, redirigiendo a página de confirmación de correo");
-    return <Navigate to="/confirm-email" replace />;
+    return <Navigate to="/confirm-email" state={{ email: user.email }} replace />;
   }
 
   // Check if user has access to any project

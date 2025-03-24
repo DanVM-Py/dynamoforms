@@ -8,6 +8,7 @@ import { CardContent, CardFooter } from "@/components/ui/card";
 import { Loader2, AlertCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useNavigate } from "react-router-dom";
 
 interface LoginFormProps {
   redirectTo: string;
@@ -22,6 +23,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
   const [formTouched, setFormTouched] = useState(false);
   const [loginTimeoutId, setLoginTimeoutId] = useState<number | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Limpiar timeout al desmontar el componente
   useEffect(() => {
@@ -116,12 +118,41 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       setAuthStage("login successful");
       console.log("Login successful at:", Date.now(), "user ID:", data.user.id);
       
+      // Check if email is confirmed
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("email_confirmed")
+        .eq("id", data.user.id)
+        .maybeSingle();
+      
+      if (profileError) {
+        console.error("Error fetching profile:", profileError);
+      }
+      
+      // If email is not confirmed, redirect to confirmation page
+      if (profileData && profileData.email_confirmed === false) {
+        console.log("Email not confirmed, redirecting to confirmation page");
+        setAuthStage("redirecting to confirm email");
+        
+        toast({
+          title: "Confirma tu correo electrónico",
+          description: "Necesitas confirmar tu correo electrónico para continuar.",
+        });
+        
+        // Navigate to confirm email page with email info
+        navigate("/confirm-email", { 
+          state: { email: data.user.email },
+          replace: true 
+        });
+        return;
+      }
+      
       toast({
         title: "Inicio de sesión exitoso",
         description: "Has iniciado sesión correctamente.",
       });
       
-      // Forzar una actualización completa para asegurar que se limpie cualquier estado previo
+      // Email is confirmed, proceed with normal login flow
       window.location.href = redirectTo;
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error.message);
