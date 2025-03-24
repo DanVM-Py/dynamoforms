@@ -3,15 +3,16 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { FolderLock, Loader2 } from "lucide-react";
+import { FolderLock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Link } from "react-router-dom";
 
 const NoProjectAccess = () => {
   const [loading, setLoading] = useState(false);
   const [availableProjects, setAvailableProjects] = useState<any[]>([]);
-  const { user, isGlobalAdmin, refreshUserProfile } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   // Fetch available projects for non-global-admin users
@@ -20,35 +21,25 @@ const NoProjectAccess = () => {
       try {
         setLoading(true);
         
-        // Global admins can see all projects
-        if (isGlobalAdmin) {
-          const { data, error } = await supabase
-            .from('projects')
-            .select('id, name')
-            .order('name', { ascending: true });
-            
-          if (error) throw error;
+        if (!user) return;
+        
+        // Show pending invitations for regular users
+        const { data, error } = await supabase
+          .from('project_users')
+          .select('project_id, projects(id, name), status')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
           
-          setAvailableProjects(data || []);
-        } else {
-          // Show pending invitations for regular users
-          const { data, error } = await supabase
-            .from('project_users')
-            .select('project_id, projects(id, name), status')
-            .eq('user_id', user?.id)
-            .order('created_at', { ascending: false });
-            
-          if (error) throw error;
+        if (error) throw error;
+        
+        const projectsList = data
+          ?.filter(item => item.projects)
+          .map(item => ({
+            ...item.projects,
+            status: item.status
+          })) || [];
           
-          const projectsList = data
-            ?.filter(item => item.projects)
-            .map(item => ({
-              ...item.projects,
-              status: item.status
-            })) || [];
-            
-          setAvailableProjects(projectsList);
-        }
+        setAvailableProjects(projectsList);
       } catch (error: any) {
         console.error("Error fetching projects:", error);
         toast({
@@ -62,19 +53,7 @@ const NoProjectAccess = () => {
     };
     
     fetchProjects();
-  }, [user, isGlobalAdmin, toast]);
-
-  const checkProjectAccess = async () => {
-    try {
-      setLoading(true);
-      await refreshUserProfile();
-      window.location.href = "/"; // Force reload to check access again
-    } catch (error) {
-      console.error("Error checking project access:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [user, toast]);
 
   return (
     <PageContainer hideSidebar className="flex items-center justify-center p-0">
@@ -123,15 +102,10 @@ const NoProjectAccess = () => {
           
           <CardFooter>
             <Button 
-              onClick={checkProjectAccess}
+              asChild
               className="w-full bg-dynamo-600 hover:bg-dynamo-700"
-              disabled={loading}
             >
-              {loading ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verificando acceso...</>
-              ) : (
-                'Verificar acceso nuevamente'
-              )}
+              <Link to="/auth">Volver al inicio de sesión</Link>
             </Button>
           </CardFooter>
         </Card>
