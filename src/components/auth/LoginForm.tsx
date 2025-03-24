@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { CardContent, CardFooter } from "@/components/ui/card";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface LoginFormProps {
@@ -21,7 +20,6 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [authStage, setAuthStage] = useState<string>("idle");
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,10 +43,10 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       
       // Set a timeout for the auth process
       const loginTimeout = setTimeout(() => {
-        console.error("Login timeout reached after 30 seconds");
+        console.error("Login timeout reached after 60 seconds");
         console.log("Current auth stage:", authStage);
         throw new Error("El proceso de autenticación ha tomado demasiado tiempo. Por favor intenta nuevamente.");
-      }, 30000);
+      }, 60000); // Increase to 60 seconds
       
       setAuthStage("signing in");
       console.log("Signing in at:", Date.now());

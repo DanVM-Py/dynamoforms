@@ -6,6 +6,7 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { useConfirmationEffect } from "@/hooks/useConfirmationEffect";
 
 const Auth = () => {
   const [loading, setLoading] = useState(true);
@@ -19,18 +20,8 @@ const Auth = () => {
   const confirmationSuccess = searchParams.get('confirmation') === 'success';
   const redirectTo = searchParams.get('redirect') || '/';
 
-  // Show confirmation toast if needed
-  useEffect(() => {
-    if (confirmationSuccess) {
-      toast({
-        title: "Email confirmado",
-        description: "Tu correo ha sido confirmado correctamente. Ahora puedes iniciar sesión.",
-      });
-      
-      // Remove the query parameter to avoid showing the toast again on refresh
-      navigate('/auth', { replace: true });
-    }
-  }, [confirmationSuccess, toast, navigate]);
+  // Use the extracted confirmation effect hook
+  useConfirmationEffect(confirmationSuccess);
 
   // Check authentication status
   useEffect(() => {
@@ -76,7 +67,7 @@ const Auth = () => {
       console.log("Auth check timeout reached");
       console.log("Current state:", { loading, authCheckStarted });
       setLoading(false);
-    }, 8000); // Reduced timeout to 8 seconds
+    }, 15000); // Set timeout to 15 seconds
     
     return () => clearTimeout(timeoutId);
   }, [navigate, redirectTo, loading, authCheckStarted]);
@@ -85,10 +76,7 @@ const Auth = () => {
   if (!loading) {
     return (
       <PageContainer hideSidebar className="flex items-center justify-center p-0">
-        <AuthCard 
-          redirectTo={redirectTo} 
-          confirmationSuccess={confirmationSuccess} 
-        />
+        <AuthCard redirectTo={redirectTo} confirmationSuccess={confirmationSuccess} />
       </PageContainer>
     );
   }

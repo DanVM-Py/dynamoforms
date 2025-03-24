@@ -16,7 +16,6 @@ export const SERVICES = {
 // Create a single Supabase client instance - SINGLETON PATTERN
 // This prevents multiple instances of GoTrueClient
 let supabaseInstance = null;
-let supabaseAdminInstance = null;
 
 // Create a single instance of the Supabase client
 const createSupabaseClient = () => {
@@ -53,8 +52,8 @@ const createSupabaseClient = () => {
         fetch: (url, options) => {
           return fetch(url, {
             ...options,
-            // Increase to 45 seconds for more margin
-            signal: options?.signal || AbortSignal.timeout(45000)
+            // Increase to 60 seconds for more margin
+            signal: options?.signal || AbortSignal.timeout(60000)
           });
         }
       }
@@ -64,50 +63,12 @@ const createSupabaseClient = () => {
   return supabaseInstance;
 };
 
-// Create an admin client with the same config but no project headers
-// This is used for operations that need to work across projects
-const createAdminClient = () => {
-  if (supabaseAdminInstance) {
-    return supabaseAdminInstance;
-  }
-
-  const supabaseUrl = config.supabaseUrl;
-  const supabaseAnonKey = config.supabaseAnonKey;
-  
-  console.log("Initializing Supabase admin client");
-  
-  supabaseAdminInstance = createClient<Database>(
-    supabaseUrl, 
-    supabaseAnonKey,
-    {
-      auth: {
-        storageKey: `${config.storage.authTokenKey}-admin`, // Use a different storage key for admin client
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-      },
-      global: {
-        headers: {},
-        // Increase timeout to prevent quick timeouts
-        fetch: (url, options) => {
-          return fetch(url, {
-            ...options,
-            // Increase to 45 seconds
-            signal: options?.signal || AbortSignal.timeout(45000)
-          });
-        }
-      }
-    }
-  );
-
-  return supabaseAdminInstance;
-};
-
-// Create only one instance and export it
+// Create a single instance and export it
 export const supabase = createSupabaseClient();
 
-// Create and export the admin client
-export const supabaseAdmin = createAdminClient();
+// Since other parts of the code expect an adminClient, we'll provide it
+// but make it use the same instance to avoid multiple GoTrueClient instances
+export const supabaseAdmin = supabase;
 
 // Function to get the current session - useful for components that need quick access
 export const getCurrentSession = async () => {
