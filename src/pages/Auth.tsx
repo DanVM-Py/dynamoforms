@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 
 const Auth = () => {
   const [loading, setLoading] = useState(true);
+  const [authCheckStarted, setAuthCheckStarted] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -33,12 +34,18 @@ const Auth = () => {
 
   // Check authentication status
   useEffect(() => {
+    if (authCheckStarted) return; // Prevent multiple auth checks
+    
     const checkAuth = async () => {
       try {
+        setAuthCheckStarted(true);
         console.log("Checking authentication status...");
+        console.log("Auth check started at:", Date.now());
         
         // Get current session with a simpler approach
         const { data, error } = await supabase.auth.getSession();
+        
+        console.log("Auth check completed at:", Date.now());
         
         if (error) {
           console.error("Session check error:", error);
@@ -67,11 +74,12 @@ const Auth = () => {
     // Set a backup timeout to prevent infinite loading state
     const timeoutId = setTimeout(() => {
       console.log("Auth check timeout reached");
+      console.log("Current state:", { loading, authCheckStarted });
       setLoading(false);
-    }, 2000); // Reduced timeout to just 2 seconds
+    }, 8000); // Reduced timeout to 8 seconds
     
     return () => clearTimeout(timeoutId);
-  }, [navigate, redirectTo]);
+  }, [navigate, redirectTo, loading, authCheckStarted]);
 
   // Show auth card if not loading
   if (!loading) {

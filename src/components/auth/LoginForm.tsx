@@ -19,29 +19,47 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [authStage, setAuthStage] = useState<string>("idle");
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setAuthStage("validating");
     
     if (!email || !password) {
       setErrorMessage("Por favor ingresa tu correo y contraseña.");
+      setAuthStage("idle");
       return;
     }
     
     try {
       setLoading(true);
       console.log("Attempting login with:", email);
+      console.log("Login process started at:", Date.now());
       
       // Clear any previous sessions to avoid conflicts
+      setAuthStage("clearing previous session");
       await supabase.auth.signOut();
       
+      // Set a timeout for the auth process
+      const loginTimeout = setTimeout(() => {
+        console.error("Login timeout reached after 30 seconds");
+        console.log("Current auth stage:", authStage);
+        throw new Error("El proceso de autenticación ha tomado demasiado tiempo. Por favor intenta nuevamente.");
+      }, 30000);
+      
+      setAuthStage("signing in");
+      console.log("Signing in at:", Date.now());
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
+      console.log("Sign in response received at:", Date.now());
+      
+      // Clear the timeout as we got a response
+      clearTimeout(loginTimeout);
       
       if (error) {
         console.error("Login error:", error.message);
@@ -59,7 +77,8 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         throw new Error("No se pudo iniciar sesión. Inténtalo de nuevo.");
       }
       
-      console.log("Login successful, user ID:", data.user.id);
+      setAuthStage("login successful");
+      console.log("Login successful at:", Date.now(), "user ID:", data.user.id);
       
       toast({
         title: "Inicio de sesión exitoso",
@@ -68,10 +87,13 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       
       // Simple navigation without state management issues
       console.log("Redirecting to:", redirectTo);
+      setAuthStage("redirecting");
       window.location.href = redirectTo; // Force a complete page refresh
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error.message);
+      console.log("Final auth stage before error:", authStage);
       setErrorMessage(error.message);
+      setAuthStage("error");
     } finally {
       setLoading(false);
     }
@@ -123,7 +145,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
           disabled={loading}
         >
           {loading ? (
-            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Procesando...</>
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {authStage === "idle" ? "Procesando..." : `${authStage}...`}</>
           ) : (
             'Iniciar sesión'
           )}

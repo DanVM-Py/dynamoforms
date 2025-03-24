@@ -18,6 +18,7 @@ export function useAuthInit({
   // Use a ref to prevent unnecessary re-renders and track initialization
   const initialized = useRef(false);
   const authListenerRef = useRef<any>(null);
+  const timeoutRef = useRef<any>(null);
 
   useEffect(() => {
     // Prevent duplicate initialization
@@ -34,7 +35,18 @@ export function useAuthInit({
         setLoading(true);
         setFetchComplete(false);
         
+        // Set a timeout to prevent hanging forever
+        timeoutRef.current = setTimeout(() => {
+          console.log("Auth initialization timeout reached after 30 seconds");
+          console.log("Current initialization state:");
+          console.log("- Auth listener:", !!authListenerRef.current);
+          console.log("- Initialization completed:", initialized.current);
+          setLoading(false);
+          setFetchComplete(true);
+        }, 30000);
+        
         // Set up auth listener FIRST (before checking session)
+        console.log("Setting up auth state listener...");
         authListenerRef.current = supabase.auth.onAuthStateChange(
           async (event, newSession) => {
             console.log("Auth state changed:", event, !!newSession, "User:", newSession?.user?.email);
@@ -53,8 +65,9 @@ export function useAuthInit({
               // For sign in and token refresh, fetch user profile
               console.log("User authenticated, fetching profile for:", newSession.user.email);
               try {
+                console.log("Starting profile fetch at:", Date.now());
                 await fetchUserProfile(newSession.user.id, true);
-                console.log("Profile fetch completed successfully for:", newSession.user.email);
+                console.log("Profile fetch completed successfully at:", Date.now(), "for:", newSession.user.email);
               } catch (error) {
                 console.error("Profile fetch failed after auth event:", error);
               } finally {
@@ -71,17 +84,16 @@ export function useAuthInit({
           }
         );
         
-        // Add a timeout to prevent hanging
-        const authTimeout = setTimeout(() => {
-          console.log("Auth initialization timeout reached, continuing...");
-          setLoading(false);
-          setFetchComplete(true);
-        }, 10000);
+        console.log("Auth listener set up successfully");
         
         // SECOND: Check for existing session AFTER listener is set
         try {
           console.log("Checking for existing session...");
+          console.log("Session check started at:", Date.now());
+          
           const { data, error: sessionError } = await supabase.auth.getSession();
+          
+          console.log("Session check completed at:", Date.now());
           
           if (sessionError) {
             console.error("Error retrieving session:", sessionError);
@@ -95,9 +107,11 @@ export function useAuthInit({
             // Only fetch profile if we have a user
             if (data.session?.user) {
               console.log("Fetching profile for existing user:", data.session.user.email);
+              console.log("Profile fetch started at:", Date.now());
+              
               try {
                 await fetchUserProfile(data.session.user.id, true);
-                console.log("Initial profile fetch succeeded for:", data.session.user.email);
+                console.log("Initial profile fetch succeeded at:", Date.now(), "for:", data.session.user.email);
               } catch (error) {
                 console.error("Initial profile fetch failed:", error);
               }
@@ -110,7 +124,10 @@ export function useAuthInit({
         }
         
         // Clear the timeout since we've completed the session check
-        clearTimeout(authTimeout);
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
         
         // Complete initialization regardless of profile fetch
         console.log("Auth initialization complete");
@@ -126,7 +143,7 @@ export function useAuthInit({
     // Start the initialization process
     initializeAuth();
     
-    // Clean up listener on component unmount
+    // Clean up listener and timeouts on component unmount
     return () => {
       if (authListenerRef.current) {
         try {
@@ -136,6 +153,11 @@ export function useAuthInit({
         } catch (error) {
           console.error("Auth listener cleanup failed:", error);
         }
+      }
+      
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
     };
   }, [setSession, setUser, setLoading, fetchUserProfile, setFetchComplete]);

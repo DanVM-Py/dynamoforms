@@ -13,8 +13,17 @@ export const SERVICES = {
   NOTIFICATIONS: 'notifications'
 };
 
+// Create a single Supabase client instance - SINGLETON PATTERN
+// This prevents multiple instances of GoTrueClient
+let supabaseInstance = null;
+let supabaseAdminInstance = null;
+
 // Create a single instance of the Supabase client
 const createSupabaseClient = () => {
+  if (supabaseInstance) {
+    return supabaseInstance;
+  }
+
   const supabaseUrl = config.supabaseUrl;
   const supabaseAnonKey = config.supabaseAnonKey;
   
@@ -28,7 +37,7 @@ const createSupabaseClient = () => {
     }
   });
   
-  return createClient<Database>(
+  supabaseInstance = createClient<Database>(
     supabaseUrl, 
     supabaseAnonKey,
     {
@@ -44,27 +53,35 @@ const createSupabaseClient = () => {
         fetch: (url, options) => {
           return fetch(url, {
             ...options,
-            // Increase to 30 seconds
-            signal: options?.signal || AbortSignal.timeout(30000)
+            // Increase to 45 seconds for more margin
+            signal: options?.signal || AbortSignal.timeout(45000)
           });
         }
       }
     }
   );
+
+  return supabaseInstance;
 };
 
 // Create an admin client with the same config but no project headers
 // This is used for operations that need to work across projects
 const createAdminClient = () => {
+  if (supabaseAdminInstance) {
+    return supabaseAdminInstance;
+  }
+
   const supabaseUrl = config.supabaseUrl;
   const supabaseAnonKey = config.supabaseAnonKey;
   
-  return createClient<Database>(
+  console.log("Initializing Supabase admin client");
+  
+  supabaseAdminInstance = createClient<Database>(
     supabaseUrl, 
     supabaseAnonKey,
     {
       auth: {
-        storageKey: config.storage.authTokenKey,
+        storageKey: `${config.storage.authTokenKey}-admin`, // Use a different storage key for admin client
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
@@ -75,13 +92,15 @@ const createAdminClient = () => {
         fetch: (url, options) => {
           return fetch(url, {
             ...options,
-            // Increase to 30 seconds
-            signal: options?.signal || AbortSignal.timeout(30000)
+            // Increase to 45 seconds
+            signal: options?.signal || AbortSignal.timeout(45000)
           });
         }
       }
     }
   );
+
+  return supabaseAdminInstance;
 };
 
 // Create only one instance and export it
@@ -93,8 +112,25 @@ export const supabaseAdmin = createAdminClient();
 // Function to get the current session - useful for components that need quick access
 export const getCurrentSession = async () => {
   try {
+    console.log("Requesting current session...");
+    const startTime = Date.now();
+    
     const { data, error } = await supabase.auth.getSession();
-    if (error) throw error;
+    
+    const endTime = Date.now();
+    console.log(`Session request completed in ${endTime - startTime}ms`);
+    
+    if (error) {
+      console.error("Error getting current session:", error);
+      throw error;
+    }
+    
+    if (data.session) {
+      console.log("Session found, user:", data.session.user.email);
+    } else {
+      console.log("No active session found");
+    }
+    
     return data.session;
   } catch (e) {
     console.error("Error getting current session:", e);
