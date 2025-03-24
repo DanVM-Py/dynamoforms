@@ -32,7 +32,7 @@ const createSupabaseClient = () => {
     authSettings: {
       storageKey: config.storage.authTokenKey,
       autoRefreshToken: true,
-      persistSession: true
+      persistSession: false // Cambiado a false para evitar persistencia de sesión
     }
   });
   
@@ -43,7 +43,7 @@ const createSupabaseClient = () => {
       auth: {
         storageKey: config.storage.authTokenKey,
         autoRefreshToken: true,
-        persistSession: true,
+        persistSession: false, // Cambiado a false para evitar persistencia de sesión
         detectSessionInUrl: true,
       },
       global: {

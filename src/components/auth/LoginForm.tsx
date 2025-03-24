@@ -71,18 +71,18 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       console.log("Attempting login with:", email);
       console.log("Login process started at:", Date.now());
       
-      // Clear any previous sessions to avoid conflicts
+      // Primero limpiar cualquier sesión anterior
       setAuthStage("clearing previous session");
       await supabase.auth.signOut();
       
-      // Set a timeout for the auth process
+      // Establecer un timeout para el proceso de autenticación
       const timeoutId = window.setTimeout(() => {
         console.error("Login timeout reached after 60 seconds");
         console.log("Current auth stage:", authStage);
         setErrorMessage("El proceso de autenticación ha tomado demasiado tiempo. Por favor intenta nuevamente.");
         setLoading(false);
         setAuthStage("timeout");
-      }, 60000); // Increase to 60 seconds
+      }, 60000); // 60 segundos
       
       setLoginTimeoutId(timeoutId);
       
@@ -92,9 +92,8 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         email,
         password,
       });
-      console.log("Sign in response received at:", Date.now());
       
-      // Clear the timeout as we got a response
+      // Limpiar el timeout ya que recibimos una respuesta
       clearTimeout(timeoutId);
       setLoginTimeoutId(null);
       
@@ -122,10 +121,8 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         description: "Has iniciado sesión correctamente.",
       });
       
-      // Simple navigation without state management issues
-      console.log("Redirecting to:", redirectTo);
-      setAuthStage("redirecting");
-      window.location.href = redirectTo; // Force a complete page refresh
+      // Forzar una actualización completa para asegurar que se limpie cualquier estado previo
+      window.location.href = redirectTo;
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error.message);
       console.log("Final auth stage before error:", authStage);

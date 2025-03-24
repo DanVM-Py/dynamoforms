@@ -53,7 +53,7 @@ export function useAuthInit({
         stageRef.current = "setting_up_listener";
         
         // Set up auth state change listener with detailed logging
-        authListenerRef.current = supabase.auth.onAuthStateChange(
+        const { data } = await supabase.auth.onAuthStateChange(
           async (event, newSession) => {
             console.log(`Auth state changed: ${event}`, !!newSession, "User:", newSession?.user?.email);
             console.log(`Auth state change occurred at: ${Date.now()}`);
@@ -96,6 +96,9 @@ export function useAuthInit({
             }
           }
         );
+        
+        // Store the subscription reference properly
+        authListenerRef.current = data;
         
         console.log("Auth listener set up successfully");
         stageRef.current = "listener_setup_complete";
@@ -173,7 +176,10 @@ export function useAuthInit({
       if (authListenerRef.current) {
         try {
           console.log("Cleaning up auth listener. Final stage:", stageRef.current);
-          authListenerRef.current.subscription.unsubscribe();
+          // Modificado para corregir el error de unsubscribe
+          if (authListenerRef.current.subscription) {
+            authListenerRef.current.subscription.unsubscribe();
+          }
           authListenerRef.current = null;
         } catch (error) {
           console.error("Auth listener cleanup failed:", error);

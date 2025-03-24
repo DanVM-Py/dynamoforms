@@ -61,12 +61,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log("Starting sign out process");
       
+      // Limpia el estado antes de la llamada a supabase para una respuesta inmediata en la UI
       setUser(null);
       setSession(null);
       setUserProfile(null);
       setIsGlobalAdmin(false);
       setIsProjectAdmin(false);
       setIsApprover(false);
+      
+      // Elimina datos del localStorage y sessionStorage
+      localStorage.clear();
+      sessionStorage.clear();
       
       const { error } = await supabase.auth.signOut();
       
@@ -75,8 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
       
-      sessionStorage.removeItem('currentProjectId');
-      localStorage.removeItem('currentProjectId');
+      // Forzar redirección a la página de autenticación
+      window.location.href = '/auth';
       
       toast({
         title: "Sesión finalizada",
@@ -89,6 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "No se pudo cerrar sesión completamente.",
         variant: "destructive"
       });
+      // Forzar redirección a pesar del error
+      window.location.href = '/auth';
     } finally {
       setLoading(false);
     }

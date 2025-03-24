@@ -36,7 +36,10 @@ const Auth = () => {
         console.log("Checking authentication status...");
         console.log("Auth check started at:", Date.now());
         
-        // Get current session with a simpler approach
+        // Siempre limpiar cualquier sesión anterior primero
+        await supabase.auth.signOut();
+        
+        // Now we can check for current session
         setAuthStage("getting_session");
         const { data, error } = await supabase.auth.getSession();
         
@@ -51,21 +54,21 @@ const Auth = () => {
           return;
         }
         
-        if (!data.session) {
-          console.log("No active session found");
-          setAuthStage("no_session");
+        // Si después de limpiar todavía hay una sesión, aseguremos que sea válida
+        if (data.session) {
+          console.log("Active session found after signOut, this is unexpected");
+          setAuthStage("unexpected_session");
+          
+          // Intenta un segundo signOut para estar seguros
+          await supabase.auth.signOut();
           setLoading(false);
           return;
         }
         
-        // User is already logged in, redirect to the target page
-        console.log("User is already authenticated, redirecting to:", redirectTo);
-        setAuthStage("authenticated_redirecting");
-        
-        // Add a small delay before redirecting to ensure state has updated
-        setTimeout(() => {
-          navigate(redirectTo, { replace: true });
-        }, 100);
+        // No hay sesión activa, lo cual es lo esperado en la página de auth
+        console.log("No active session found, which is expected");
+        setAuthStage("no_session");
+        setLoading(false);
       } catch (error: any) {
         console.error("Auth check error:", error);
         setErrorDetails(`Error inesperado: ${error.message || 'Error desconocido'}`);
