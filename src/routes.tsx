@@ -1,6 +1,6 @@
 
 import { createBrowserRouter } from "react-router-dom";
-import App from "./App";
+import AppLayout from "./layouts/AppLayout";
 import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -24,7 +24,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 export const routes = createBrowserRouter([
   {
     path: "/",
-    element: <App />,
+    element: <AppLayout />,
     errorElement: <NotFound />,
     children: [
       {

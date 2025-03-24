@@ -31,13 +31,7 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <RouterProvider router={routes} />
-          <Toaster />
-          <EnvironmentIndicator />
-        </AuthProvider>
-      </ThemeProvider>
+      <RouterProvider router={routes} />
     </QueryClientProvider>
   );
 }
