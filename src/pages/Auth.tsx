@@ -1,45 +1,39 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { AuthCard } from "@/components/auth/AuthCard";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SignUpForm } from "@/components/auth/SignUpForm";
-import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
-import { useConfirmationEffect } from "@/hooks/useConfirmationEffect";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle } from "lucide-react";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const redirect = searchParams.get("redirect") || "/";
+  const confirmationSuccess = searchParams.get('confirmation') === 'success';
   const [authInit, setAuthInit] = useState(true);
   const [authStage, setAuthStage] = useState("starting_auth_check");
-  const [authSession, setAuthSession] = useState<any>(null);
   
-  // Use custom hook for confirmation effect
-  useConfirmationEffect();
-
   // Check if user is already authenticated
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
         console.log("Checking authentication status...");
-        console.log("Auth check started at:", Date.now());
         setAuthStage("getting_session");
 
         // First, sign out to clear any previous session
         await supabase.auth.signOut();
         
         const { data, error } = await supabase.auth.getSession();
-
-        console.log("Auth check completed at:", Date.now());
         
         if (error) {
           console.error("Error checking authentication:", error);
           setAuthStage("session_check_error");
+          setAuthInit(false);
         } else {
           const hasSession = !!data.session;
           console.log("Auth session check result:", {
@@ -49,7 +43,6 @@ const Auth = () => {
 
           if (hasSession) {
             console.log("Active session found, redirecting to:", redirect);
-            setAuthSession(data.session);
             setAuthStage("authenticated_redirecting");
             window.location.href = redirect;
           } else {
@@ -88,6 +81,16 @@ const Auth = () => {
                 Plataforma de gestión de formularios
               </CardDescription>
             </div>
+            
+            {confirmationSuccess && (
+              <Alert className="bg-green-50 border-green-200 mb-4 w-full">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-700">
+                  Tu correo ha sido confirmado correctamente. Ahora puedes iniciar sesión.
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <div className="w-full pb-2">
               <TabsList className="w-full">
                 <TabsTrigger value="login" className="flex-1">

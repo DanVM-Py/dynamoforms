@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { CardContent, CardFooter } from "@/components/ui/card";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface SignUpFormProps {
@@ -19,8 +18,8 @@ export const SignUpForm = ({ redirectTo }: SignUpFormProps) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [registrationComplete, setRegistrationComplete] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,8 +48,23 @@ export const SignUpForm = ({ redirectTo }: SignUpFormProps) => {
       // Clear any existing session first to avoid conflicts
       await supabase.auth.signOut();
       
-      // Attempt to sign up with timeout protection
-      const signupPromise = supabase.auth.signUp({
+      // Check if a profile already exists with this email
+      const { data: existingProfile, error: profileCheckError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
+        
+      if (profileCheckError) {
+        console.error("Error checking existing profile:", profileCheckError);
+      }
+      
+      if (existingProfile) {
+        throw new Error("Este correo ya está registrado. Por favor, inicia sesión.");
+      }
+      
+      // Attempt to sign up
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -61,27 +75,11 @@ export const SignUpForm = ({ redirectTo }: SignUpFormProps) => {
         }
       });
       
-      // Set a timeout to avoid hanging forever
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Tiempo de espera excedido")), 10000);
-      });
-      
-      // Race the signup against the timeout
-      const { data, error } = await Promise.race([
-        signupPromise,
-        timeoutPromise.then(() => ({ 
-          data: null, 
-          error: new Error("Tiempo de espera excedido, intenta de nuevo") 
-        }))
-      ]) as any;
-      
       if (error) {
         console.error("Signup error:", error.message);
         
         if (error.message.includes("already registered")) {
           throw new Error("Este correo ya está registrado. Por favor, inicia sesión.");
-        } else if (error.message.includes("Tiempo de espera")) {
-          throw new Error("La solicitud tardó demasiado tiempo. Por favor, intenta de nuevo.");
         } else if (error.message.includes("password")) {
           throw new Error("La contraseña debe tener al menos 6 caracteres.");
         } else {
@@ -93,13 +91,29 @@ export const SignUpForm = ({ redirectTo }: SignUpFormProps) => {
         throw new Error("No se pudo registrar. Inténtalo de nuevo.");
       }
       
+      // Create a profile for the new user
+      if (data.user) {
+        const { error: insertError } = await supabase
+          .from("profiles")
+          .insert({
+            id: data.user.id,
+            email: data.user.email,
+            name: data.user.email?.split('@')[0] || 'Usuario',
+            role: 'user',
+            email_confirmed: false
+          });
+          
+        if (insertError) {
+          console.error("Error creating profile:", insertError);
+          throw new Error("No se pudo completar el registro. Inténtalo de nuevo más tarde.");
+        }
+      }
+      
+      setRegistrationComplete(true);
       toast({
         title: "Registro exitoso",
         description: "Se ha enviado un correo de confirmación. Por favor, revisa también tu carpeta de spam.",
       });
-      
-      // Redirect to confirm email page
-      navigate("/confirm-email", { replace: true, state: { email } });
       
     } catch (error: any) {
       console.error("Signup error:", error.message);
@@ -108,6 +122,26 @@ export const SignUpForm = ({ redirectTo }: SignUpFormProps) => {
       setLoading(false);
     }
   };
+
+  if (registrationComplete) {
+    return (
+      <div className="p-6 text-center">
+        <div className="flex flex-col items-center gap-2 mb-4">
+          <div className="bg-green-100 p-2 rounded-full">
+            <AlertCircle className="h-6 w-6 text-green-600" />
+          </div>
+          <h3 className="text-lg font-medium">Registro exitoso</h3>
+        </div>
+        <p className="text-gray-600 mb-4">
+          Se ha enviado un correo de confirmación a <strong>{email}</strong>. 
+          Por favor, revisa también tu carpeta de spam y sigue las instrucciones para activar tu cuenta.
+        </p>
+        <div className="border-t pt-4 text-sm text-gray-500">
+          Una vez que confirmes tu correo podrás iniciar sesión en la plataforma.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSignUp}>

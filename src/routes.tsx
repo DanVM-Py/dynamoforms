@@ -1,161 +1,152 @@
 
-import React, { lazy, Suspense } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter } from "react-router-dom";
+import App from "./App";
+import Auth from "./pages/Auth";
+import Index from "./pages/Index";
+import NotFound from "./pages/NotFound";
+import Projects from "./pages/Projects";
+import Forms from "./pages/Forms";
+import PrivateFormView from "./pages/PrivateFormView";
+import PublicFormView from "./pages/PublicFormView";
+import PublicFormSuccess from "./pages/PublicFormSuccess";
+import FormEdit from "./pages/FormEdit";
+import FormResponses from "./pages/FormResponses";
+import ProjectUsers from "./pages/ProjectUsers";
+import ProjectRoles from "./pages/ProjectRoles";
+import Tasks from "./pages/Tasks";
+import TaskTemplates from "./pages/TaskTemplates";
+import Notifications from "./pages/Notifications";
+import Admin from "./pages/Admin";
+import NoProjectAccess from "./pages/NoProjectAccess";
+import Monitoring from "./pages/Monitoring";
+import ProtectedRoute from "./components/ProtectedRoute";
 
-// Lazy-loaded components
-const Auth = lazy(() => import("./pages/Auth"));
-const ConfirmEmail = lazy(() => import("./pages/ConfirmEmail"));
-const NoProjectAccess = lazy(() => import("./pages/NoProjectAccess"));
-const Forms = lazy(() => import("./pages/Forms"));
-const FormEditor = lazy(() => import("./pages/FormEdit"));
-const FormResponses = lazy(() => import("./pages/FormResponses"));
-const PublicFormView = lazy(() => import("./pages/PublicFormView"));
-const PrivateFormView = lazy(() => import("./pages/PrivateFormView"));
-const PublicFormSuccess = lazy(() => import("./pages/PublicFormSuccess"));
-const Projects = lazy(() => import("./pages/Projects"));
-const ProjectRoles = lazy(() => import("./pages/ProjectRoles"));
-const ProjectUsers = lazy(() => import("./pages/ProjectUsers"));
-const Admin = lazy(() => import("./pages/Admin"));
-const Tasks = lazy(() => import("./pages/Tasks"));
-const TaskTemplates = lazy(() => import("./pages/TaskTemplates"));
-const Notifications = lazy(() => import("./pages/Notifications"));
-const Index = lazy(() => import("./pages/Index"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const Monitoring = lazy(() => import("./pages/Monitoring"));
-
-// Loading component with better feedback
-const Loading = () => (
-  <div className="flex items-center justify-center h-screen bg-gray-50">
-    <div className="flex flex-col items-center bg-white p-8 rounded-lg shadow-sm">
-      <div className="h-8 w-8 border-4 border-t-dynamo-600 border-r-dynamo-300 border-b-dynamo-300 border-l-dynamo-300 rounded-full animate-spin mb-2"></div>
-      <p className="text-gray-600 font-medium">Cargando...</p>
-    </div>
-  </div>
-);
-
-// Route configuration
-// Note: Auth and confirm-email pages are public routes without ProtectedRoute
-export const router = createBrowserRouter([
-  {
-    path: "/auth",
-    element: <Suspense fallback={<Loading />}><Auth /></Suspense>,
-  },
-  {
-    path: "/confirm-email",
-    element: <Suspense fallback={<Loading />}><ConfirmEmail /></Suspense>,
-  },
+export const routes = createBrowserRouter([
   {
     path: "/",
-    element: <Suspense fallback={<Loading />}><Index /></Suspense>,
-  },
-  {
-    path: "/no-project-access",
-    element: (
-      <Suspense fallback={<Loading />}><NoProjectAccess /></Suspense>
-    ),
-  },
-  {
-    path: "/admin",
-    element: (
-      <Suspense fallback={<Loading />}><Admin /></Suspense>
-    ),
-  },
-  {
-    path: "/forms-editor",
-    element: (
-      <Suspense fallback={<Loading />}><Forms /></Suspense>
-    ),
-  },
-  {
-    path: "/forms-editor/:formId/edit",
-    element: (
-      <Suspense fallback={<Loading />}><FormEditor /></Suspense>
-    ),
-  },
-  {
-    path: "/forms",
-    element: (
-      <Suspense fallback={<Loading />}><Forms /></Suspense>
-    ),
-  },
-  {
-    path: "/forms/:formId",
-    element: (
-      <Suspense fallback={<Loading />}><PrivateFormView /></Suspense>
-    ),
-  },
-  {
-    path: "/forms/:formId/responses",
-    element: (
-      <Suspense fallback={<Loading />}><FormResponses /></Suspense>
-    ),
-  },
-  {
-    path: "/public/forms/:formId",
-    element: <Suspense fallback={<Loading />}><PublicFormView /></Suspense>,
-  },
-  {
-    path: "/public/forms/:formId/success",
-    element: <Suspense fallback={<Loading />}><PublicFormSuccess /></Suspense>,
-  },
-  {
-    path: "/public-form/:formId",
-    element: <Suspense fallback={<Loading />}><PublicFormView /></Suspense>,
-  },
-  {
-    path: "/public-form-success",
-    element: <Suspense fallback={<Loading />}><PublicFormSuccess /></Suspense>,
-  },
-  {
-    path: "/projects",
-    element: (
-      <Suspense fallback={<Loading />}><Projects /></Suspense>
-    ),
-  },
-  {
-    path: "/projects/:projectId/roles",
-    element: (
-      <Suspense fallback={<Loading />}><ProjectRoles /></Suspense>
-    ),
-  },
-  {
-    path: "/projects/:projectId/users",
-    element: (
-      <Suspense fallback={<Loading />}><ProjectUsers /></Suspense>
-    ),
-  },
-  {
-    path: "/tasks",
-    element: (
-      <Suspense fallback={<Loading />}><Tasks /></Suspense>
-    ),
-  },
-  {
-    path: "/task-templates",
-    element: (
-      <Suspense fallback={<Loading />}><TaskTemplates /></Suspense>
-    ),
-  },
-  {
-    path: "/notifications",
-    element: (
-      <Suspense fallback={<Loading />}><Notifications /></Suspense>
-    ),
-  },
-  {
-    path: "/systems/monitoring",
-    element: (
-      <Suspense fallback={<Loading />}><Monitoring /></Suspense>
-    ),
-  },
-  {
-    path: "/monitoring",
-    element: (
-      <Suspense fallback={<Loading />}><Monitoring /></Suspense>
-    ),
-  },
-  {
-    path: "*",
-    element: <Suspense fallback={<Loading />}><NotFound /></Suspense>,
+    element: <App />,
+    errorElement: <NotFound />,
+    children: [
+      {
+        path: "/",
+        element: (
+          <ProtectedRoute>
+            <Index />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/projects",
+        element: (
+          <ProtectedRoute>
+            <Projects />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/forms",
+        element: (
+          <ProtectedRoute>
+            <Forms />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/forms/:formId",
+        element: (
+          <ProtectedRoute>
+            <PrivateFormView />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/forms/:formId/edit",
+        element: (
+          <ProtectedRoute>
+            <FormEdit />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/forms/:formId/responses",
+        element: (
+          <ProtectedRoute>
+            <FormResponses />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/project-users",
+        element: (
+          <ProtectedRoute requireProjectAdmin={true}>
+            <ProjectUsers />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/project-roles",
+        element: (
+          <ProtectedRoute requireProjectAdmin={true}>
+            <ProjectRoles />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/tasks",
+        element: (
+          <ProtectedRoute>
+            <Tasks />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/task-templates",
+        element: (
+          <ProtectedRoute requireProjectAdmin={true}>
+            <TaskTemplates />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/notifications",
+        element: (
+          <ProtectedRoute>
+            <Notifications />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/admin",
+        element: (
+          <ProtectedRoute requireGlobalAdmin={true}>
+            <Admin />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/monitoring",
+        element: (
+          <ProtectedRoute requireGlobalAdmin={true}>
+            <Monitoring />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/no-project-access",
+        element: <NoProjectAccess />,
+      },
+      {
+        path: "/auth",
+        element: <Auth />,
+      },
+      {
+        path: "/public/forms/:formId",
+        element: <PublicFormView />,
+      },
+      {
+        path: "/public/forms/success",
+        element: <PublicFormSuccess />,
+      },
+    ],
   },
 ]);
