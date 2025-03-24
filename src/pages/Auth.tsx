@@ -115,14 +115,6 @@ const Auth = () => {
               </Alert>
             )}
             
-            {forceSignOut && (
-              <Alert className="bg-amber-50 border-amber-200 mb-4 w-full">
-                <AlertDescription className="text-amber-700">
-                  Se ha cerrado la sesión porque no tienes acceso a ningún proyecto. Por favor, contacta con un administrador.
-                </AlertDescription>
-              </Alert>
-            )}
-            
             <div className="w-full pb-2">
               <TabsList className="w-full">
                 <TabsTrigger value="login" className="flex-1">

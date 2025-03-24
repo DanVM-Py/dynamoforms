@@ -19,25 +19,21 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [authStage, setAuthStage] = useState<string>("idle");
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    setAuthStage("validating");
     
     // Basic validation
     if (!email) {
       setErrorMessage("Por favor ingresa tu correo electrónico");
-      setAuthStage("idle");
       return;
     }
     
     if (!password) {
       setErrorMessage("Por favor ingresa tu contraseña");
-      setAuthStage("idle");
       return;
     }
     
@@ -45,12 +41,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       setLoading(true);
       console.log("Attempting login with:", email);
       
-      // Clear any previous session
-      setAuthStage("clearing previous session");
-      await supabase.auth.signOut();
-      
-      // Attempt to sign in
-      setAuthStage("signing in");
+      // Attempt to sign in directly without clearing previous session
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -66,7 +57,6 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         } else {
           setErrorMessage("Ha ocurrido un error al iniciar sesión. Inténtalo de nuevo.");
         }
-        setAuthStage("error");
         return;
       }
       
@@ -74,7 +64,6 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         throw new Error("No se pudo iniciar sesión. Inténtalo de nuevo.");
       }
       
-      setAuthStage("login successful");
       console.log("Login successful, user ID:", data.user.id);
       
       // Check if user has a profile in the profiles table
@@ -102,7 +91,6 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       }
       
       // Set user project ID in session
-      setAuthStage("retrieving user project information");
       let projectId = null;
       
       // If user is not global admin, try to find a project they belong to
@@ -139,7 +127,6 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error.message);
       setErrorMessage(error.message);
-      setAuthStage("error");
     } finally {
       setLoading(false);
     }
@@ -193,7 +180,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
           disabled={loading}
         >
           {loading ? (
-            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {authStage === "idle" ? "Procesando..." : `${authStage}...`}</>
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Procesando...</>
           ) : (
             'Iniciar sesión'
           )}
