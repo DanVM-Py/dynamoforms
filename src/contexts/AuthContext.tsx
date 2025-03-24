@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +11,7 @@ interface AuthContextType {
   isGlobalAdmin: boolean;
   isProjectAdmin: boolean;
   isApprover: boolean;
+  profileFetchStage: string;
   signOut: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
 }
@@ -26,23 +26,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
   const [isProjectAdmin, setIsProjectAdmin] = useState(false);
   const [isApprover, setIsApprover] = useState(false);
+  const [profileFetchStage, setProfileFetchStage] = useState<string>("not_started");
   const { toast } = useToast();
 
-  // Initialize auth state with proper order: listener first, then session check
   useEffect(() => {
     console.log("Initializing authentication...");
     
-    // 1. Set up auth listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         console.log("Auth state changed:", event, !!newSession, "User:", newSession?.user?.email);
         
-        // Update session state immediately on any auth event
         setSession(newSession);
         setUser(newSession?.user ?? null);
         
         if (event === 'SIGNED_OUT') {
-          // Clear all auth-related state
           console.log("User signed out, clearing auth state");
           setUserProfile(null);
           setIsGlobalAdmin(false);
@@ -51,7 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         } 
         else if (newSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-          // Fetch user profile for sign in and token refresh
           console.log("User authenticated, fetching profile for:", newSession.user.email);
           try {
             await fetchUserProfile(newSession.user.id);
@@ -62,14 +58,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } 
         else {
-          // For other events, just update state
           console.log("Other auth event:", event);
           setLoading(false);
         }
       }
     );
     
-    // 2. THEN check for existing session
     const checkSession = async () => {
       try {
         console.log("Checking for existing session...");
@@ -83,11 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         console.log("Initial session check:", !!session, "User:", session?.user?.email);
         
-        // Update state with current session info
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Only fetch profile if we have a user
         if (session?.user) {
           console.log("Fetching profile for existing user:", session.user.email);
           try {
@@ -108,30 +100,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     checkSession();
     
-    // Clean up listener on component unmount
     return () => {
       console.log("Cleaning up auth listener");
       subscription.unsubscribe();
     };
   }, []);
 
-  // Function to fetch user profile and role information
   const fetchUserProfile = async (userId: string) => {
     try {
       console.log("Fetching user profile for ID:", userId);
+      setProfileFetchStage("starting");
       
-      // Step 1: Check global admin status first (bypasses RLS)
       const { data: isAdminData, error: isAdminError } = await supabase
         .rpc('is_global_admin', { user_uuid: userId });
         
       if (isAdminError) {
         console.error("Error checking global admin status:", isAdminError);
+        setProfileFetchStage("global_admin_check_error");
       } else {
         console.log("User is global admin:", isAdminData);
         setIsGlobalAdmin(isAdminData === true);
+        setProfileFetchStage("global_admin_check_complete");
       }
       
-      // Step 2: Fetch user profile
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -141,18 +132,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) {
         console.error("Error fetching user profile:", error);
         setUserProfile(null);
+        setProfileFetchStage("profile_fetch_error");
       } else if (data) {
         console.log("User profile found:", data);
         setUserProfile(data);
+        setProfileFetchStage("profile_found");
         
-        // For approver, check the role field
         setIsApprover(data.role === "approver");
       } else {
         console.log("No user profile found");
+        setProfileFetchStage("no_profile_found");
         
-        // If no profile exists but we have a user, create a basic profile with email_confirmed=false
         try {
-          // First get the user email from the auth user
           const { data: userData, error: userError } = await supabase.auth.getUser();
           
           if (userError) {
@@ -160,7 +151,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else if (userData?.user) {
             console.log("Creating new profile for user:", userData.user.email);
             
-            // Create a basic profile for the user
             const { data: newProfile, error: insertError } = await supabase
               .from("profiles")
               .insert({
@@ -185,7 +175,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      // Step 3: Check project admin status
       const currentProjectId = sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
       
       if (currentProjectId) {
@@ -197,24 +186,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
         if (isProjectAdminError) {
           console.error("Error checking project admin status:", isProjectAdminError);
+          setProfileFetchStage("project_admin_check_error");
         } else {
           console.log("User is project admin for current project:", isProjectAdminData);
           setIsProjectAdmin(isProjectAdminData === true);
+          setProfileFetchStage("project_admin_check_complete");
         }
       }
+      
+      setProfileFetchStage("complete");
     } catch (error) {
       console.error("Error in user profile workflow:", error);
+      setProfileFetchStage("exception");
     }
   };
 
-  // Sign out function
   const signOut = async () => {
     try {
       setLoading(true);
       
       console.log("Starting sign out process");
       
-      // Clear local state first - this ensures UI responds immediately
       setUser(null);
       setSession(null);
       setUserProfile(null);
@@ -222,7 +214,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsProjectAdmin(false);
       setIsApprover(false);
       
-      // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
       
       if (error) {
@@ -230,7 +221,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
       
-      // Clear project selection from storage
       sessionStorage.removeItem('currentProjectId');
       localStorage.removeItem('currentProjectId');
       
@@ -250,7 +240,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Function to refresh user profile
   const refreshUserProfile = async () => {
     if (!user) return;
     
@@ -264,7 +253,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Context value
   const value = {
     session,
     user,
@@ -274,6 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isGlobalAdmin,
     isProjectAdmin,
     isApprover,
+    profileFetchStage,
     refreshUserProfile
   };
 
