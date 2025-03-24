@@ -11,7 +11,7 @@ import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Auth = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const redirect = searchParams.get("redirect") || "/";
   const confirmationSuccess = searchParams.get('confirmation') === 'success';
   const forceSignOut = searchParams.get('forceSignOut') === 'true';
@@ -21,24 +21,26 @@ const Auth = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
-  // Handle force sign out ONLY if explicitly requested via URL parameter
+  // Handle the forceSignOut parameter - removing it immediately to prevent loops
+  useEffect(() => {
+    // First, immediately remove the forceSignOut parameter from the URL to prevent loops
+    if (forceSignOut) {
+      console.log("Found forceSignOut parameter, removing it from URL");
+      searchParams.delete('forceSignOut');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [forceSignOut, searchParams, setSearchParams]);
+  
+  // Handle force sign out as a separate effect
   useEffect(() => {
     const handleForceSignOut = async () => {
-      // Only execute if:
-      // 1. forceSignOut param is present
-      // 2. We have a user
-      // 3. We haven't already completed a sign out in this session
+      // Only execute if we have a user and haven't already completed sign out
       if (forceSignOut && user && !signOutCompleted) {
-        console.log("Force sign out explicitly requested via URL parameter, signing out user");
+        console.log("Processing explicit sign out request");
         
         try {
           await signOut();
           setSignOutCompleted(true);
-          // After forcing sign out, remove the forceSignOut parameter from URL
-          // to prevent sign-out loop
-          const newUrl = new URL(window.location.href);
-          newUrl.searchParams.delete('forceSignOut');
-          window.history.replaceState({}, '', newUrl.toString());
         } catch (error) {
           console.error("Error during force sign out:", error);
         }
@@ -63,13 +65,6 @@ const Auth = () => {
         console.log("Checking authentication status...");
         setAuthStage("getting_session");
         
-        // If we're forcing sign out, skip the session check
-        if (forceSignOut) {
-          setAuthInit(false);
-          setAuthStage("force_signout_requested");
-          return;
-        }
-        
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -78,10 +73,6 @@ const Auth = () => {
           setAuthInit(false);
         } else {
           const hasSession = !!data.session;
-          console.log("Auth session check result:", {
-            hasSession,
-            hasError: !!error
-          });
 
           if (hasSession && !forceSignOut) {
             console.log("Active session found, redirecting to:", redirect);

@@ -59,9 +59,20 @@ const NoProjectAccess = () => {
   // Handles the sign out process and redirect to auth page
   const handleSignOut = async () => {
     try {
+      // First clear any stored project ID to ensure clean state
+      localStorage.removeItem('currentProjectId');
+      localStorage.removeItem('isProjectAdmin');
+      
+      // Then sign out the user
       await signOut();
-      // Navigate to auth page with forceSignOut parameter ONLY when explicitly requested by user
-      navigate('/auth?forceSignOut=true', { replace: true });
+      
+      // Redirect to auth page with clean URL
+      navigate('/auth', { replace: true });
+      
+      toast({
+        title: "Sesión finalizada",
+        description: "Has cerrado sesión correctamente"
+      });
     } catch (error) {
       console.error("Error signing out:", error);
       toast({
