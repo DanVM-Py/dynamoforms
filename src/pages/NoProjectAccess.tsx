@@ -12,7 +12,7 @@ import { Link } from "react-router-dom";
 const NoProjectAccess = () => {
   const [loading, setLoading] = useState(false);
   const [availableProjects, setAvailableProjects] = useState<any[]>([]);
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { toast } = useToast();
 
   // Fetch available projects for non-global-admin users
@@ -54,6 +54,15 @@ const NoProjectAccess = () => {
     
     fetchProjects();
   }, [user, toast]);
+
+  // Handles the actual sign out process
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
 
   return (
     <PageContainer hideSidebar className="flex items-center justify-center p-0">
@@ -102,10 +111,10 @@ const NoProjectAccess = () => {
           
           <CardFooter>
             <Button 
-              asChild
+              onClick={handleSignOut}
               className="w-full bg-dynamo-600 hover:bg-dynamo-700"
             >
-              <Link to="/auth?forceSignOut=true">Volver al inicio de sesión</Link>
+              Volver al inicio de sesión
             </Button>
           </CardFooter>
         </Card>

@@ -19,18 +19,26 @@ const Auth = () => {
   const forceSignOut = searchParams.get('forceSignOut') === 'true';
   const [authInit, setAuthInit] = useState(true);
   const [authStage, setAuthStage] = useState("starting_auth_check");
+  const [signOutCompleted, setSignOutCompleted] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
   // Handle force sign out if requested (for users stuck in login loop)
   useEffect(() => {
-    if (forceSignOut && user) {
+    if (forceSignOut && user && !signOutCompleted) {
       console.log("Force sign out requested, signing out user");
-      signOut();
+      
+      // Perform sign out
+      const performSignOut = async () => {
+        await signOut();
+        setSignOutCompleted(true);
+      };
+      
+      performSignOut();
     }
-  }, [forceSignOut, user, signOut]);
+  }, [forceSignOut, user, signOut, signOutCompleted]);
   
-  // If user is already authenticated, redirect them (but don't do this if forceSignOut is true)
+  // If user is already authenticated and not being signed out, redirect them
   useEffect(() => {
     if (user && !forceSignOut) {
       console.log("User already authenticated, redirecting to:", redirect);
@@ -128,7 +136,7 @@ const Auth = () => {
           </CardHeader>
           
           <TabsContent value="login" className="pt-0 pb-0">
-            <LoginForm redirectTo={redirect} />
+            <LoginForm redirectTo={redirect} forceSignOut={signOutCompleted} />
           </TabsContent>
           
           <TabsContent value="signup" className="pt-0 pb-0">

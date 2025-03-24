@@ -12,9 +12,10 @@ import { useNavigate } from "react-router-dom";
 
 interface LoginFormProps {
   redirectTo: string;
+  forceSignOut?: boolean;
 }
 
-export const LoginForm = ({ redirectTo }: LoginFormProps) => {
+export const LoginForm = ({ redirectTo, forceSignOut = false }: LoginFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,7 +42,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       setLoading(true);
       console.log("Attempting login with:", email);
       
-      // Attempt to sign in directly without clearing previous session
+      // Attempt to sign in
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
