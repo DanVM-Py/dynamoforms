@@ -181,6 +181,7 @@ export function useAuthState() {
     fetchComplete,
     setFetchComplete,
     fetchUserProfile,
-    profileFetchStage
+    profileFetchStage,
+    setProfileFetchStage
   };
 }

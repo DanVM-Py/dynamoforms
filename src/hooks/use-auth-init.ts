@@ -173,7 +173,7 @@ export function useAuthInit({
       if (authListenerRef.current) {
         try {
           console.log("Cleaning up auth listener. Final stage:", stageRef.current);
-          authListenerRef.current.data.subscription.unsubscribe();
+          authListenerRef.current.subscription.unsubscribe();
           authListenerRef.current = null;
         } catch (error) {
           console.error("Auth listener cleanup failed:", error);

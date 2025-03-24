@@ -39,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isProjectAdmin, 
     setIsProjectAdmin,
     isApprover,
+    setIsApprover,
     fetchComplete,
     fetchUserProfile,
     profileFetchStage,
