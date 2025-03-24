@@ -2,7 +2,7 @@
 // This file connects to the appropriate Supabase service based on the current context
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
-import { config, environment } from '@/config/environment';
+import { config } from '@/config/environment';
 
 // Service identification constants
 export const SERVICES = {
@@ -32,7 +32,7 @@ const createSupabaseClient = () => {
     authSettings: {
       storageKey: config.storage.authTokenKey,
       autoRefreshToken: true,
-      persistSession: false // Cambiado a false para evitar persistencia de sesión
+      persistSession: true // Changed to true to maintain sessions
     }
   });
   
@@ -43,7 +43,7 @@ const createSupabaseClient = () => {
       auth: {
         storageKey: config.storage.authTokenKey,
         autoRefreshToken: true,
-        persistSession: false, // Cambiado a false para evitar persistencia de sesión
+        persistSession: true, // Changed to true to maintain sessions
         detectSessionInUrl: true,
       },
       global: {

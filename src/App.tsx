@@ -31,7 +31,13 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={routes} />
+      <ThemeProvider defaultTheme="light" storageKey="dynamo-theme">
+        <AuthProvider>
+          <RouterProvider router={routes} />
+          <Toaster />
+          <EnvironmentIndicator />
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

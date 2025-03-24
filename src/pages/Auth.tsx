@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SignUpForm } from "@/components/auth/SignUpForm";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -17,6 +18,16 @@ const Auth = () => {
   const confirmationSuccess = searchParams.get('confirmation') === 'success';
   const [authInit, setAuthInit] = useState(true);
   const [authStage, setAuthStage] = useState("starting_auth_check");
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  // If user is already authenticated, redirect them
+  useEffect(() => {
+    if (user) {
+      console.log("User already authenticated, redirecting to:", redirect);
+      navigate(redirect, { replace: true });
+    }
+  }, [user, redirect, navigate]);
   
   // Check if user is already authenticated
   useEffect(() => {
@@ -24,9 +35,6 @@ const Auth = () => {
       try {
         console.log("Checking authentication status...");
         setAuthStage("getting_session");
-
-        // First, sign out to clear any previous session
-        await supabase.auth.signOut();
         
         const { data, error } = await supabase.auth.getSession();
         
@@ -44,7 +52,7 @@ const Auth = () => {
           if (hasSession) {
             console.log("Active session found, redirecting to:", redirect);
             setAuthStage("authenticated_redirecting");
-            window.location.href = redirect;
+            navigate(redirect, { replace: true });
           } else {
             console.log("No active session found, which is expected");
             setAuthInit(false);
@@ -59,7 +67,7 @@ const Auth = () => {
     };
 
     checkAuthStatus();
-  }, [redirect]);
+  }, [redirect, navigate]);
 
   // If still checking auth, show loading state
   if (authInit) {
