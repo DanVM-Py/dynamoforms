@@ -11,6 +11,7 @@ interface UserProfile {
   role: string;
   email_confirmed: boolean;
   created_at?: string;
+  project_id?: string;
 }
 
 interface AuthContextType {
@@ -20,6 +21,7 @@ interface AuthContextType {
   loading: boolean;
   isGlobalAdmin: boolean;
   isProjectAdmin: boolean;
+  isApprover: boolean;
   currentProjectId: string | null;
   signOut: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
@@ -34,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
   const [isProjectAdmin, setIsProjectAdmin] = useState(false);
+  const [isApprover, setIsApprover] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -56,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setUserProfile(null);
               setIsGlobalAdmin(false);
               setIsProjectAdmin(false);
+              setIsApprover(false);
               setCurrentProjectId(null);
               localStorage.removeItem('currentProjectId');
             } 
@@ -122,6 +126,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else if (profileData) {
         console.log("User profile found:", profileData);
         setUserProfile(profileData as UserProfile);
+        // Set approver status based on role
+        setIsApprover(profileData.role === "approver");
       } else {
         console.log("No user profile found");
         setUserProfile(null);
@@ -186,6 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserProfile(null);
       setIsGlobalAdmin(false);
       setIsProjectAdmin(false);
+      setIsApprover(false);
       setCurrentProjectId(null);
       
       // Clear local storage
@@ -231,6 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     isGlobalAdmin,
     isProjectAdmin,
+    isApprover,
     currentProjectId,
     signOut,
     refreshUserProfile
