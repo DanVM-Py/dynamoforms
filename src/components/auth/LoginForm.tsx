@@ -132,8 +132,8 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       
       // If no profile is found, create one
       if (!profileData) {
-        console.log("Profile not found, creating one");
-        setAuthStage("creating profile");
+        console.log("Profile not found, verifying account status");
+        setAuthStage("verifying account status");
         
         const { error: insertError } = await supabase
           .from("profiles")
@@ -147,7 +147,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
           
         if (insertError) {
           console.error("Error creating profile:", insertError);
-          throw new Error("Error al crear el perfil de usuario. Por favor, intenta nuevamente.");
+          throw new Error("Error al verificar el estado de la cuenta. Por favor, intenta nuevamente.");
         }
         
         // Now check email confirmation status since we just created the profile
