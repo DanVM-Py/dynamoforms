@@ -16,18 +16,27 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const redirect = searchParams.get("redirect") || "/";
   const confirmationSuccess = searchParams.get('confirmation') === 'success';
+  const forceSignOut = searchParams.get('forceSignOut') === 'true';
   const [authInit, setAuthInit] = useState(true);
   const [authStage, setAuthStage] = useState("starting_auth_check");
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
-  // If user is already authenticated, redirect them
+  // Handle force sign out if requested (for users stuck in login loop)
   useEffect(() => {
-    if (user) {
+    if (forceSignOut && user) {
+      console.log("Force sign out requested, signing out user");
+      signOut();
+    }
+  }, [forceSignOut, user, signOut]);
+  
+  // If user is already authenticated, redirect them (but don't do this if forceSignOut is true)
+  useEffect(() => {
+    if (user && !forceSignOut) {
       console.log("User already authenticated, redirecting to:", redirect);
       navigate(redirect, { replace: true });
     }
-  }, [user, redirect, navigate]);
+  }, [user, redirect, navigate, forceSignOut]);
   
   // Check if user is already authenticated
   useEffect(() => {
@@ -35,6 +44,13 @@ const Auth = () => {
       try {
         console.log("Checking authentication status...");
         setAuthStage("getting_session");
+        
+        // If we're forcing sign out, skip the session check
+        if (forceSignOut) {
+          setAuthInit(false);
+          setAuthStage("force_signout_requested");
+          return;
+        }
         
         const { data, error } = await supabase.auth.getSession();
         
@@ -49,7 +65,7 @@ const Auth = () => {
             hasError: !!error
           });
 
-          if (hasSession) {
+          if (hasSession && !forceSignOut) {
             console.log("Active session found, redirecting to:", redirect);
             setAuthStage("authenticated_redirecting");
             navigate(redirect, { replace: true });
@@ -67,7 +83,7 @@ const Auth = () => {
     };
 
     checkAuthStatus();
-  }, [redirect, navigate]);
+  }, [redirect, navigate, forceSignOut]);
 
   // If still checking auth, show loading state
   if (authInit) {
@@ -95,6 +111,14 @@ const Auth = () => {
                 <CheckCircle className="h-4 w-4 text-green-600" />
                 <AlertDescription className="text-green-700">
                   Tu correo ha sido confirmado correctamente. Ahora puedes iniciar sesión.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {forceSignOut && (
+              <Alert className="bg-amber-50 border-amber-200 mb-4 w-full">
+                <AlertDescription className="text-amber-700">
+                  Se ha cerrado la sesión porque no tienes acceso a ningún proyecto. Por favor, contacta con un administrador.
                 </AlertDescription>
               </Alert>
             )}

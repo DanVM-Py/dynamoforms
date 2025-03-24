@@ -105,7 +105,7 @@ const NoProjectAccess = () => {
               asChild
               className="w-full bg-dynamo-600 hover:bg-dynamo-700"
             >
-              <Link to="/auth">Volver al inicio de sesión</Link>
+              <Link to="/auth?forceSignOut=true">Volver al inicio de sesión</Link>
             </Button>
           </CardFooter>
         </Card>
