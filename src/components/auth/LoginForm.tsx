@@ -118,18 +118,47 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       setAuthStage("login successful");
       console.log("Login successful at:", Date.now(), "user ID:", data.user.id);
       
-      // Check if email is confirmed
+      // Check if user has a profile in the profiles table
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("email_confirmed")
+        .select("*")
         .eq("id", data.user.id)
         .maybeSingle();
       
       if (profileError) {
         console.error("Error fetching profile:", profileError);
+        throw new Error("Error al verificar el perfil de usuario. Por favor, intenta nuevamente.");
       }
       
-      // If email is not confirmed, redirect to confirmation page
+      // If no profile is found, create one
+      if (!profileData) {
+        console.log("Profile not found, creating one");
+        setAuthStage("creating profile");
+        
+        const { error: insertError } = await supabase
+          .from("profiles")
+          .insert({
+            id: data.user.id,
+            email: data.user.email,
+            name: data.user.email?.split('@')[0] || 'Usuario',
+            role: 'user',
+            email_confirmed: false
+          });
+          
+        if (insertError) {
+          console.error("Error creating profile:", insertError);
+          throw new Error("Error al crear el perfil de usuario. Por favor, intenta nuevamente.");
+        }
+        
+        // Now check email confirmation status since we just created the profile
+        navigate("/confirm-email", { 
+          state: { email: data.user.email },
+          replace: true 
+        });
+        return;
+      }
+      
+      // Check if email is confirmed
       if (profileData && profileData.email_confirmed === false) {
         console.log("Email not confirmed, redirecting to confirmation page");
         setAuthStage("redirecting to confirm email");

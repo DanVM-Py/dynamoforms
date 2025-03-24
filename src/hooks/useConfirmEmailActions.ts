@@ -34,7 +34,7 @@ export const useConfirmEmailActions = (email: string | undefined, userId?: strin
       console.log(`Usando URL de redirección: ${redirectUrl}`);
       
       // Call Supabase to resend confirmation email with explicit redirect URL
-      const { error } = await supabase.auth.resend({
+      const { data, error } = await supabase.auth.resend({
         type: 'signup',
         email: email,
         options: {
@@ -42,7 +42,28 @@ export const useConfirmEmailActions = (email: string | undefined, userId?: strin
         }
       });
       
+      console.log("Resend email response:", data, error);
+      
       if (error) throw error;
+      
+      // Log Supabase response for debugging
+      console.log("Supabase resend response:", data);
+      
+      // Check to see if we got otp message back from Supabase, which would mean
+      // email was sent successfully
+      if (data && 'messageId' in data) {
+        console.log("Email sent successfully with message ID:", data.messageId);
+      }
+      
+      // Try to verify with Supabase if the user exists and email is sent
+      try {
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (!authError && authData.user) {
+          console.log("User exists in Supabase:", authData.user);
+        }
+      } catch (e) {
+        console.log("Error checking user:", e);
+      }
       
       toast({
         title: "Correo enviado",
@@ -83,6 +104,7 @@ export const useConfirmEmailActions = (email: string | undefined, userId?: strin
         }
         
         if (profileData) {
+          console.log("Profile data:", profileData);
           // Default to confirmed if property doesn't exist
           const isConfirmed = !('email_confirmed' in profileData) || 
             profileData.email_confirmed === true;

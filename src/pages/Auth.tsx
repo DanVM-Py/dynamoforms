@@ -6,7 +6,7 @@ import { LoginForm } from "@/components/auth/LoginForm";
 import { SignUpForm } from "@/components/auth/SignUpForm";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
@@ -81,7 +81,13 @@ const Auth = () => {
     <PageContainer hideSidebar className="flex items-center justify-center p-0">
       <Tabs defaultValue="login" className="w-full max-w-md px-4">
         <Card>
-          <CardHeader className="flex flex-col items-center space-y-1 p-6 pt-4 pb-0">
+          <CardHeader className="flex flex-col items-center space-y-4 p-6 pt-4 pb-0">
+            <div className="text-center mb-2">
+              <CardTitle className="text-2xl font-bold text-dynamo-700">Dynamo</CardTitle>
+              <CardDescription className="text-sm text-gray-500">
+                Plataforma de gestión de formularios
+              </CardDescription>
+            </div>
             <div className="w-full pb-2">
               <TabsList className="w-full">
                 <TabsTrigger value="login" className="flex-1">
@@ -92,9 +98,6 @@ const Auth = () => {
                 </TabsTrigger>
               </TabsList>
             </div>
-            <CardDescription>
-              Accede al sistema o crea una cuenta nueva
-            </CardDescription>
           </CardHeader>
           
           <TabsContent value="login" className="pt-0 pb-0">

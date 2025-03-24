@@ -7,11 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ConfirmEmailForm } from "@/components/auth/ConfirmEmailForm";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 const ConfirmEmail = () => {
   const [sessionChecking, setSessionChecking] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any>({});
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -22,6 +25,13 @@ const ConfirmEmail = () => {
   useEffect(() => {
     console.log("ConfirmEmail loaded with email from state:", emailFromState);
     console.log("Location state:", location.state);
+    
+    // Add debug information
+    setDebugInfo({
+      emailFromState,
+      locationState: location.state,
+      timestamp: new Date().toISOString()
+    });
   }, [emailFromState, location.state]);
   
   // Check session on mount
@@ -36,6 +46,11 @@ const ConfirmEmail = () => {
         const timeoutId = setTimeout(() => {
           console.log("Session check timeout reached in ConfirmEmail");
           setSessionChecking(false);
+          setDebugInfo(prev => ({ 
+            ...prev, 
+            timeoutReached: true,
+            timeoutTime: new Date().toISOString()
+          }));
         }, 5000);
         
         // If we have email in state, we can skip session check
@@ -43,11 +58,28 @@ const ConfirmEmail = () => {
           console.log("Found email in state, skipping session check:", emailFromState);
           clearTimeout(timeoutId);
           setSessionChecking(false);
+          setDebugInfo(prev => ({ 
+            ...prev, 
+            sessionCheckSkipped: true,
+            emailUsed: emailFromState
+          }));
           return;
         }
         
         // Get current session
         const { data, error } = await supabase.auth.getSession();
+        
+        // Update debug info
+        setDebugInfo(prev => ({ 
+          ...prev, 
+          sessionCheck: {
+            hasData: !!data,
+            hasSession: !!data?.session,
+            hasError: !!error,
+            errorMessage: error?.message,
+            timestamp: new Date().toISOString()
+          }
+        }));
         
         // Clear timeout as we got a response
         clearTimeout(timeoutId);
@@ -86,6 +118,17 @@ const ConfirmEmail = () => {
             .eq("id", data.session.user.id)
             .maybeSingle();
             
+          setDebugInfo(prev => ({ 
+            ...prev, 
+            profileCheck: {
+              hasData: !!profileData,
+              hasError: !!profileError,
+              profileData,
+              errorMessage: profileError?.message,
+              timestamp: new Date().toISOString()
+            }
+          }));
+            
           if (profileError) {
             console.error("Error al obtener perfil en ConfirmEmail:", profileError);
           } else if (profileData) {
@@ -103,6 +146,37 @@ const ConfirmEmail = () => {
               setTimeout(() => navigate("/", { replace: true }), 1500);
               return;
             }
+          } else {
+            // If profile doesn't exist, create one
+            console.log("No profile found, creating one");
+            const { data: newProfile, error: insertError } = await supabase
+              .from("profiles")
+              .insert({
+                id: data.session.user.id,
+                email: data.session.user.email,
+                name: data.session.user.email?.split('@')[0] || 'Usuario',
+                role: 'user',
+                email_confirmed: false
+              })
+              .select("*")
+              .single();
+              
+            setDebugInfo(prev => ({ 
+              ...prev, 
+              profileCreation: {
+                success: !!newProfile,
+                hasError: !!insertError,
+                newProfile,
+                errorMessage: insertError?.message,
+                timestamp: new Date().toISOString()
+              }
+            }));
+              
+            if (insertError) {
+              console.error("Error creating profile:", insertError);
+            } else {
+              console.log("New profile created:", newProfile);
+            }
           }
         }
         
@@ -112,6 +186,14 @@ const ConfirmEmail = () => {
         console.error("Error en verificación de sesión en ConfirmEmail:", error);
         setErrorMessage("Ocurrió un error al verificar tu sesión.");
         setSessionChecking(false);
+        setDebugInfo(prev => ({ 
+          ...prev, 
+          sessionCheckError: {
+            message: (error as Error).message,
+            stack: (error as Error).stack,
+            timestamp: new Date().toISOString()
+          }
+        }));
       }
     };
     
@@ -135,8 +217,20 @@ const ConfirmEmail = () => {
                 Por favor espera mientras verificamos tu sesión...
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex justify-center py-6">
-              <Loader2 className="h-8 w-8 animate-spin text-dynamo-600" />
+            <CardContent className="flex flex-col gap-4 py-6">
+              <div className="flex justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-dynamo-600" />
+              </div>
+              
+              {/* Show debugging details in development environment */}
+              {process.env.NODE_ENV === 'development' && (
+                <Alert className="text-xs bg-gray-50 border-gray-200">
+                  <AlertCircle className="h-3 w-3" />
+                  <AlertDescription className="font-mono overflow-auto max-h-32">
+                    {JSON.stringify(debugInfo, null, 2)}
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -155,6 +249,20 @@ const ConfirmEmail = () => {
           userId={user?.id}
           onGoToLogin={goToLogin}
         />
+        
+        {/* Show debug information in development mode */}
+        {process.env.NODE_ENV === 'development' && (
+          <Card className="mt-4 border-gray-200 text-xs">
+            <CardHeader className="py-2">
+              <CardTitle className="text-sm">Debug Information</CardTitle>
+            </CardHeader>
+            <CardContent className="py-2">
+              <div className="font-mono overflow-auto max-h-40 text-xs">
+                {JSON.stringify(debugInfo, null, 2)}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </PageContainer>
   );
