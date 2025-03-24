@@ -60,7 +60,7 @@ const NoProjectAccess = () => {
   const handleSignOut = async () => {
     try {
       await signOut();
-      // Navigate to auth page with forceSignOut parameter
+      // Navigate to auth page with forceSignOut parameter ONLY when explicitly requested by user
       navigate('/auth?forceSignOut=true', { replace: true });
     } catch (error) {
       console.error("Error signing out:", error);

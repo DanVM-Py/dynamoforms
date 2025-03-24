@@ -21,18 +21,31 @@ const Auth = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
-  // Handle force sign out if explicitly requested via URL parameter
+  // Handle force sign out ONLY if explicitly requested via URL parameter
   useEffect(() => {
-    if (forceSignOut && user && !signOutCompleted) {
-      console.log("Force sign out requested via URL parameter, signing out user");
-      
-      const performSignOut = async () => {
-        await signOut();
-        setSignOutCompleted(true);
-      };
-      
-      performSignOut();
-    }
+    const handleForceSignOut = async () => {
+      // Only execute if:
+      // 1. forceSignOut param is present
+      // 2. We have a user
+      // 3. We haven't already completed a sign out in this session
+      if (forceSignOut && user && !signOutCompleted) {
+        console.log("Force sign out explicitly requested via URL parameter, signing out user");
+        
+        try {
+          await signOut();
+          setSignOutCompleted(true);
+          // After forcing sign out, remove the forceSignOut parameter from URL
+          // to prevent sign-out loop
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('forceSignOut');
+          window.history.replaceState({}, '', newUrl.toString());
+        } catch (error) {
+          console.error("Error during force sign out:", error);
+        }
+      }
+    };
+    
+    handleForceSignOut();
   }, [forceSignOut, user, signOut, signOutCompleted]);
   
   // If user is already authenticated and not being signed out, redirect them
