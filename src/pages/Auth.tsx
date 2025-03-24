@@ -21,12 +21,11 @@ const Auth = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
-  // Handle force sign out if requested (for users stuck in login loop)
+  // Handle force sign out if explicitly requested via URL parameter
   useEffect(() => {
     if (forceSignOut && user && !signOutCompleted) {
-      console.log("Force sign out requested, signing out user");
+      console.log("Force sign out requested via URL parameter, signing out user");
       
-      // Perform sign out
       const performSignOut = async () => {
         await signOut();
         setSignOutCompleted(true);
@@ -125,7 +124,7 @@ const Auth = () => {
           </CardHeader>
           
           <TabsContent value="login" className="pt-0 pb-0">
-            <LoginForm redirectTo={redirect} forceSignOut={signOutCompleted} />
+            <LoginForm redirectTo={redirect} />
           </TabsContent>
           
           <TabsContent value="signup" className="pt-0 pb-0">

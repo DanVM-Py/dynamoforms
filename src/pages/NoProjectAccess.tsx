@@ -60,8 +60,8 @@ const NoProjectAccess = () => {
   const handleSignOut = async () => {
     try {
       await signOut();
-      // Navigate to auth page after successful signout
-      navigate('/auth', { replace: true });
+      // Navigate to auth page with forceSignOut parameter
+      navigate('/auth?forceSignOut=true', { replace: true });
     } catch (error) {
       console.error("Error signing out:", error);
       toast({

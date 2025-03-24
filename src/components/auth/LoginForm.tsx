@@ -8,20 +8,17 @@ import { CardContent, CardFooter } from "@/components/ui/card";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useNavigate } from "react-router-dom";
 
 interface LoginFormProps {
   redirectTo: string;
-  forceSignOut?: boolean;
 }
 
-export const LoginForm = ({ redirectTo, forceSignOut = false }: LoginFormProps) => {
+export const LoginForm = ({ redirectTo }: LoginFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
