@@ -5,10 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CardContent, CardFooter } from "@/components/ui/card";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, MailCheck } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ConfirmEmailForm } from "./ConfirmEmailForm";
 
 interface SignUpFormProps {
   redirectTo?: string;
@@ -20,7 +19,6 @@ export const SignUpForm = ({ redirectTo }: SignUpFormProps) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [registrationComplete, setRegistrationComplete] = useState(false);
-  const [userId, setUserId] = useState<string | undefined>(undefined);
   const { toast } = useToast();
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -78,8 +76,6 @@ export const SignUpForm = ({ redirectTo }: SignUpFormProps) => {
         throw new Error("No se pudo registrar. Inténtalo de nuevo.");
       }
       
-      // Store the user ID for the confirmation screen
-      setUserId(data.user.id);
       setRegistrationComplete(true);
       toast({
         title: "Registro exitoso",
@@ -95,7 +91,27 @@ export const SignUpForm = ({ redirectTo }: SignUpFormProps) => {
   };
 
   if (registrationComplete) {
-    return <ConfirmEmailForm email={email} userId={userId} onGoToLogin={() => window.location.href = '/auth'} />;
+    return (
+      <div className="p-6 text-center">
+        <div className="flex flex-col items-center gap-2 mb-4">
+          <div className="bg-green-100 p-2 rounded-full">
+            <MailCheck className="h-6 w-6 text-green-600" />
+          </div>
+          <h3 className="text-lg font-medium">Registro exitoso</h3>
+        </div>
+        <p className="text-gray-600 mb-4">
+          Se ha enviado un correo de confirmación a <strong>{email}</strong>. 
+          Por favor, revisa tu bandeja de entrada y haz clic en el enlace para confirmar tu cuenta.
+        </p>
+        <Button 
+          variant="outline" 
+          className="mt-2" 
+          onClick={() => window.location.href = '/auth'}
+        >
+          Volver a inicio de sesión
+        </Button>
+      </div>
+    );
   }
 
   return (
