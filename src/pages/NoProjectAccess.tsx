@@ -7,13 +7,14 @@ import { FolderLock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const NoProjectAccess = () => {
   const [loading, setLoading] = useState(false);
   const [availableProjects, setAvailableProjects] = useState<any[]>([]);
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Fetch available projects for non-global-admin users
   useEffect(() => {
@@ -55,12 +56,19 @@ const NoProjectAccess = () => {
     fetchProjects();
   }, [user, toast]);
 
-  // Handles the actual sign out process
+  // Handles the sign out process and redirect to auth page
   const handleSignOut = async () => {
     try {
       await signOut();
+      // Navigate to auth page after successful signout
+      navigate('/auth', { replace: true });
     } catch (error) {
       console.error("Error signing out:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cerrar la sesión correctamente",
+        variant: "destructive",
+      });
     }
   };
 

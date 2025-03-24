@@ -8,8 +8,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Auth = () => {
@@ -113,15 +111,6 @@ const Auth = () => {
                 Plataforma de gestión de formularios
               </CardDescription>
             </div>
-            
-            {confirmationSuccess && (
-              <Alert className="bg-green-50 border-green-200 mb-4 w-full">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-700">
-                  Tu correo ha sido confirmado correctamente. Ahora puedes iniciar sesión.
-                </AlertDescription>
-              </Alert>
-            )}
             
             <div className="w-full pb-2">
               <TabsList className="w-full">
