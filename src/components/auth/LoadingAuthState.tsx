@@ -19,7 +19,12 @@ export const LoadingAuthState = ({ stage = "verificando" }: { stage?: string }) 
       "login successful": "Inicio exitoso...",
       "redirecting": "Redirigiendo...",
       "error": "Error en el proceso",
-      "verificando": "Verificando sesión..."
+      "verificando": "Verificando sesión...",
+      "setting_up_listener": "Preparando autenticación...",
+      "listener_setup_complete": "Sistema inicializado...",
+      "checking_existing_session": "Verificando sesión existente...",
+      "fetching_profile": "Obteniendo perfil...",
+      "initialization_complete": "Inicialización completa..."
     };
     
     return stageMap[stage] || `${stage}...`;
