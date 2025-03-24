@@ -1,11 +1,11 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CardContent, CardFooter } from "@/components/ui/card";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -19,15 +19,49 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [authStage, setAuthStage] = useState<string>("idle");
+  const [formTouched, setFormTouched] = useState(false);
+  const [loginTimeoutId, setLoginTimeoutId] = useState<number | null>(null);
   const { toast } = useToast();
+
+  // Limpiar timeout al desmontar el componente
+  useEffect(() => {
+    return () => {
+      if (loginTimeoutId) {
+        clearTimeout(loginTimeoutId);
+      }
+    };
+  }, [loginTimeoutId]);
+
+  const updateFormState = (field: 'email' | 'password', value: string) => {
+    if (field === 'email') {
+      setEmail(value);
+    } else {
+      setPassword(value);
+    }
+    
+    if (!formTouched) {
+      setFormTouched(true);
+    }
+    
+    if (errorMessage) {
+      setErrorMessage(null);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setAuthStage("validating");
     
-    if (!email || !password) {
-      setErrorMessage("Por favor ingresa tu correo y contraseña.");
+    // Validación básica
+    if (!email) {
+      setErrorMessage("Por favor ingresa tu correo electrónico");
+      setAuthStage("idle");
+      return;
+    }
+    
+    if (!password) {
+      setErrorMessage("Por favor ingresa tu contraseña");
       setAuthStage("idle");
       return;
     }
@@ -42,11 +76,15 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       await supabase.auth.signOut();
       
       // Set a timeout for the auth process
-      const loginTimeout = setTimeout(() => {
+      const timeoutId = window.setTimeout(() => {
         console.error("Login timeout reached after 60 seconds");
         console.log("Current auth stage:", authStage);
-        throw new Error("El proceso de autenticación ha tomado demasiado tiempo. Por favor intenta nuevamente.");
+        setErrorMessage("El proceso de autenticación ha tomado demasiado tiempo. Por favor intenta nuevamente.");
+        setLoading(false);
+        setAuthStage("timeout");
       }, 60000); // Increase to 60 seconds
+      
+      setLoginTimeoutId(timeoutId);
       
       setAuthStage("signing in");
       console.log("Signing in at:", Date.now());
@@ -57,7 +95,8 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
       console.log("Sign in response received at:", Date.now());
       
       // Clear the timeout as we got a response
-      clearTimeout(loginTimeout);
+      clearTimeout(timeoutId);
+      setLoginTimeoutId(null);
       
       if (error) {
         console.error("Login error:", error.message);
@@ -103,7 +142,26 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         {errorMessage && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{errorMessage}</AlertDescription>
+            <AlertDescription>
+              <div className="flex flex-col gap-1">
+                <span>{errorMessage}</span>
+                <span className="text-xs opacity-70">Estado: {authStage}</span>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {authStage === "timeout" && (
+          <Alert className="mb-4 border-amber-200 bg-amber-50">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800">
+              El proceso está tomando más tiempo de lo esperado. Esto puede ser debido a:
+              <ul className="list-disc pl-5 text-sm mt-1">
+                <li>Problemas de conexión a internet</li>
+                <li>Alta latencia en el servidor</li>
+                <li>Inicios de sesión simultáneos</li>
+              </ul>
+            </AlertDescription>
           </Alert>
         )}
         
@@ -114,11 +172,9 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
             type="email"
             placeholder="correo@ejemplo.com"
             value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setErrorMessage(null);
-            }}
+            onChange={(e) => updateFormState('email', e.target.value)}
             disabled={loading}
+            className={!email && formTouched ? "border-red-300" : ""}
           />
         </div>
         <div className="space-y-2">
@@ -128,11 +184,9 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
             type="password"
             placeholder="********"
             value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setErrorMessage(null);
-            }}
+            onChange={(e) => updateFormState('password', e.target.value)}
             disabled={loading}
+            className={!password && formTouched ? "border-red-300" : ""}
           />
         </div>
       </CardContent>
