@@ -130,32 +130,14 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         throw new Error("Error al verificar el perfil de usuario. Por favor, intenta nuevamente.");
       }
       
-      // If no profile is found, create one
+      // If no profile is found, treat it as invalid credentials
       if (!profileData) {
-        console.log("Profile not found, verifying account status");
-        setAuthStage("verifying account status");
+        console.log("Profile not found, treating as invalid credentials");
         
-        const { error: insertError } = await supabase
-          .from("profiles")
-          .insert({
-            id: data.user.id,
-            email: data.user.email,
-            name: data.user.email?.split('@')[0] || 'Usuario',
-            role: 'user',
-            email_confirmed: false
-          });
-          
-        if (insertError) {
-          console.error("Error creating profile:", insertError);
-          throw new Error("Error al verificar el estado de la cuenta. Por favor, intenta nuevamente.");
-        }
+        // Sign out the user as they don't have a profile
+        await supabase.auth.signOut();
         
-        // Now check email confirmation status since we just created the profile
-        navigate("/confirm-email", { 
-          state: { email: data.user.email },
-          replace: true 
-        });
-        return;
+        throw new Error("Credenciales inválidas. El correo o la contraseña son incorrectos.");
       }
       
       // Check if email is confirmed
