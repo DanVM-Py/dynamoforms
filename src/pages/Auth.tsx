@@ -1,117 +1,117 @@
 
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { PageContainer } from "@/components/layout/PageContainer";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AuthCard } from "@/components/auth/AuthCard";
-import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
+import { LoginForm } from "@/components/auth/LoginForm";
+import { SignUpForm } from "@/components/auth/SignUpForm";
+import { Button } from "@/components/ui/button";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/components/ui/card";
+import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
 import { useConfirmationEffect } from "@/hooks/useConfirmationEffect";
 
 const Auth = () => {
-  const [loading, setLoading] = useState(true);
-  const [authCheckStarted, setAuthCheckStarted] = useState(false);
-  const [authStage, setAuthStage] = useState<string>("initializing");
-  const [errorDetails, setErrorDetails] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const redirect = searchParams.get("redirect") || "/";
+  const [authInit, setAuthInit] = useState(true);
+  const [authStage, setAuthStage] = useState("starting_auth_check");
+  const [authSession, setAuthSession] = useState<any>(null);
+  
+  // Use custom hook for confirmation effect
+  useConfirmationEffect();
 
-  // Parse URL parameters
-  const searchParams = new URLSearchParams(location.search);
-  const confirmationSuccess = searchParams.get('confirmation') === 'success';
-  const redirectTo = searchParams.get('redirect') || '/';
-
-  // Use the extracted confirmation effect hook
-  useConfirmationEffect(confirmationSuccess);
-
-  // Check authentication status
+  // Check if user is already authenticated
   useEffect(() => {
-    if (authCheckStarted) return; // Prevent multiple auth checks
-    
-    const checkAuth = async () => {
+    const checkAuthStatus = async () => {
       try {
-        setAuthCheckStarted(true);
-        setAuthStage("starting_auth_check");
         console.log("Checking authentication status...");
         console.log("Auth check started at:", Date.now());
-        
-        // Siempre limpiar cualquier sesión anterior primero
+        setAuthStage("getting_session");
+
+        // First, sign out to clear any previous session
         await supabase.auth.signOut();
         
-        // Now we can check for current session
-        setAuthStage("getting_session");
         const { data, error } = await supabase.auth.getSession();
-        
+
         console.log("Auth check completed at:", Date.now());
-        console.log("Auth session check result:", { hasSession: !!data.session, hasError: !!error });
         
         if (error) {
-          console.error("Session check error:", error);
-          setErrorDetails(`Error al verificar sesión: ${error.message}`);
+          console.error("Error checking authentication:", error);
           setAuthStage("session_check_error");
-          setLoading(false);
-          return;
+        } else {
+          const hasSession = !!data.session;
+          console.log("Auth session check result:", {
+            hasSession,
+            hasError: !!error
+          });
+
+          if (hasSession) {
+            console.log("Active session found, redirecting to:", redirect);
+            setAuthSession(data.session);
+            setAuthStage("authenticated_redirecting");
+            window.location.href = redirect;
+          } else {
+            console.log("No active session found, which is expected");
+            setAuthInit(false);
+            setAuthStage("no_session");
+          }
         }
-        
-        // Si después de limpiar todavía hay una sesión, aseguremos que sea válida
-        if (data.session) {
-          console.log("Active session found after signOut, this is unexpected");
-          setAuthStage("unexpected_session");
-          
-          // Intenta un segundo signOut para estar seguros
-          await supabase.auth.signOut();
-          setLoading(false);
-          return;
-        }
-        
-        // No hay sesión activa, lo cual es lo esperado en la página de auth
-        console.log("No active session found, which is expected");
-        setAuthStage("no_session");
-        setLoading(false);
-      } catch (error: any) {
-        console.error("Auth check error:", error);
-        setErrorDetails(`Error inesperado: ${error.message || 'Error desconocido'}`);
+      } catch (error) {
+        console.error("Unexpected error in auth check:", error);
         setAuthStage("unexpected_error");
-        setLoading(false);
+        setAuthInit(false);
       }
     };
-    
-    // Check auth with a failsafe timeout
-    checkAuth();
-    
-    // Set a backup timeout to prevent infinite loading state
-    const timeoutId = setTimeout(() => {
-      console.log("Auth check timeout reached");
-      console.log("Current state:", { loading, authCheckStarted, authStage });
-      setErrorDetails("La verificación de sesión ha tomado demasiado tiempo. Puede ser un problema de conexión o un error interno.");
-      setAuthStage("timeout");
-      setLoading(false);
-    }, 15000); // Set timeout to 15 seconds
-    
-    return () => clearTimeout(timeoutId);
-  }, [navigate, redirectTo, loading, authCheckStarted]);
 
-  // Show auth card if not loading
-  if (!loading) {
+    checkAuthStatus();
+  }, [redirect]);
+
+  // If still checking auth, show loading state
+  if (authInit) {
     return (
       <PageContainer hideSidebar className="flex items-center justify-center p-0">
-        {errorDetails && (
-          <div className="absolute top-4 right-4 left-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded shadow-sm">
-            <p className="font-medium">Error de autenticación</p>
-            <p className="text-sm">{errorDetails}</p>
-            <p className="text-sm mt-2">Último estado: {authStage}</p>
-          </div>
-        )}
-        <AuthCard redirectTo={redirectTo} confirmationSuccess={confirmationSuccess} />
+        <LoadingAuthState stage={authStage} />
       </PageContainer>
     );
   }
 
-  // Show loading state
   return (
     <PageContainer hideSidebar className="flex items-center justify-center p-0">
-      <LoadingAuthState stage={authStage} />
+      <Tabs defaultValue="login" className="w-full max-w-md px-4">
+        <Card>
+          <CardHeader className="flex flex-col items-center space-y-1 p-6 pt-4 pb-0">
+            <div className="w-full pb-2">
+              <TabsList className="w-full">
+                <TabsTrigger value="login" className="flex-1">
+                  Iniciar Sesión
+                </TabsTrigger>
+                <TabsTrigger value="signup" className="flex-1">
+                  Crear Cuenta
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            <CardDescription>
+              Accede al sistema o crea una cuenta nueva
+            </CardDescription>
+          </CardHeader>
+          
+          <TabsContent value="login" className="pt-0 pb-0">
+            <LoginForm redirectTo={redirect} />
+          </TabsContent>
+          
+          <TabsContent value="signup" className="pt-0 pb-0">
+            <SignUpForm redirectTo={redirect} />
+          </TabsContent>
+          
+          <CardFooter className="px-6 py-2 border-t">
+            <div className="text-xs text-gray-500 w-full text-center">
+              Al continuar, estás aceptando nuestros términos y condiciones
+            </div>
+          </CardFooter>
+        </Card>
+      </Tabs>
     </PageContainer>
   );
 };

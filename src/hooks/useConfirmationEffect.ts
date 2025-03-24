@@ -1,11 +1,13 @@
 
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 
-export const useConfirmationEffect = (confirmationSuccess: boolean) => {
+export const useConfirmationEffect = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const confirmationSuccess = searchParams.get('confirmation') === 'success';
 
   useEffect(() => {
     if (confirmationSuccess) {
@@ -18,4 +20,6 @@ export const useConfirmationEffect = (confirmationSuccess: boolean) => {
       navigate('/auth', { replace: true });
     }
   }, [confirmationSuccess, toast, navigate]);
+  
+  return { confirmationSuccess };
 };
