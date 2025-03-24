@@ -53,8 +53,42 @@ const createSupabaseClient = () => {
   );
 };
 
+// Create an admin client with the same config but no project headers
+// This is used for operations that need to work across projects
+const createAdminClient = () => {
+  const supabaseUrl = config.supabaseUrl;
+  const supabaseAnonKey = config.supabaseAnonKey;
+  
+  return createClient<Database>(
+    supabaseUrl, 
+    supabaseAnonKey,
+    {
+      auth: {
+        storageKey: config.storage.authTokenKey,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+      global: {
+        headers: {},
+        // Increase timeout to prevent quick timeouts
+        fetch: (url, options) => {
+          return fetch(url, {
+            ...options,
+            // Increase to 30 seconds
+            signal: options?.signal || AbortSignal.timeout(30000)
+          });
+        }
+      }
+    }
+  );
+};
+
 // Create only one instance and export it
 export const supabase = createSupabaseClient();
+
+// Create and export the admin client
+export const supabaseAdmin = createAdminClient();
 
 // Function to get the current session - useful for components that need quick access
 export const getCurrentSession = async () => {
