@@ -10,7 +10,11 @@ import { useToast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export const SignUpForm = () => {
+interface SignUpFormProps {
+  redirectTo?: string;
+}
+
+export const SignUpForm = ({ redirectTo }: SignUpFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
