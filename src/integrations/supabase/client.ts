@@ -13,43 +13,48 @@ export const SERVICES = {
   NOTIFICATIONS: 'notifications'
 };
 
-// Create a single instance of the Supabase client for the main API
-// Using a true singleton pattern with module-level variable
-const supabaseClient = createClient<Database>(
-  config.supabaseUrl, 
-  config.supabaseAnonKey,
-  {
-    auth: {
+// Create a single instance of the Supabase client
+const createSupabaseClient = () => {
+  const supabaseUrl = config.supabaseUrl;
+  const supabaseAnonKey = config.supabaseAnonKey;
+  
+  console.log("Initializing Supabase client with:", {
+    url: supabaseUrl,
+    hasKey: !!supabaseAnonKey,
+    authSettings: {
       storageKey: config.storage.authTokenKey,
       autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
-    },
-    global: {
-      headers: {},
+      persistSession: true
     }
-  }
-);
-
-// Create a separate admin client without project headers
-const supabaseAdminClient = createClient<Database>(
-  config.supabaseUrl, 
-  config.supabaseAnonKey,
-  {
-    auth: {
-      storageKey: config.storage.authTokenKey,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
+  });
+  
+  return createClient<Database>(
+    supabaseUrl, 
+    supabaseAnonKey,
+    {
+      auth: {
+        storageKey: config.storage.authTokenKey,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+      global: {
+        headers: {},
+        // Increase timeout to prevent quick timeouts
+        fetch: (url, options) => {
+          return fetch(url, {
+            ...options,
+            // Increase to 30 seconds
+            signal: options?.signal || AbortSignal.timeout(30000)
+          });
+        }
+      }
     }
-  }
-);
+  );
+};
 
-// Export the main API client as the default supabase client
-export const supabase = supabaseClient;
-
-// Export the admin client for admin-only operations (across projects)
-export const supabaseAdmin = supabaseAdminClient;
+// Create only one instance and export it
+export const supabase = createSupabaseClient();
 
 // Function to get the current session - useful for components that need quick access
 export const getCurrentSession = async () => {
