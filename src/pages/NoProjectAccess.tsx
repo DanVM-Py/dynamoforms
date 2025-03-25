@@ -15,6 +15,7 @@ const NoProjectAccess = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [signOutClicked, setSignOutClicked] = useState(false);
 
   // Fetch available projects for non-global-admin users
   useEffect(() => {
@@ -53,55 +54,40 @@ const NoProjectAccess = () => {
       }
     };
     
-    fetchProjects();
-  }, [user, toast]);
+    // Only fetch projects if we haven't initiated sign out
+    if (!signOutClicked) {
+      fetchProjects();
+    }
+  }, [user, toast, signOutClicked]);
 
-  // Maneja el cierre de sesión manualmente y con mejor manejo de errores
-  const handleSignOut = async () => {
-    if (loading) return; // Evitar múltiples clics mientras procesa
+  // Simple redirect without trying to handle the entire sign-out process
+  const handleRedirectToAuth = () => {
+    if (loading || signOutClicked) return; // Prevent multiple clicks
     
     try {
       setLoading(true);
+      setSignOutClicked(true);
       
-      console.log("Iniciando proceso de cierre de sesión manual");
-      
-      // Limpiar el almacenamiento local primero para asegurar un estado limpio
+      // Just clear local storage and redirect
       localStorage.removeItem('currentProjectId');
       localStorage.removeItem('isProjectAdmin');
       sessionStorage.removeItem('currentProjectId');
       
-      // Cerrar sesión directamente con Supabase con un tiempo de espera
-      const signOutPromise = supabase.auth.signOut();
+      console.log("Redirecting to auth page without handling sign out");
       
-      // Establecer un tiempo de espera de 3 segundos
-      const timeoutPromise = new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Esperar a que se complete el cierre de sesión o se agote el tiempo de espera
-      await Promise.race([signOutPromise, timeoutPromise]);
-      
-      console.log("Sesión cerrada o tiempo de espera agotado, redirigiendo...");
-      
-      // Mostrar toast de confirmación
+      // Show toast
       toast({
-        title: "Sesión finalizada",
-        description: "Redirigiendo al inicio de sesión..."
+        title: "Redirigiendo",
+        description: "Volviendo a la página de inicio de sesión..."
       });
       
-      // Redirigir directamente a la página de autenticación sin parámetros
+      // Navigate directly to auth page
       navigate('/auth', { replace: true });
       
     } catch (error) {
-      console.error("Error al cerrar sesión:", error);
-      toast({
-        title: "Error",
-        description: "Se produjo un error, redirigiendo de todos modos",
-        variant: "destructive",
-      });
-      
-      // En caso de error, intentar redirigir de todos modos
+      console.error("Error redirecting:", error);
+      // Still try to redirect on error
       navigate('/auth', { replace: true });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -152,7 +138,7 @@ const NoProjectAccess = () => {
           
           <CardFooter>
             <Button 
-              onClick={handleSignOut}
+              onClick={handleRedirectToAuth}
               disabled={loading}
               className="w-full bg-dynamo-600 hover:bg-dynamo-700"
             >

@@ -19,7 +19,16 @@ const Auth = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  // Check if user is already authenticated
+  // Check if user is already authenticated, but don't try to redirect away
+  // during the initial auth check - that happens in the main effect below
+  useEffect(() => {
+    if (!authInit && user) {
+      console.log("User already authenticated, redirecting to:", redirect);
+      navigate(redirect, { replace: true });
+    }
+  }, [user, redirect, navigate, authInit]);
+  
+  // Just check if we have an existing session without any side effects
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
@@ -31,37 +40,26 @@ const Auth = () => {
         if (error) {
           console.error("Error checking authentication:", error);
           setAuthStage("session_check_error");
-          setAuthInit(false);
         } else {
           const hasSession = !!data.session;
-
+          console.log("Has active session:", hasSession);
+          
           if (hasSession) {
-            console.log("Active session found, redirecting to:", redirect);
             setAuthStage("authenticated_redirecting");
-            navigate(redirect, { replace: true });
           } else {
-            console.log("No active session found, which is expected");
-            setAuthInit(false);
             setAuthStage("no_session");
           }
         }
       } catch (error) {
         console.error("Unexpected error in auth check:", error);
         setAuthStage("unexpected_error");
+      } finally {
         setAuthInit(false);
       }
     };
 
     checkAuthStatus();
   }, [redirect, navigate]);
-
-  // If user is already authenticated, redirect them
-  useEffect(() => {
-    if (user) {
-      console.log("User already authenticated, redirecting to:", redirect);
-      navigate(redirect, { replace: true });
-    }
-  }, [user, redirect, navigate]);
 
   // If still checking auth, show loading state
   if (authInit) {
