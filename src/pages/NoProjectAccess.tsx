@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +11,7 @@ import { useNavigate } from "react-router-dom";
 const NoProjectAccess = () => {
   const [loading, setLoading] = useState(false);
   const [availableProjects, setAvailableProjects] = useState<any[]>([]);
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -56,31 +55,44 @@ const NoProjectAccess = () => {
     fetchProjects();
   }, [user, toast]);
 
-  // Handles the sign out process and redirect to auth page
+  // Simplificado: Maneja el cierre de sesión y redirección directamente usando Supabase
   const handleSignOut = async () => {
     try {
-      // Clear any stored project ID from localStorage first
+      setLoading(true);
+      
+      console.log("Iniciando proceso de cierre de sesión simplificado");
+      
+      // Limpiamos el storage primero para asegurar un estado limpio
       localStorage.removeItem('currentProjectId');
       localStorage.removeItem('isProjectAdmin');
+      sessionStorage.removeItem('currentProjectId');
       
-      // Then sign out the user
-      await signOut();
+      // Cerrar sesión directamente con Supabase en vez de usar el contexto
+      await supabase.auth.signOut();
       
-      // Redirect to auth page with clean URL
-      // Important: Use navigate instead of window.location to prevent infinite loops
-      navigate('/auth', { replace: true });
+      console.log("Sesión cerrada correctamente, redirigiendo...");
       
+      // Mostrar toast de confirmación
       toast({
         title: "Sesión finalizada",
         description: "Has cerrado sesión correctamente"
       });
+      
+      // Redirigir directamente a la página de autenticación sin parámetros
+      navigate('/auth', { replace: true });
+      
     } catch (error) {
-      console.error("Error signing out:", error);
+      console.error("Error al cerrar sesión:", error);
       toast({
         title: "Error",
         description: "No se pudo cerrar la sesión correctamente",
         variant: "destructive",
       });
+      
+      // En caso de error, intentar redirigir de todos modos
+      navigate('/auth', { replace: true });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -132,9 +144,10 @@ const NoProjectAccess = () => {
           <CardFooter>
             <Button 
               onClick={handleSignOut}
+              disabled={loading}
               className="w-full bg-dynamo-600 hover:bg-dynamo-700"
             >
-              Volver al inicio de sesión
+              {loading ? 'Cerrando sesión...' : 'Volver al inicio de sesión'}
             </Button>
           </CardFooter>
         </Card>
