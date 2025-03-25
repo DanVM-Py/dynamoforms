@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,9 +20,9 @@ const NoProjectAccess = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        setLoading(true);
-        
         if (!user) return;
+        
+        setLoading(true);
         
         // Show pending invitations for regular users
         const { data, error } = await supabase
@@ -55,27 +56,35 @@ const NoProjectAccess = () => {
     fetchProjects();
   }, [user, toast]);
 
-  // Simplificado: Maneja el cierre de sesión y redirección directamente usando Supabase
+  // Maneja el cierre de sesión manualmente y con mejor manejo de errores
   const handleSignOut = async () => {
+    if (loading) return; // Evitar múltiples clics mientras procesa
+    
     try {
       setLoading(true);
       
-      console.log("Iniciando proceso de cierre de sesión simplificado");
+      console.log("Iniciando proceso de cierre de sesión manual");
       
-      // Limpiamos el storage primero para asegurar un estado limpio
+      // Limpiar el almacenamiento local primero para asegurar un estado limpio
       localStorage.removeItem('currentProjectId');
       localStorage.removeItem('isProjectAdmin');
       sessionStorage.removeItem('currentProjectId');
       
-      // Cerrar sesión directamente con Supabase en vez de usar el contexto
-      await supabase.auth.signOut();
+      // Cerrar sesión directamente con Supabase con un tiempo de espera
+      const signOutPromise = supabase.auth.signOut();
       
-      console.log("Sesión cerrada correctamente, redirigiendo...");
+      // Establecer un tiempo de espera de 3 segundos
+      const timeoutPromise = new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Esperar a que se complete el cierre de sesión o se agote el tiempo de espera
+      await Promise.race([signOutPromise, timeoutPromise]);
+      
+      console.log("Sesión cerrada o tiempo de espera agotado, redirigiendo...");
       
       // Mostrar toast de confirmación
       toast({
         title: "Sesión finalizada",
-        description: "Has cerrado sesión correctamente"
+        description: "Redirigiendo al inicio de sesión..."
       });
       
       // Redirigir directamente a la página de autenticación sin parámetros
@@ -85,7 +94,7 @@ const NoProjectAccess = () => {
       console.error("Error al cerrar sesión:", error);
       toast({
         title: "Error",
-        description: "No se pudo cerrar la sesión correctamente",
+        description: "Se produjo un error, redirigiendo de todos modos",
         variant: "destructive",
       });
       
@@ -147,7 +156,7 @@ const NoProjectAccess = () => {
               disabled={loading}
               className="w-full bg-dynamo-600 hover:bg-dynamo-700"
             >
-              {loading ? 'Cerrando sesión...' : 'Volver al inicio de sesión'}
+              {loading ? 'Redirigiendo...' : 'Volver al inicio de sesión'}
             </Button>
           </CardFooter>
         </Card>

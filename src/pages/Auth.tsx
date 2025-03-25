@@ -19,14 +19,6 @@ const Auth = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  // If user is already authenticated, redirect them
-  useEffect(() => {
-    if (user) {
-      console.log("User already authenticated, redirecting to:", redirect);
-      navigate(redirect, { replace: true });
-    }
-  }, [user, redirect, navigate]);
-  
   // Check if user is already authenticated
   useEffect(() => {
     const checkAuthStatus = async () => {
@@ -62,6 +54,14 @@ const Auth = () => {
 
     checkAuthStatus();
   }, [redirect, navigate]);
+
+  // If user is already authenticated, redirect them
+  useEffect(() => {
+    if (user) {
+      console.log("User already authenticated, redirecting to:", redirect);
+      navigate(redirect, { replace: true });
+    }
+  }, [user, redirect, navigate]);
 
   // If still checking auth, show loading state
   if (authInit) {
