@@ -59,19 +59,19 @@ const NoProjectAccess = () => {
     }
   }, [user, toast]);
 
-  // Simple redirect to auth page WITHOUT attempting to modify auth state
+  // Redirect to auth page with signout parameter to ensure session is cleared
   const handleRedirectToAuth = () => {
     if (loading) return; // Prevent click during loading
     
-    console.log("Redirecting to auth page without affecting auth state");
+    console.log("Redirecting to auth page with signout parameter");
     
     toast({
       title: "Redirigiendo",
       description: "Volviendo a la página de inicio de sesión..."
     });
     
-    // Navigate to auth page - this will trigger signOut there
-    navigate('/auth', { replace: true });
+    // Navigate to auth page with signout=true to force signout
+    navigate('/auth?signout=true', { replace: true });
   };
 
   return (

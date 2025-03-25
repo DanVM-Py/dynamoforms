@@ -14,35 +14,45 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const redirect = searchParams.get("redirect") || "/";
   const confirmationSuccess = searchParams.get('confirmation') === 'success';
+  const forceSignOut = searchParams.get('signout') === 'true';
   const [authInit, setAuthInit] = useState(true);
   const [authStage, setAuthStage] = useState("starting_auth_check");
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
   
-  // Siempre ejecutar signOut cuando se carga la página Auth
+  // Only execute signOut when specific signout parameter is present or when navigating from certain states
   useEffect(() => {
-    const performSignOut = async () => {
+    const performInitialCheck = async () => {
       try {
-        setAuthStage("signing_out");
-        console.log("Auth page: Executing signOut to clear session");
-        
-        // Si venimos de no-project-access, necesitamos cerrar sesión
-        if (user) {
+        // If we're asked to force sign out OR the user is already logged in 
+        // and there's no redirect parameter (meaning direct visit to auth page)
+        if (forceSignOut || (user && !searchParams.get("redirect"))) {
+          setAuthStage("signing_out");
+          console.log("Auth page: Executing signOut - explicitly requested or direct auth page access");
+          
           await signOut();
           console.log("Auth page: Session cleared successfully");
+        } else if (user) {
+          // User is logged in and has a redirect target - don't sign them out, just redirect
+          console.log("Auth page: User is already authenticated with redirect target, skipping signOut");
+          
+          // If we have a redirect parameter, go there, otherwise go to home
+          const redirectPath = searchParams.get("redirect") || "/";
+          navigate(redirectPath, { replace: true });
+          return;
         }
         
         setAuthStage("ready_for_auth");
         setAuthInit(false);
       } catch (error) {
-        console.error("Auth page: Error during sign out:", error);
-        setAuthStage("sign_out_error");
+        console.error("Auth page: Error during initial check:", error);
+        setAuthStage("initial_check_error");
         setAuthInit(false);
       }
     };
 
-    performSignOut();
-  }, [signOut, user]);
+    performInitialCheck();
+  }, [signOut, user, navigate, searchParams, forceSignOut]);
 
   // Function to handle successful login with project access check
   const handleSuccessfulLogin = (hasNoProjectAccess: boolean) => {
