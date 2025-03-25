@@ -82,6 +82,7 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
         if (onSuccessfulLogin) {
           onSuccessfulLogin(true);
         } else {
+          // Navigate directly to no-project-access instead of calling callback
           navigate('/no-project-access', { replace: true });
         }
       } else {
@@ -90,6 +91,7 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
         if (onSuccessfulLogin) {
           onSuccessfulLogin(false);
         } else {
+          // Navigate directly to redirectTo instead of calling callback
           navigate(redirectTo, { replace: true });
         }
       }

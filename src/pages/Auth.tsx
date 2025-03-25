@@ -16,7 +16,7 @@ const Auth = () => {
   const confirmationSuccess = searchParams.get('confirmation') === 'success';
   const [authInit, setAuthInit] = useState(true);
   const [authStage, setAuthStage] = useState("starting_auth_check");
-  const { user, signOut, loading, currentProjectId, isGlobalAdmin } = useAuth();
+  const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
   
   // Siempre ejecutar signOut cuando se carga la página Auth
@@ -43,6 +43,17 @@ const Auth = () => {
 
     performSignOut();
   }, [signOut, user]);
+
+  // Function to handle successful login with project access check
+  const handleSuccessfulLogin = (hasNoProjectAccess: boolean) => {
+    if (hasNoProjectAccess) {
+      console.log("Login successful but user has no project access, redirecting to no-project-access");
+      navigate('/no-project-access', { replace: true });
+    } else {
+      console.log("Login successful and user has project access, redirecting to:", redirect);
+      navigate(redirect, { replace: true });
+    }
+  };
 
   // Si todavía estamos verificando el estado de autenticación, mostrar el estado de carga
   if (authInit) {
@@ -78,11 +89,10 @@ const Auth = () => {
           </CardHeader>
           
           <TabsContent value="login" className="pt-0 pb-0">
-            <LoginForm redirectTo={redirect} onSuccessfulLogin={(hasNoProjectAccess) => {
-              if (hasNoProjectAccess) {
-                navigate('/no-project-access', { replace: true });
-              }
-            }} />
+            <LoginForm 
+              redirectTo={redirect} 
+              onSuccessfulLogin={handleSuccessfulLogin} 
+            />
           </TabsContent>
           
           <TabsContent value="signup" className="pt-0 pb-0">

@@ -70,7 +70,7 @@ const NoProjectAccess = () => {
       description: "Volviendo a la página de inicio de sesión..."
     });
     
-    // Navigate without any auth operation
+    // Navigate to auth page - this will trigger signOut there
     navigate('/auth', { replace: true });
   };
 
