@@ -4,6 +4,15 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { config } from '@/config/environment';
 
+// Define service identifiers - adding this to fix the import errors
+export const SERVICES = {
+  AUTH: 'auth',
+  PROJECTS: 'projects',
+  FORMS: 'forms',
+  TASKS: 'tasks',
+  NOTIFICATIONS: 'notifications'
+};
+
 // Create a single Supabase client instance - SINGLETON PATTERN
 let supabaseInstance = null;
 
