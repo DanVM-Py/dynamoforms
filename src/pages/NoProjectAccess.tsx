@@ -59,7 +59,7 @@ const NoProjectAccess = () => {
   // Handles the sign out process and redirect to auth page
   const handleSignOut = async () => {
     try {
-      // First clear any stored project ID to ensure clean state
+      // Clear any stored project ID from localStorage first
       localStorage.removeItem('currentProjectId');
       localStorage.removeItem('isProjectAdmin');
       
@@ -67,6 +67,7 @@ const NoProjectAccess = () => {
       await signOut();
       
       // Redirect to auth page with clean URL
+      // Important: Use navigate instead of window.location to prevent infinite loops
       navigate('/auth', { replace: true });
       
       toast({

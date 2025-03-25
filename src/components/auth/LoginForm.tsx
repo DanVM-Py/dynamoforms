@@ -120,8 +120,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         description: "Has iniciado sesión correctamente.",
       });
       
-      // Navigate to the intended destination without any forceSignOut parameter
-      // Will be handled by protected routes appropriately
+      // Navigate to the intended destination
       window.location.href = redirectTo;
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error.message);

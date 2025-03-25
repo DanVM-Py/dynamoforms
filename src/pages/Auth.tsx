@@ -11,52 +11,21 @@ import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Auth = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const redirect = searchParams.get("redirect") || "/";
   const confirmationSuccess = searchParams.get('confirmation') === 'success';
-  const forceSignOut = searchParams.get('forceSignOut') === 'true';
   const [authInit, setAuthInit] = useState(true);
   const [authStage, setAuthStage] = useState("starting_auth_check");
-  const [signOutCompleted, setSignOutCompleted] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   
-  // Handle the forceSignOut parameter - removing it immediately to prevent loops
+  // If user is already authenticated, redirect them
   useEffect(() => {
-    // First, immediately remove the forceSignOut parameter from the URL to prevent loops
-    if (forceSignOut) {
-      console.log("Found forceSignOut parameter, removing it from URL");
-      searchParams.delete('forceSignOut');
-      setSearchParams(searchParams, { replace: true });
-    }
-  }, [forceSignOut, searchParams, setSearchParams]);
-  
-  // Handle force sign out as a separate effect
-  useEffect(() => {
-    const handleForceSignOut = async () => {
-      // Only execute if we have a user and haven't already completed sign out
-      if (forceSignOut && user && !signOutCompleted) {
-        console.log("Processing explicit sign out request");
-        
-        try {
-          await signOut();
-          setSignOutCompleted(true);
-        } catch (error) {
-          console.error("Error during force sign out:", error);
-        }
-      }
-    };
-    
-    handleForceSignOut();
-  }, [forceSignOut, user, signOut, signOutCompleted]);
-  
-  // If user is already authenticated and not being signed out, redirect them
-  useEffect(() => {
-    if (user && !forceSignOut) {
+    if (user) {
       console.log("User already authenticated, redirecting to:", redirect);
       navigate(redirect, { replace: true });
     }
-  }, [user, redirect, navigate, forceSignOut]);
+  }, [user, redirect, navigate]);
   
   // Check if user is already authenticated
   useEffect(() => {
@@ -74,7 +43,7 @@ const Auth = () => {
         } else {
           const hasSession = !!data.session;
 
-          if (hasSession && !forceSignOut) {
+          if (hasSession) {
             console.log("Active session found, redirecting to:", redirect);
             setAuthStage("authenticated_redirecting");
             navigate(redirect, { replace: true });
@@ -92,7 +61,7 @@ const Auth = () => {
     };
 
     checkAuthStatus();
-  }, [redirect, navigate, forceSignOut]);
+  }, [redirect, navigate]);
 
   // If still checking auth, show loading state
   if (authInit) {
