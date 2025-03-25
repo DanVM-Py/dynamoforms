@@ -19,36 +19,30 @@ const Auth = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  // Check if user is already authenticated, but don't try to redirect away
-  // during the initial auth check - that happens in the main effect below
+  // Only check if user is authenticated and show login form if not
   useEffect(() => {
-    if (!authInit && user) {
-      console.log("User already authenticated, redirecting to:", redirect);
-      navigate(redirect, { replace: true });
-    }
-  }, [user, redirect, navigate, authInit]);
-  
-  // Just check if we have an existing session without any side effects
-  useEffect(() => {
-    const checkAuthStatus = async () => {
+    const checkAuth = async () => {
       try {
-        console.log("Checking authentication status...");
+        console.log("Checking authentication state on Auth page");
         setAuthStage("getting_session");
         
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Error checking authentication:", error);
+          console.error("Error checking auth state:", error);
           setAuthStage("session_check_error");
+          setAuthInit(false);
+          return;
+        }
+        
+        // If user is authenticated and not coming from no-project-access page
+        if (data?.session && redirect !== '/no-project-access') {
+          console.log("User is authenticated, redirecting to:", redirect);
+          setAuthStage("authenticated_redirecting");
+          navigate(redirect, { replace: true });
         } else {
-          const hasSession = !!data.session;
-          console.log("Has active session:", hasSession);
-          
-          if (hasSession) {
-            setAuthStage("authenticated_redirecting");
-          } else {
-            setAuthStage("no_session");
-          }
+          console.log("No active session or coming from no-project-access");
+          setAuthStage("ready_for_auth");
         }
       } catch (error) {
         console.error("Unexpected error in auth check:", error);
@@ -58,7 +52,7 @@ const Auth = () => {
       }
     };
 
-    checkAuthStatus();
+    checkAuth();
   }, [redirect, navigate]);
 
   // If still checking auth, show loading state

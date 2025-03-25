@@ -4,17 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { config } from '@/config/environment';
 
-// Service identification constants
-export const SERVICES = {
-  AUTH: 'auth',
-  PROJECTS: 'projects',
-  FORMS: 'forms',
-  TASKS: 'tasks',
-  NOTIFICATIONS: 'notifications'
-};
-
 // Create a single Supabase client instance - SINGLETON PATTERN
-// This prevents multiple instances of GoTrueClient
 let supabaseInstance = null;
 
 // Create a single instance of the Supabase client
@@ -32,7 +22,7 @@ const createSupabaseClient = () => {
     authSettings: {
       storageKey: config.storage.authTokenKey,
       autoRefreshToken: true,
-      persistSession: true // Changed to true to maintain sessions
+      persistSession: true
     }
   });
   
@@ -43,16 +33,14 @@ const createSupabaseClient = () => {
       auth: {
         storageKey: config.storage.authTokenKey,
         autoRefreshToken: true,
-        persistSession: true, // Changed to true to maintain sessions
+        persistSession: true,
         detectSessionInUrl: true,
       },
       global: {
         headers: {},
-        // Increase timeout to prevent quick timeouts
         fetch: (url, options) => {
           return fetch(url, {
             ...options,
-            // Increase to 60 seconds for more margin
             signal: options?.signal || AbortSignal.timeout(60000)
           });
         }
@@ -66,8 +54,7 @@ const createSupabaseClient = () => {
 // Create a single instance and export it
 export const supabase = createSupabaseClient();
 
-// Since other parts of the code expect an adminClient, we'll provide it
-// but make it use the same instance to avoid multiple GoTrueClient instances
+// Export the same instance for admin functions
 export const supabaseAdmin = supabase;
 
 // Function to get the current session - useful for components that need quick access

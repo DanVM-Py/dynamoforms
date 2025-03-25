@@ -15,7 +15,6 @@ const NoProjectAccess = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [signOutClicked, setSignOutClicked] = useState(false);
 
   // Fetch available projects for non-global-admin users
   useEffect(() => {
@@ -54,41 +53,26 @@ const NoProjectAccess = () => {
       }
     };
     
-    // Only fetch projects if we haven't initiated sign out
-    if (!signOutClicked) {
+    // Only fetch if we have a user
+    if (user) {
       fetchProjects();
     }
-  }, [user, toast, signOutClicked]);
+  }, [user, toast]);
 
-  // Simple redirect without trying to handle the entire sign-out process
+  // Simple redirect without any auth operation - CRUCIAL FIX
   const handleRedirectToAuth = () => {
-    if (loading || signOutClicked) return; // Prevent multiple clicks
+    if (loading) return; // Prevent click during loading
     
-    try {
-      setLoading(true);
-      setSignOutClicked(true);
-      
-      // Just clear local storage and redirect
-      localStorage.removeItem('currentProjectId');
-      localStorage.removeItem('isProjectAdmin');
-      sessionStorage.removeItem('currentProjectId');
-      
-      console.log("Redirecting to auth page without handling sign out");
-      
-      // Show toast
-      toast({
-        title: "Redirigiendo",
-        description: "Volviendo a la página de inicio de sesión..."
-      });
-      
-      // Navigate directly to auth page
-      navigate('/auth', { replace: true });
-      
-    } catch (error) {
-      console.error("Error redirecting:", error);
-      // Still try to redirect on error
-      navigate('/auth', { replace: true });
-    }
+    console.log("Redirecting to auth page without affecting auth state");
+    
+    // Show toast
+    toast({
+      title: "Redirigiendo",
+      description: "Volviendo a la página de inicio de sesión..."
+    });
+    
+    // Navigate directly to auth page without attempting to sign out
+    navigate('/auth', { replace: true });
   };
 
   return (
@@ -142,7 +126,7 @@ const NoProjectAccess = () => {
               disabled={loading}
               className="w-full bg-dynamo-600 hover:bg-dynamo-700"
             >
-              {loading ? 'Redirigiendo...' : 'Volver al inicio de sesión'}
+              {loading ? 'Cargando...' : 'Volver al inicio de sesión'}
             </Button>
           </CardFooter>
         </Card>
