@@ -76,22 +76,18 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
         (!projectUserError && (!projectUserData || projectUserData.length === 0)) && 
         (!isGlobalAdminError && !isGlobalAdmin);
       
-      if (hasNoProjectAccess) {
-        console.log("User has no project access, redirecting to no-project-access");
-        
-        if (onSuccessfulLogin) {
-          onSuccessfulLogin(true);
-        } else {
-          // Navigate directly to no-project-access instead of calling callback
-          navigate('/no-project-access', { replace: true });
-        }
+      console.log("User has no project access:", hasNoProjectAccess);
+      console.log("Project user data:", projectUserData);
+      console.log("Is global admin:", isGlobalAdmin);
+      
+      if (onSuccessfulLogin) {
+        // Use the callback if provided
+        onSuccessfulLogin(hasNoProjectAccess);
       } else {
-        console.log("User has project access, redirecting to:", redirectTo);
-        
-        if (onSuccessfulLogin) {
-          onSuccessfulLogin(false);
+        // Navigate directly based on project access
+        if (hasNoProjectAccess) {
+          navigate('/no-project-access', { replace: true });
         } else {
-          // Navigate directly to redirectTo instead of calling callback
           navigate(redirectTo, { replace: true });
         }
       }
