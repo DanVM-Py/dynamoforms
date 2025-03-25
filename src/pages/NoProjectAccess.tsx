@@ -59,19 +59,18 @@ const NoProjectAccess = () => {
     }
   }, [user, toast]);
 
-  // Simple redirect without any auth operation - CRUCIAL FIX
+  // Simple redirect to auth page WITHOUT attempting to modify auth state
   const handleRedirectToAuth = () => {
     if (loading) return; // Prevent click during loading
     
     console.log("Redirecting to auth page without affecting auth state");
     
-    // Show toast
     toast({
       title: "Redirigiendo",
       description: "Volviendo a la página de inicio de sesión..."
     });
     
-    // Navigate directly to auth page without attempting to sign out
+    // Navigate without any auth operation
     navigate('/auth', { replace: true });
   };
 

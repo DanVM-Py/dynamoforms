@@ -19,13 +19,14 @@ const Auth = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  // Only check if user is authenticated and show login form if not
+  // Check auth state in a way that prevents loops
   useEffect(() => {
     const checkAuth = async () => {
       try {
         console.log("Checking authentication state on Auth page");
         setAuthStage("getting_session");
         
+        // Check for session - but don't redirect if coming from no-project-access
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -43,11 +44,11 @@ const Auth = () => {
         } else {
           console.log("No active session or coming from no-project-access");
           setAuthStage("ready_for_auth");
+          setAuthInit(false);
         }
       } catch (error) {
         console.error("Unexpected error in auth check:", error);
         setAuthStage("unexpected_error");
-      } finally {
         setAuthInit(false);
       }
     };
