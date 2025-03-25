@@ -20,26 +20,39 @@ const Auth = () => {
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
   
-  // Only execute signOut when specific signout parameter is present or when navigating from certain states
+  // Handle initial authentication state and redirect logic
   useEffect(() => {
     const performInitialCheck = async () => {
       try {
-        // If we're asked to force sign out OR the user is already logged in 
-        // and there's no redirect parameter (meaning direct visit to auth page)
-        if (forceSignOut || (user && !searchParams.get("redirect"))) {
-          setAuthStage("signing_out");
-          console.log("Auth page: Executing signOut - explicitly requested or direct auth page access");
+        console.log("Auth page initial check starting - User exists:", !!user);
+        console.log("Auth page params - forceSignOut:", forceSignOut, "redirect:", redirect);
+        
+        // If explicitly asked to sign out
+        if (forceSignOut) {
+          setAuthStage("explicit_signout_requested");
+          console.log("Auth page: Explicit signout requested via URL parameter");
           
           await signOut();
-          console.log("Auth page: Session cleared successfully");
-        } else if (user) {
-          // User is logged in and has a redirect target - don't sign them out, just redirect
-          console.log("Auth page: User is already authenticated with redirect target, skipping signOut");
-          
-          // If we have a redirect parameter, go there, otherwise go to home
-          const redirectPath = searchParams.get("redirect") || "/";
-          navigate(redirectPath, { replace: true });
+          console.log("Auth page: Session cleared successfully after explicit request");
+          setAuthStage("ready_for_auth");
+          setAuthInit(false);
           return;
+        }
+        
+        // If user exists and we have a redirect target
+        if (user && searchParams.get("redirect")) {
+          console.log("Auth page: User is already authenticated with redirect target, redirecting to:", redirect);
+          navigate(redirect, { replace: true });
+          return;
+        }
+        
+        // If user exists but accessing auth page directly (no redirect parameter)
+        if (user && !searchParams.get("redirect")) {
+          setAuthStage("signing_out_direct_access");
+          console.log("Auth page: User directly accessing auth page while logged in, signing out");
+          
+          await signOut();
+          console.log("Auth page: Session cleared after direct auth page access");
         }
         
         setAuthStage("ready_for_auth");
@@ -52,7 +65,7 @@ const Auth = () => {
     };
 
     performInitialCheck();
-  }, [signOut, user, navigate, searchParams, forceSignOut]);
+  }, [signOut, user, navigate, searchParams, forceSignOut, redirect]);
 
   // Function to handle successful login with project access check
   const handleSuccessfulLogin = (hasNoProjectAccess: boolean) => {
@@ -65,7 +78,7 @@ const Auth = () => {
     }
   };
 
-  // Si todavía estamos verificando el estado de autenticación, mostrar el estado de carga
+  // If still checking auth state, show loading
   if (authInit) {
     return (
       <PageContainer hideSidebar className="flex items-center justify-center p-0">

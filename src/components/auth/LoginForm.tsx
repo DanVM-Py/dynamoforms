@@ -60,7 +60,7 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
         description: "Has iniciado sesión correctamente."
       });
       
-      // Verificar si el usuario tiene acceso a algún proyecto
+      // Check if the user has access to any project
       const { data: projectUserData, error: projectUserError } = await supabase
         .from("project_users")
         .select("project_id")
@@ -68,7 +68,7 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
         .eq("status", "active")
         .limit(1);
         
-      // Verificar si es admin global
+      // Check if user is global admin
       const { data: isGlobalAdmin, error: isGlobalAdminError } = await supabase
         .rpc('is_global_admin', { user_uuid: data.user.id });
         
