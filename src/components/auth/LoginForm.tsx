@@ -71,14 +71,16 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
       // Check if user is global admin
       const { data: isGlobalAdmin, error: isGlobalAdminError } = await supabase
         .rpc('is_global_admin', { user_uuid: data.user.id });
-        
+      
+      // User has no project access if they are not a global admin AND have no project associations  
       const hasNoProjectAccess = 
         (!projectUserError && (!projectUserData || projectUserData.length === 0)) && 
         (!isGlobalAdminError && !isGlobalAdmin);
       
-      console.log("User has no project access:", hasNoProjectAccess);
-      console.log("Project user data:", projectUserData);
-      console.log("Is global admin:", isGlobalAdmin);
+      console.log("Project access check results:");
+      console.log("- User has no project access:", hasNoProjectAccess);
+      console.log("- Project user data:", projectUserData);
+      console.log("- Is global admin:", isGlobalAdmin);
       
       if (onSuccessfulLogin) {
         // Use the callback if provided

@@ -40,19 +40,17 @@ const Auth = () => {
         }
         
         // If user exists and we have a redirect target
-        if (user && searchParams.get("redirect")) {
+        if (user && redirect !== "/") {
           console.log("Auth page: User is already authenticated with redirect target, redirecting to:", redirect);
           navigate(redirect, { replace: true });
           return;
         }
         
-        // If user exists but accessing auth page directly (no redirect parameter)
-        if (user && !searchParams.get("redirect")) {
-          setAuthStage("signing_out_direct_access");
-          console.log("Auth page: User directly accessing auth page while logged in, signing out");
-          
-          await signOut();
-          console.log("Auth page: Session cleared after direct auth page access");
+        // If user exists but accessing auth page directly (no specific redirect parameter)
+        if (user && redirect === "/") {
+          console.log("Auth page: User is already authenticated, redirecting to home");
+          navigate("/", { replace: true });
+          return;
         }
         
         setAuthStage("ready_for_auth");

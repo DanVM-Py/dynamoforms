@@ -59,12 +59,11 @@ const NoProjectAccess = () => {
     }
   }, [user, toast]);
 
-  // Redirect to auth page with signout parameter to ensure session is cleared
-  // IMPORTANT: This is now a manual action, not automatic
+  // Manual redirect to auth page with signout parameter
   const handleRedirectToAuth = () => {
     if (loading) return; // Prevent click during loading
     
-    console.log("Redirecting to auth page with signout parameter");
+    console.log("User manually triggering redirect to auth page");
     
     toast({
       title: "Redirigiendo",
