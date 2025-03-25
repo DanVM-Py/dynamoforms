@@ -16,7 +16,7 @@ const Auth = () => {
   const confirmationSuccess = searchParams.get('confirmation') === 'success';
   const [authInit, setAuthInit] = useState(true);
   const [authStage, setAuthStage] = useState("starting_auth_check");
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading, currentProjectId, isGlobalAdmin } = useAuth();
   const navigate = useNavigate();
   
   // Siempre ejecutar signOut cuando se carga la página Auth
@@ -78,7 +78,11 @@ const Auth = () => {
           </CardHeader>
           
           <TabsContent value="login" className="pt-0 pb-0">
-            <LoginForm redirectTo={redirect} />
+            <LoginForm redirectTo={redirect} onSuccessfulLogin={(hasNoProjectAccess) => {
+              if (hasNoProjectAccess) {
+                navigate('/no-project-access', { replace: true });
+              }
+            }} />
           </TabsContent>
           
           <TabsContent value="signup" className="pt-0 pb-0">

@@ -5,125 +5,97 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CardContent, CardFooter } from "@/components/ui/card";
-import { Loader2, AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useNavigate } from "react-router-dom";
 
 interface LoginFormProps {
-  redirectTo: string;
+  redirectTo?: string;
+  onSuccessfulLogin?: (hasNoProjectAccess: boolean) => void;
 }
 
-export const LoginForm = ({ redirectTo }: LoginFormProps) => {
+export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     
-    // Basic validation
-    if (!email) {
-      setErrorMessage("Por favor ingresa tu correo electrónico");
-      return;
-    }
-    
-    if (!password) {
-      setErrorMessage("Por favor ingresa tu contraseña");
+    if (!email || !password) {
+      setErrorMessage("Por favor ingresa tu correo y contraseña.");
       return;
     }
     
     try {
       setLoading(true);
-      console.log("Attempting login with:", email);
+      console.log("Starting login process for:", email);
       
       // Attempt to sign in
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password,
+        password
       });
       
       if (error) {
-        console.error("Login error:", error.message);
-        
         if (error.message.includes("Invalid login credentials")) {
-          setErrorMessage("Correo electrónico o contraseña incorrectos");
-        } else if (error.message.includes("Email not confirmed")) {
-          setErrorMessage("Correo electrónico no confirmado. Por favor, verifica tu correo.");
+          throw new Error("Credenciales inválidas. Verifica tu correo y contraseña.");
         } else {
-          setErrorMessage("Ha ocurrido un error al iniciar sesión. Inténtalo de nuevo.");
+          throw error;
         }
-        return;
       }
       
       if (!data?.user) {
         throw new Error("No se pudo iniciar sesión. Inténtalo de nuevo.");
       }
       
-      console.log("Login successful, user ID:", data.user.id);
+      console.log("Login successful for:", email);
+      toast({
+        title: "Bienvenido de nuevo",
+        description: "Has iniciado sesión correctamente."
+      });
       
-      // Check if user has a profile in the profiles table
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", data.user.id)
-        .maybeSingle();
-      
-      if (profileError) {
-        console.error("Error fetching profile:", profileError);
+      // Verificar si el usuario tiene acceso a algún proyecto
+      const { data: projectUserData, error: projectUserError } = await supabase
+        .from("project_users")
+        .select("project_id")
+        .eq("user_id", data.user.id)
+        .eq("status", "active")
+        .limit(1);
         
-        // Sign out the user if there's an error
-        await supabase.auth.signOut();
-        throw new Error("Error al verificar el perfil de usuario. Por favor, intenta nuevamente.");
-      }
-      
-      // If no profile is found, treat it as invalid credentials
-      if (!profileData) {
-        console.log("Profile not found, treating as invalid credentials");
+      // Verificar si es admin global
+      const { data: isGlobalAdmin, error: isGlobalAdminError } = await supabase
+        .rpc('is_global_admin', { user_uuid: data.user.id });
         
-        // Sign out the user as they don't have a profile
-        await supabase.auth.signOut();
-        throw new Error("Credenciales inválidas. El correo o la contraseña son incorrectos.");
-      }
+      const hasNoProjectAccess = 
+        (!projectUserError && (!projectUserData || projectUserData.length === 0)) && 
+        (!isGlobalAdminError && !isGlobalAdmin);
       
-      // Set user project ID in session
-      let projectId = null;
-      
-      // If user is not global admin, try to find a project they belong to
-      if (profileData.role !== 'global_admin') {
-        const { data: projectData, error: projectError } = await supabase
-          .from("project_users")
-          .select("project_id, is_admin")
-          .eq("user_id", data.user.id)
-          .eq("status", "active")
-          .limit(1);
-          
-        if (projectError) {
-          console.error("Error fetching user projects:", projectError);
-        } else if (projectData && projectData.length > 0) {
-          // Save the project ID to the session
-          projectId = projectData[0].project_id;
-          console.log("Setting session project ID:", projectId);
-          localStorage.setItem('currentProjectId', projectId);
-          
-          // Store if the user is a project admin too
-          if (projectData[0].is_admin) {
-            localStorage.setItem('isProjectAdmin', 'true');
-          }
+      if (hasNoProjectAccess) {
+        console.log("User has no project access, redirecting to no-project-access");
+        
+        if (onSuccessfulLogin) {
+          onSuccessfulLogin(true);
+        } else {
+          navigate('/no-project-access', { replace: true });
+        }
+      } else {
+        console.log("User has project access, redirecting to:", redirectTo);
+        
+        if (onSuccessfulLogin) {
+          onSuccessfulLogin(false);
+        } else {
+          navigate(redirectTo, { replace: true });
         }
       }
       
-      toast({
-        title: "Inicio de sesión exitoso",
-        description: "Has iniciado sesión correctamente.",
-      });
-      
-      // Navigate to the intended destination
-      window.location.href = redirectTo;
     } catch (error: any) {
-      console.error("Error al iniciar sesión:", error.message);
+      console.error("Login error:", error.message);
       setErrorMessage(error.message);
     } finally {
       setLoading(false);
@@ -136,16 +108,14 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
         {errorMessage && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              {errorMessage}
-            </AlertDescription>
+            <AlertDescription>{errorMessage}</AlertDescription>
           </Alert>
         )}
         
         <div className="space-y-2">
-          <Label htmlFor="email">Correo electrónico</Label>
+          <Label htmlFor="login-email">Correo electrónico</Label>
           <Input
-            id="email"
+            id="login-email"
             type="email"
             placeholder="correo@ejemplo.com"
             value={email}
@@ -157,9 +127,9 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="password">Contraseña</Label>
+          <Label htmlFor="login-password">Contraseña</Label>
           <Input
-            id="password"
+            id="login-password"
             type="password"
             placeholder="********"
             value={password}
