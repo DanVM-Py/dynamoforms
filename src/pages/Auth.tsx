@@ -17,7 +17,7 @@ const Auth = () => {
   const forceSignOut = searchParams.get('signout') === 'true';
   const [authInit, setAuthInit] = useState(true);
   const [authStage, setAuthStage] = useState("starting_auth_check");
-  const { user, signOut, loading } = useAuth();
+  const { user, signOut, loading: authContextLoading } = useAuth();
   const navigate = useNavigate();
   
   // Handle initial authentication state and redirect logic
@@ -64,8 +64,11 @@ const Auth = () => {
       }
     };
 
-    performInitialCheck();
-  }, [signOut, user, navigate, searchParams, forceSignOut, redirect]);
+    // Only run the check if we're sure about the auth state
+    if (!authContextLoading) {
+      performInitialCheck();
+    }
+  }, [signOut, user, navigate, searchParams, forceSignOut, redirect, authContextLoading]);
 
   // Function to handle successful login with project access check
   const handleSuccessfulLogin = (hasNoProjectAccess: boolean) => {
@@ -79,7 +82,7 @@ const Auth = () => {
   };
 
   // If still checking auth state, show loading
-  if (authInit) {
+  if (authInit || authContextLoading) {
     return (
       <PageContainer hideSidebar className="flex items-center justify-center p-0">
         <LoadingAuthState stage={authStage} />

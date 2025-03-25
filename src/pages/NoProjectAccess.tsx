@@ -60,6 +60,7 @@ const NoProjectAccess = () => {
   }, [user, toast]);
 
   // Redirect to auth page with signout parameter to ensure session is cleared
+  // IMPORTANT: This is now a manual action, not automatic
   const handleRedirectToAuth = () => {
     if (loading) return; // Prevent click during loading
     
