@@ -16,47 +16,35 @@ const Auth = () => {
   const confirmationSuccess = searchParams.get('confirmation') === 'success';
   const [authInit, setAuthInit] = useState(true);
   const [authStage, setAuthStage] = useState("starting_auth_check");
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
-  // Check auth state in a way that prevents loops
+  // Siempre ejecutar signOut cuando se carga la página Auth
   useEffect(() => {
-    const checkAuth = async () => {
+    const performSignOut = async () => {
       try {
-        console.log("Checking authentication state on Auth page");
-        setAuthStage("getting_session");
+        setAuthStage("signing_out");
+        console.log("Auth page: Executing signOut to clear session");
         
-        // Check for session - but don't redirect if coming from no-project-access
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error("Error checking auth state:", error);
-          setAuthStage("session_check_error");
-          setAuthInit(false);
-          return;
+        // Si venimos de no-project-access, necesitamos cerrar sesión
+        if (user) {
+          await signOut();
+          console.log("Auth page: Session cleared successfully");
         }
         
-        // If user is authenticated and not coming from no-project-access page
-        if (data?.session && redirect !== '/no-project-access') {
-          console.log("User is authenticated, redirecting to:", redirect);
-          setAuthStage("authenticated_redirecting");
-          navigate(redirect, { replace: true });
-        } else {
-          console.log("No active session or coming from no-project-access");
-          setAuthStage("ready_for_auth");
-          setAuthInit(false);
-        }
+        setAuthStage("ready_for_auth");
+        setAuthInit(false);
       } catch (error) {
-        console.error("Unexpected error in auth check:", error);
-        setAuthStage("unexpected_error");
+        console.error("Auth page: Error during sign out:", error);
+        setAuthStage("sign_out_error");
         setAuthInit(false);
       }
     };
 
-    checkAuth();
-  }, [redirect, navigate]);
+    performSignOut();
+  }, [signOut, user]);
 
-  // If still checking auth, show loading state
+  // Si todavía estamos verificando el estado de autenticación, mostrar el estado de carga
   if (authInit) {
     return (
       <PageContainer hideSidebar className="flex items-center justify-center p-0">

@@ -24,7 +24,9 @@ export const LoadingAuthState = ({ stage = "verificando" }: { stage?: string }) 
       "listener_setup_complete": "Sistema inicializado...",
       "checking_existing_session": "Verificando sesión existente...",
       "fetching_profile": "Obteniendo perfil...",
-      "initialization_complete": "Inicialización completa..."
+      "initialization_complete": "Inicialización completa...",
+      "signing_out": "Cerrando sesión...",
+      "sign_out_error": "Error al cerrar sesión"
     };
     
     return stageMap[stage] || `${stage}...`;
