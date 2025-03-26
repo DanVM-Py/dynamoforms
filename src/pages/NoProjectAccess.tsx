@@ -6,20 +6,27 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { FolderLock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
-import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 const NoProjectAccess = () => {
   const [loading, setLoading] = useState(false);
   const [availableProjects, setAvailableProjects] = useState<any[]>([]);
   const { user, signOut } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
   
   // Use an effect to ensure we clean up storage on mount
   useEffect(() => {
     // Clean storage as soon as this component mounts
     localStorage.removeItem('currentProjectId');
     sessionStorage.removeItem('currentProjectId');
+    
+    // Also clear any Supabase storage keys
+    const storageKeys = Object.keys(localStorage);
+    const supabaseKeys = storageKeys.filter(key => key.startsWith('sb-'));
+    supabaseKeys.forEach(key => {
+      console.log("Clearing supabase storage key:", key);
+      localStorage.removeItem(key);
+    });
   }, []);
 
   // Function to manually sign out and redirect to auth page
@@ -34,21 +41,23 @@ const NoProjectAccess = () => {
       localStorage.removeItem('currentProjectId');
       sessionStorage.removeItem('currentProjectId');
       
+      // Clear Supabase auth token
+      const supabaseKey = 'sb-' + new URL(supabase.supabaseUrl).hostname.split('.')[0] + '-auth-token';
+      localStorage.removeItem(supabaseKey);
+      sessionStorage.removeItem(supabaseKey);
+      
       toast({
         title: "Cerrando sesión",
         description: "Volviendo a la página de inicio de sesión..."
       });
       
-      // Call signOut but don't wait for it to complete
-      signOut().catch(e => console.error("Error in signOut:", e));
+      // Force direct signout with Supabase - don't use context method
+      await supabase.auth.signOut();
       
-      // Force navigation to auth page with a small delay regardless of signOut result
-      console.log("NoProjectAccess: Forcing navigation to auth page");
-      
-      // Use a very short timeout to ensure this happens after the current JS event loop
-      setTimeout(() => {
-        window.location.href = '/auth?signout=forced';
-      }, 50);
+      // Critical: Use a direct location change rather than React Router navigation
+      // This ensures a full page reload and breaks any navigation loops
+      console.log("NoProjectAccess: Forcing direct navigation to auth page");
+      window.location.href = '/auth?signout=forced';
       
     } catch (error) {
       console.error("Error during sign out:", error);
@@ -58,7 +67,7 @@ const NoProjectAccess = () => {
         variant: "destructive"
       });
       
-      // Even if there's an error, force redirect to auth page
+      // Even if there's an error, force page reload to auth page
       window.location.href = '/auth?error=signout_failed';
     } finally {
       setLoading(false);

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -21,14 +22,20 @@ const Auth = () => {
   
   // Handle initial authentication state and redirect logic
   useEffect(() => {
-    // Immediately clear storage when reaching auth page
+    // Immediately clear storage when reaching auth page, regardless of reason
     const clearStorage = () => {
       console.log("Auth page: Clearing storage as first step");
       localStorage.removeItem('currentProjectId');
       sessionStorage.removeItem('currentProjectId');
       
-      // Also clear any Supabase storage keys
+      // Also clear any Supabase storage keys - critical for breaking auth loops
       try {
+        // Clear any existing Supabase token to force a fresh auth state
+        const supabaseKey = 'sb-' + new URL(supabase.supabaseUrl).hostname.split('.')[0] + '-auth-token';
+        localStorage.removeItem(supabaseKey);
+        sessionStorage.removeItem(supabaseKey);
+        
+        // Check for other Supabase keys and clear them too
         const storageKeys = Object.keys(localStorage);
         const supabaseKeys = storageKeys.filter(key => key.startsWith('sb-'));
         supabaseKeys.forEach(key => {
@@ -40,8 +47,24 @@ const Auth = () => {
       }
     };
     
-    // Call immediately
+    // Call immediately on every mount
     clearStorage();
+    
+    // If we have a forced sign-out parameter, ensure we're truly signed out
+    if (forceSignOut || searchParams.has('signout')) {
+      // Execute an explicit sign-out to ensure we're fully logged out
+      const forceExplicitSignOut = async () => {
+        try {
+          console.log("Auth page: Forced signout triggered from URL parameter");
+          await supabase.auth.signOut();
+          console.log("Auth page: Explicit Supabase signOut completed");
+        } catch (e) {
+          console.error("Auth page: Error during explicit signout:", e);
+        }
+      };
+      
+      forceExplicitSignOut();
+    }
     
     const performInitialCheck = async () => {
       try {
