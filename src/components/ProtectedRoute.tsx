@@ -49,9 +49,10 @@ const ProtectedRoute = ({
       loading, 
       isGlobalAdmin, 
       isProjectAdmin,
-      currentProjectId
+      currentProjectId,
+      requireProjectAccess
     });
-  }, [user, userProfile, loading, isGlobalAdmin, isProjectAdmin, currentProjectId, location.pathname]);
+  }, [user, userProfile, loading, isGlobalAdmin, isProjectAdmin, currentProjectId, location.pathname, requireProjectAccess]);
   
   // Show loading state
   if (loading && showLoading) {
@@ -90,9 +91,9 @@ const ProtectedRoute = ({
     return <Navigate to="/" replace />;
   }
 
-  // Check project access - but don't redirect if we're already on no-project-access
+  // Check project access - but don't redirect if global admin OR we're already on no-project-access
   if (requireProjectAccess && !currentProjectId && !isGlobalAdmin) {
-    console.log("Project access required but user has no project access");
+    console.log("Project access required but user has no project access and is not global admin");
     return <Navigate to="/no-project-access" replace />;
   }
 

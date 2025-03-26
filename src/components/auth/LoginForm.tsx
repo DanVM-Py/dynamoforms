@@ -60,27 +60,44 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
         description: "Has iniciado sesión correctamente."
       });
       
-      // Check if the user has access to any project
+      // First check if the user is a global admin - they don't need project access
+      const { data: isGlobalAdmin, error: isGlobalAdminError } = await supabase
+        .rpc('is_global_admin', { user_uuid: data.user.id });
+      
+      if (isGlobalAdminError) {
+        console.error("Error checking global admin status:", isGlobalAdminError);
+      }
+      
+      console.log("Global admin check:", isGlobalAdmin);
+      
+      // If user is global admin, they don't need project access validation
+      if (isGlobalAdmin) {
+        console.log("User is global admin, bypassing project access check");
+        
+        if (onSuccessfulLogin) {
+          // Use the callback if provided, with hasNoProjectAccess=false since global admins have access
+          onSuccessfulLogin(false);
+        } else {
+          // Navigate directly to the redirectTo page
+          navigate(redirectTo, { replace: true });
+        }
+        return;
+      }
+      
+      // For non-global-admin users, check if they have access to any project
       const { data: projectUserData, error: projectUserError } = await supabase
         .from("project_users")
         .select("project_id")
         .eq("user_id", data.user.id)
         .eq("status", "active")
         .limit(1);
-        
-      // Check if user is global admin
-      const { data: isGlobalAdmin, error: isGlobalAdminError } = await supabase
-        .rpc('is_global_admin', { user_uuid: data.user.id });
       
-      // User has no project access if they are not a global admin AND have no project associations  
-      const hasNoProjectAccess = 
-        (!projectUserError && (!projectUserData || projectUserData.length === 0)) && 
-        (!isGlobalAdminError && !isGlobalAdmin);
+      // User has no project access if they have no project associations  
+      const hasNoProjectAccess = (!projectUserError && (!projectUserData || projectUserData.length === 0));
       
       console.log("Project access check results:");
       console.log("- User has no project access:", hasNoProjectAccess);
       console.log("- Project user data:", projectUserData);
-      console.log("- Is global admin:", isGlobalAdmin);
       
       // If user has at least one project, store the first one
       if (projectUserData && projectUserData.length > 0) {
