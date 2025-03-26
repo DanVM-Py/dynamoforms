@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { config } from '@/config/environment';
 
-// Define service identifiers - adding this to fix the import errors
+// Define service identifiers
 export const SERVICES = {
   AUTH: 'auth',
   PROJECTS: 'projects',
