@@ -82,14 +82,24 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
       console.log("- Project user data:", projectUserData);
       console.log("- Is global admin:", isGlobalAdmin);
       
+      // If user has at least one project, store the first one
+      if (projectUserData && projectUserData.length > 0) {
+        const projectId = projectUserData[0].project_id;
+        console.log("Setting current project ID:", projectId);
+        localStorage.setItem('currentProjectId', projectId);
+      }
+      
       if (onSuccessfulLogin) {
         // Use the callback if provided
+        console.log("Using provided login callback with hasNoProjectAccess:", hasNoProjectAccess);
         onSuccessfulLogin(hasNoProjectAccess);
       } else {
         // Navigate directly based on project access
         if (hasNoProjectAccess) {
+          console.log("No callback provided, redirecting to no-project-access");
           navigate('/no-project-access', { replace: true });
         } else {
+          console.log("No callback provided, redirecting to:", redirectTo);
           navigate(redirectTo, { replace: true });
         }
       }

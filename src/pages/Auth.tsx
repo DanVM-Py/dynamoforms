@@ -6,7 +6,6 @@ import { SignUpForm } from "@/components/auth/SignUpForm";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/integrations/supabase/client";
 import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -31,6 +30,10 @@ const Auth = () => {
         if (forceSignOut) {
           setAuthStage("explicit_signout_requested");
           console.log("Auth page: Explicit signout requested via URL parameter");
+          
+          // Clear local storage first
+          localStorage.removeItem('currentProjectId');
+          sessionStorage.removeItem('currentProjectId');
           
           await signOut();
           console.log("Auth page: Session cleared successfully after explicit request");
@@ -70,6 +73,8 @@ const Auth = () => {
 
   // Function to handle successful login with project access check
   const handleSuccessfulLogin = (hasNoProjectAccess: boolean) => {
+    console.log("Login callback executed. No project access:", hasNoProjectAccess);
+    
     if (hasNoProjectAccess) {
       console.log("Login successful but user has no project access, redirecting to no-project-access");
       navigate('/no-project-access', { replace: true });

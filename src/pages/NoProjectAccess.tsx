@@ -63,10 +63,14 @@ const NoProjectAccess = () => {
   const handleRedirectToAuth = () => {
     if (loading) return; // Prevent click during loading
     
-    console.log("User manually triggering redirect to auth page");
+    console.log("NoProjectAccess: User manually triggering signout and redirect to auth page");
+    
+    // First clear local storage to prevent project persistence
+    localStorage.removeItem('currentProjectId');
+    sessionStorage.removeItem('currentProjectId');
     
     toast({
-      title: "Redirigiendo",
+      title: "Cerrando sesión",
       description: "Volviendo a la página de inicio de sesión..."
     });
     
@@ -125,7 +129,7 @@ const NoProjectAccess = () => {
               disabled={loading}
               className="w-full bg-dynamo-600 hover:bg-dynamo-700"
             >
-              {loading ? 'Cargando...' : 'Volver al inicio de sesión'}
+              {loading ? 'Cargando...' : 'Cerrar sesión'}
             </Button>
           </CardFooter>
         </Card>
