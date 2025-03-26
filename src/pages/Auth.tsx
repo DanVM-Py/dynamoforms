@@ -17,7 +17,7 @@ const Auth = () => {
   const forceSignOut = searchParams.get('signout') === 'true' || searchParams.get('signout') === 'forced';
   const [authInit, setAuthInit] = useState(true);
   const [authStage, setAuthStage] = useState("starting_auth_check");
-  const { user, signOut, loading: authContextLoading } = useAuth();
+  const { user, isGlobalAdmin, signOut, loading: authContextLoading } = useAuth();
   const navigate = useNavigate();
   
   // Handle initial authentication state and redirect logic
@@ -70,6 +70,7 @@ const Auth = () => {
       try {
         console.log("Auth page initial check starting - User exists:", !!user);
         console.log("Auth page params - forceSignOut:", forceSignOut, "redirect:", redirect);
+        console.log("Auth page - isGlobalAdmin:", isGlobalAdmin);
         
         // If explicitly asked to sign out or coming from no-project-access
         if (forceSignOut || searchParams.has('signout')) {
@@ -90,10 +91,12 @@ const Auth = () => {
           return;
         }
         
-        // Ensure we're fully signed out when reaching this page from NoProjectAccess
+        // FIXED: Only sign out if explicitly coming from no-project-access and not a global admin
         const comingFromNoProjectAccess = document.referrer.includes('no-project-access');
-        if (comingFromNoProjectAccess || searchParams.has('error')) {
-          console.log("Auth page: Coming from no-project-access or with error, ensuring clean session");
+        const hasErrorParam = searchParams.has('error');
+        
+        if ((comingFromNoProjectAccess || hasErrorParam) && !isGlobalAdmin) {
+          console.log("Auth page: Coming from no-project-access or with error, and not a global admin, ensuring clean session");
           if (user) {
             await signOut();
             console.log("Auth page: Session cleared for user coming from no-project-access");
@@ -130,7 +133,7 @@ const Auth = () => {
     if (!authContextLoading) {
       performInitialCheck();
     }
-  }, [signOut, user, navigate, searchParams, forceSignOut, redirect, authContextLoading]);
+  }, [signOut, user, navigate, searchParams, forceSignOut, redirect, authContextLoading, isGlobalAdmin]);
 
   // Function to handle successful login with project access check
   const handleSuccessfulLogin = (hasNoProjectAccess: boolean) => {
