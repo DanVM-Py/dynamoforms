@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +23,7 @@ interface AuthContextType {
   isProjectAdmin: boolean;
   isApprover: boolean;
   currentProjectId: string | null;
-  signOut: () => Promise<void>;
+  signOut: () => Promise<boolean>; // Changed from Promise<void> to Promise<boolean>
   refreshUserProfile: () => Promise<void>;
 }
 

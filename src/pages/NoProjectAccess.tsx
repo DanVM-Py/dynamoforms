@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +5,6 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { FolderLock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
 const NoProjectAccess = () => {
@@ -33,12 +31,10 @@ const NoProjectAccess = () => {
         description: "Volviendo a la página de inicio de sesión..."
       });
       
-      // Use the signOut method from AuthContext instead of directly calling Supabase
-      // This ensures all the proper cleanup is done consistently
-      await signOut();
+      // Use the signOut method from AuthContext
+      const signOutSuccess = await signOut();
       
-      // After successful sign out, redirect to auth page
-      console.log("NoProjectAccess: SignOut completed, redirecting to auth page");
+      console.log("NoProjectAccess: SignOut completed with status:", signOutSuccess);
       
       // Use a timeout to ensure the UI updates before navigating
       setTimeout(() => {
