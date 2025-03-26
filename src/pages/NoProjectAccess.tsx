@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -16,66 +16,40 @@ const NoProjectAccess = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Fetch available projects for non-global-admin users
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        if (!user) return;
-        
-        setLoading(true);
-        
-        // Show pending invitations for regular users
-        const { data, error } = await supabase
-          .from('project_users')
-          .select('project_id, projects(id, name), status')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-          
-        if (error) throw error;
-        
-        const projectsList = data
-          ?.filter(item => item.projects)
-          .map(item => ({
-            ...item.projects,
-            status: item.status
-          })) || [];
-          
-        setAvailableProjects(projectsList);
-      } catch (error: any) {
-        console.error("Error fetching projects:", error);
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los proyectos disponibles",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Function to manually redirect to auth page and sign out
+  const handleSignOut = async () => {
+    if (loading) return; // Prevent multiple clicks
     
-    // Only fetch if we have a user
-    if (user) {
-      fetchProjects();
+    try {
+      setLoading(true);
+      console.log("NoProjectAccess: User manually triggered sign out");
+      
+      // Clear all storage related to projects and auth
+      localStorage.removeItem('currentProjectId');
+      sessionStorage.removeItem('currentProjectId');
+      
+      toast({
+        title: "Cerrando sesión",
+        description: "Volviendo a la página de inicio de sesión..."
+      });
+      
+      // Manual sign out through Supabase
+      await supabase.auth.signOut();
+      
+      // Navigate to auth page only after successful sign out
+      console.log("NoProjectAccess: Redirecting to auth page after sign out");
+      navigate('/auth', { replace: true });
+      
+    } catch (error) {
+      console.error("Error during sign out:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cerrar la sesión. Intenta de nuevo.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-  }, [user, toast]);
-
-  // Manual redirect to auth page with signout parameter
-  const handleRedirectToAuth = () => {
-    if (loading) return; // Prevent click during loading
-    
-    console.log("NoProjectAccess: User manually triggering signout and redirect to auth page");
-    
-    // First clear local storage to prevent project persistence
-    localStorage.removeItem('currentProjectId');
-    sessionStorage.removeItem('currentProjectId');
-    
-    toast({
-      title: "Cerrando sesión",
-      description: "Volviendo a la página de inicio de sesión..."
-    });
-    
-    // Navigate to auth page with signout=true to force signout
-    navigate('/auth?signout=true', { replace: true });
   };
 
   return (
@@ -125,11 +99,11 @@ const NoProjectAccess = () => {
           
           <CardFooter>
             <Button 
-              onClick={handleRedirectToAuth}
+              onClick={handleSignOut}
               disabled={loading}
               className="w-full bg-dynamo-600 hover:bg-dynamo-700"
             >
-              {loading ? 'Cargando...' : 'Cerrar sesión'}
+              {loading ? 'Procesando...' : 'Cerrar sesión'}
             </Button>
           </CardFooter>
         </Card>

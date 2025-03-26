@@ -66,8 +66,8 @@ const ProtectedRoute = ({
     );
   }
 
-  // Always allow access to public routes and authentication page
-  if (location.pathname === "/auth" || location.pathname.startsWith("/public")) {
+  // Allow access to no-project-access and auth routes regardless of auth state
+  if (location.pathname === "/no-project-access" || location.pathname === "/auth" || location.pathname.startsWith("/public")) {
     return <>{children}</>;
   }
 
@@ -90,7 +90,7 @@ const ProtectedRoute = ({
     return <Navigate to="/" replace />;
   }
 
-  // Check project access
+  // Check project access - but don't redirect if we're already on no-project-access
   if (requireProjectAccess && !currentProjectId && !isGlobalAdmin) {
     console.log("Project access required but user has no project access");
     return <Navigate to="/no-project-access" replace />;
