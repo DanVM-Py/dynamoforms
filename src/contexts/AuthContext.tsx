@@ -45,6 +45,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         setLoading(true);
         
+        // Check if there's a stored isGlobalAdmin flag from login
+        const storedIsGlobalAdmin = localStorage.getItem('isGlobalAdmin') === 'true';
+        if (storedIsGlobalAdmin) {
+          console.log("Found stored global admin status: true");
+          setIsGlobalAdmin(true);
+        }
+        
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
           async (event, newSession) => {
             console.log(`Auth state changed: ${event}`, newSession?.user?.email);
@@ -59,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setIsApprover(false);
               setCurrentProjectId(null);
               localStorage.removeItem('currentProjectId');
+              localStorage.removeItem('isGlobalAdmin');
               sessionStorage.removeItem('currentProjectId');
             } 
             else if (newSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
@@ -96,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log("Fetching user profile for ID:", userId);
       
+      // Check global admin status with direct RPC call
       const { data: isAdminData, error: isAdminError } = await supabase
         .rpc('is_global_admin', { user_uuid: userId });
         
@@ -103,9 +112,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Error checking global admin status:", isAdminError);
       } else {
         console.log("User is global admin:", isAdminData);
+        
+        // Store the global admin status in localStorage for persistence
+        if (isAdminData === true) {
+          localStorage.setItem('isGlobalAdmin', 'true');
+        } else {
+          localStorage.removeItem('isGlobalAdmin');
+        }
+        
         setIsGlobalAdmin(isAdminData === true);
       }
       
+      // Fetch profile data
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
@@ -118,46 +136,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else if (profileData) {
         console.log("User profile found:", profileData);
         setUserProfile(profileData as UserProfile);
+        
+        // Double-check global admin status from profile
+        if (profileData.role === 'global_admin' && !isAdminData) {
+          console.log("Profile indicates user is global admin, updating state");
+          setIsGlobalAdmin(true);
+          localStorage.setItem('isGlobalAdmin', 'true');
+        }
+        
         setIsApprover(profileData.role === "approver");
       } else {
         console.log("No user profile found");
         setUserProfile(null);
       }
       
-      const storedProjectId = localStorage.getItem('currentProjectId');
-      
-      if (storedProjectId) {
-        setCurrentProjectId(storedProjectId);
+      // Check for project access only if not a global admin
+      if (!isAdminData) {
+        const storedProjectId = localStorage.getItem('currentProjectId');
         
-        const { data: isProjectAdminData, error: isProjectAdminError } = await supabase
-          .rpc('is_project_admin', { 
-            user_uuid: userId,
-            project_uuid: storedProjectId 
-          });
+        if (storedProjectId) {
+          setCurrentProjectId(storedProjectId);
           
-        if (isProjectAdminError) {
-          console.error("Error checking project admin status:", isProjectAdminError);
+          const { data: isProjectAdminData, error: isProjectAdminError } = await supabase
+            .rpc('is_project_admin', { 
+              user_uuid: userId,
+              project_uuid: storedProjectId 
+            });
+            
+          if (isProjectAdminError) {
+            console.error("Error checking project admin status:", isProjectAdminError);
+          } else {
+            console.log("User is project admin for current project:", isProjectAdminData);
+            setIsProjectAdmin(isProjectAdminData === true);
+          }
         } else {
-          console.log("User is project admin for current project:", isProjectAdminData);
-          setIsProjectAdmin(isProjectAdminData === true);
-        }
-      } else if (!isAdminData) {
-        const { data: projectUserData, error: projectUserError } = await supabase
-          .from("project_users")
-          .select("project_id, is_admin")
-          .eq("user_id", userId)
-          .eq("status", "active")
-          .limit(1);
-          
-        if (projectUserError) {
-          console.error("Error fetching project admin status:", projectUserError);
-        } else if (projectUserData && projectUserData.length > 0) {
-          const projectId = projectUserData[0].project_id;
-          console.log("Found project for user:", projectId);
-          setCurrentProjectId(projectId);
-          localStorage.setItem('currentProjectId', projectId);
-          
-          setIsProjectAdmin(projectUserData[0].is_admin === true);
+          const { data: projectUserData, error: projectUserError } = await supabase
+            .from("project_users")
+            .select("project_id, is_admin")
+            .eq("user_id", userId)
+            .eq("status", "active")
+            .limit(1);
+            
+          if (projectUserError) {
+            console.error("Error fetching project admin status:", projectUserError);
+          } else if (projectUserData && projectUserData.length > 0) {
+            const projectId = projectUserData[0].project_id;
+            console.log("Found project for user:", projectId);
+            setCurrentProjectId(projectId);
+            localStorage.setItem('currentProjectId', projectId);
+            
+            setIsProjectAdmin(projectUserData[0].is_admin === true);
+          }
         }
       }
     } catch (error) {

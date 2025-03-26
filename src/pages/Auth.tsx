@@ -22,10 +22,18 @@ const Auth = () => {
   
   // Handle initial authentication state and redirect logic
   useEffect(() => {
+    // First check if we're dealing with a global admin who's already authenticated
+    // We want to skip all storage clearing for them unless explicitly forced to sign out
+    if (user && (isGlobalAdmin || localStorage.getItem('isGlobalAdmin') === 'true') && !forceSignOut) {
+      console.log("Auth page: Detected authenticated global admin, redirecting to home");
+      navigate("/", { replace: true });
+      return;
+    }
+    
     // Only clear storage if we're not a global admin and not performing a specific auth action
     const clearStorage = () => {
-      // Don't clear storage for global admins who are already authenticated
-      if (user && isGlobalAdmin && !forceSignOut) {
+      // Double check again to prevent any race conditions
+      if (user && (isGlobalAdmin || localStorage.getItem('isGlobalAdmin') === 'true') && !forceSignOut) {
         console.log("Auth page: Skipping storage clear for authenticated global admin");
         return;
       }
@@ -34,20 +42,27 @@ const Auth = () => {
       localStorage.removeItem('currentProjectId');
       sessionStorage.removeItem('currentProjectId');
       
+      // Do NOT clear 'isGlobalAdmin' here - we'll use it for the redirection logic
+      
       // Also clear any Supabase storage keys - critical for breaking auth loops
       try {
         // Clear any existing Supabase token to force a fresh auth state
         const supabaseKey = 'sb-' + new URL(supabase.supabaseUrl).hostname.split('.')[0] + '-auth-token';
-        localStorage.removeItem(supabaseKey);
-        sessionStorage.removeItem(supabaseKey);
         
-        // Check for other Supabase keys and clear them too
-        const storageKeys = Object.keys(localStorage);
-        const supabaseKeys = storageKeys.filter(key => key.startsWith('sb-'));
-        supabaseKeys.forEach(key => {
-          console.log("Clearing supabase storage key:", key);
-          localStorage.removeItem(key);
-        });
+        // Only clear these if we're forcing sign out
+        if (forceSignOut) {
+          localStorage.removeItem(supabaseKey);
+          sessionStorage.removeItem(supabaseKey);
+          localStorage.removeItem('isGlobalAdmin');
+          
+          // Check for other Supabase keys and clear them too
+          const storageKeys = Object.keys(localStorage);
+          const supabaseKeys = storageKeys.filter(key => key.startsWith('sb-'));
+          supabaseKeys.forEach(key => {
+            console.log("Clearing supabase storage key:", key);
+            localStorage.removeItem(key);
+          });
+        }
       } catch (e) {
         console.error("Error clearing supabase storage keys:", e);
       }
@@ -65,6 +80,7 @@ const Auth = () => {
         try {
           console.log("Auth page: Forced signout triggered from URL parameter");
           await supabase.auth.signOut();
+          localStorage.removeItem('isGlobalAdmin');
           console.log("Auth page: Explicit Supabase signOut completed");
         } catch (e) {
           console.error("Auth page: Error during explicit signout:", e);
@@ -79,6 +95,7 @@ const Auth = () => {
         console.log("Auth page initial check starting - User exists:", !!user);
         console.log("Auth page params - forceSignOut:", forceSignOut, "redirect:", redirect);
         console.log("Auth page - isGlobalAdmin:", isGlobalAdmin);
+        console.log("Auth page - localStorage isGlobalAdmin:", localStorage.getItem('isGlobalAdmin'));
         
         // If explicitly asked to sign out or coming from no-project-access
         if (forceSignOut || searchParams.has('signout')) {
@@ -88,6 +105,7 @@ const Auth = () => {
           if (user) {
             try {
               await signOut();
+              localStorage.removeItem('isGlobalAdmin');
               console.log("Auth page: Session cleared successfully after explicit request");
             } catch (e) {
               console.error("Auth page: Error during explicit signout:", e);
@@ -99,23 +117,11 @@ const Auth = () => {
           return;
         }
         
-        // FIXED: Only sign out if explicitly coming from no-project-access and not a global admin
-        const comingFromNoProjectAccess = document.referrer.includes('no-project-access');
-        const hasErrorParam = searchParams.has('error');
-        
-        if ((comingFromNoProjectAccess || hasErrorParam) && !isGlobalAdmin) {
-          console.log("Auth page: Coming from no-project-access or with error, and not a global admin, ensuring clean session");
-          if (user) {
-            await signOut();
-            console.log("Auth page: Session cleared for user coming from no-project-access");
-          }
-          setAuthStage("ready_for_auth");
-          setAuthInit(false);
-          return;
-        }
+        // Check for global admin status from both context and localStorage
+        const isUserGlobalAdmin = isGlobalAdmin || localStorage.getItem('isGlobalAdmin') === 'true';
         
         // If user exists and is a global admin, always navigate directly to home without checks
-        if (user && isGlobalAdmin) {
+        if (user && isUserGlobalAdmin) {
           console.log("Auth page: User is already authenticated as global admin, redirecting to home");
           navigate("/", { replace: true });
           return;
@@ -153,6 +159,15 @@ const Auth = () => {
   // Function to handle successful login with project access check
   const handleSuccessfulLogin = (hasNoProjectAccess: boolean) => {
     console.log("Login callback executed. No project access:", hasNoProjectAccess);
+    
+    // Check if the user is a global admin from localStorage
+    const isUserGlobalAdmin = localStorage.getItem('isGlobalAdmin') === 'true';
+    
+    if (isUserGlobalAdmin) {
+      console.log("Login successful and user is global admin, redirecting to home");
+      navigate('/', { replace: true });
+      return;
+    }
     
     if (hasNoProjectAccess) {
       console.log("Login successful but user has no project access, redirecting to no-project-access");

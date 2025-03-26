@@ -40,6 +40,10 @@ const ProtectedRoute = ({
     return () => clearTimeout(timer);
   }, [loading]);
   
+  // Check the localStorage for global admin status as a fallback
+  const storedIsGlobalAdmin = localStorage.getItem('isGlobalAdmin') === 'true';
+  const isUserGlobalAdmin = isGlobalAdmin || storedIsGlobalAdmin;
+  
   // Debug logging
   useEffect(() => {
     console.log("ProtectedRoute state:", { 
@@ -48,11 +52,13 @@ const ProtectedRoute = ({
       userProfile,
       loading, 
       isGlobalAdmin, 
+      storedIsGlobalAdmin,
+      effectiveIsGlobalAdmin: isUserGlobalAdmin,
       isProjectAdmin,
       currentProjectId,
       requireProjectAccess
     });
-  }, [user, userProfile, loading, isGlobalAdmin, isProjectAdmin, currentProjectId, location.pathname, requireProjectAccess]);
+  }, [user, userProfile, loading, isGlobalAdmin, storedIsGlobalAdmin, isUserGlobalAdmin, isProjectAdmin, currentProjectId, location.pathname, requireProjectAccess]);
   
   // Show loading state
   if (loading && showLoading) {
@@ -79,20 +85,20 @@ const ProtectedRoute = ({
     return <Navigate to={`/auth${currentPath !== "/" ? `?redirect=${currentPath}` : ""}`} replace />;
   }
 
-  // Check global admin access
-  if (requireGlobalAdmin && !isGlobalAdmin) {
+  // Check global admin access - use both context and localStorage
+  if (requireGlobalAdmin && !isUserGlobalAdmin) {
     console.log("Global admin access required but user is not a global admin");
     return <Navigate to="/" replace />;
   }
 
-  // Check project admin access
-  if (requireProjectAdmin && !isProjectAdmin && !isGlobalAdmin) {
-    console.log("Project admin access required but user is not a project admin");
+  // Check project admin access - global admins automatically have project admin privileges
+  if (requireProjectAdmin && !isProjectAdmin && !isUserGlobalAdmin) {
+    console.log("Project admin access required but user is not a project admin or global admin");
     return <Navigate to="/" replace />;
   }
 
   // Check project access - but don't redirect if global admin OR we're already on no-project-access
-  if (requireProjectAccess && !currentProjectId && !isGlobalAdmin) {
+  if (requireProjectAccess && !currentProjectId && !isUserGlobalAdmin) {
     console.log("Project access required but user has no project access and is not global admin");
     return <Navigate to="/no-project-access" replace />;
   }

@@ -61,14 +61,20 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
       });
       
       // First check if the user is a global admin - they don't need project access
-      const { data: isGlobalAdmin, error: isGlobalAdminError } = await supabase
+      const { data: globalAdminData, error: isGlobalAdminError } = await supabase
         .rpc('is_global_admin', { user_uuid: data.user.id });
       
       if (isGlobalAdminError) {
         console.error("Error checking global admin status:", isGlobalAdminError);
       }
       
+      const isGlobalAdmin = globalAdminData === true;
       console.log("Global admin check:", isGlobalAdmin);
+      
+      // Store the result in localStorage to ensure it persists through redirects
+      if (isGlobalAdmin) {
+        localStorage.setItem('isGlobalAdmin', 'true');
+      }
       
       // If user is global admin, they don't need project access validation
       if (isGlobalAdmin) {
