@@ -42,6 +42,21 @@ const Auth = () => {
           return;
         }
         
+        // Ensure we're fully signed out when reaching this page from NoProjectAccess
+        const comingFromNoProjectAccess = document.referrer.includes('no-project-access');
+        if (comingFromNoProjectAccess) {
+          console.log("Auth page: Coming from no-project-access, ensuring clean session");
+          localStorage.removeItem('currentProjectId');
+          sessionStorage.removeItem('currentProjectId');
+          if (user) {
+            await signOut();
+            console.log("Auth page: Session cleared for user coming from no-project-access");
+          }
+          setAuthStage("ready_for_auth");
+          setAuthInit(false);
+          return;
+        }
+        
         // If user exists and we have a redirect target
         if (user && redirect !== "/") {
           console.log("Auth page: User is already authenticated with redirect target, redirecting to:", redirect);

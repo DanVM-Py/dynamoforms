@@ -12,11 +12,11 @@ import { useNavigate } from "react-router-dom";
 const NoProjectAccess = () => {
   const [loading, setLoading] = useState(false);
   const [availableProjects, setAvailableProjects] = useState<any[]>([]);
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Function to manually redirect to auth page and sign out
+  // Function to manually sign out and redirect to auth page
   const handleSignOut = async () => {
     if (loading) return; // Prevent multiple clicks
     
@@ -33,12 +33,17 @@ const NoProjectAccess = () => {
         description: "Volviendo a la página de inicio de sesión..."
       });
       
-      // Manual sign out through Supabase
-      await supabase.auth.signOut();
+      // Use the signOut method from AuthContext instead of directly calling Supabase
+      // This ensures all the proper cleanup is done consistently
+      await signOut();
       
-      // Navigate to auth page only after successful sign out
-      console.log("NoProjectAccess: Redirecting to auth page after sign out");
-      navigate('/auth', { replace: true });
+      // After successful sign out, redirect to auth page
+      console.log("NoProjectAccess: SignOut completed, redirecting to auth page");
+      
+      // Use a timeout to ensure the UI updates before navigating
+      setTimeout(() => {
+        navigate('/auth', { replace: true });
+      }, 500);
       
     } catch (error) {
       console.error("Error during sign out:", error);
@@ -47,6 +52,8 @@ const NoProjectAccess = () => {
         description: "No se pudo cerrar la sesión. Intenta de nuevo.",
         variant: "destructive"
       });
+      // Even if there's an error with signOut, try to redirect anyway
+      navigate('/auth?error=signout_failed', { replace: true });
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,12 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Function to initialize user and session state
     const initAuth = async () => {
       try {
         setLoading(true);
         
-        // First set up auth state change listener
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
           async (event, newSession) => {
             console.log(`Auth state changed: ${event}`, newSession?.user?.email);
@@ -55,28 +52,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(newSession?.user ?? null);
             
             if (event === 'SIGNED_OUT') {
-              // Clear user state on sign out
               setUserProfile(null);
               setIsGlobalAdmin(false);
               setIsProjectAdmin(false);
               setIsApprover(false);
               setCurrentProjectId(null);
               localStorage.removeItem('currentProjectId');
+              sessionStorage.removeItem('currentProjectId');
             } 
             else if (newSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-              // Fetch user profile on sign in or token refresh
               await fetchUserProfile(newSession.user.id);
             }
           }
         );
         
-        // Then check for existing session
         const { data: { session: existingSession } } = await supabase.auth.getSession();
         
         setSession(existingSession);
         setUser(existingSession?.user ?? null);
         
-        // If we have a session, fetch the user profile
         if (existingSession?.user) {
           await fetchUserProfile(existingSession.user.id);
         } else {
@@ -95,14 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
-  // Function to fetch user profile and role information
   const fetchUserProfile = async (userId: string) => {
     try {
       setLoading(true);
       
       console.log("Fetching user profile for ID:", userId);
       
-      // Check if user is global admin
       const { data: isAdminData, error: isAdminError } = await supabase
         .rpc('is_global_admin', { user_uuid: userId });
         
@@ -113,7 +105,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsGlobalAdmin(isAdminData === true);
       }
       
-      // Fetch user profile
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
@@ -126,20 +117,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else if (profileData) {
         console.log("User profile found:", profileData);
         setUserProfile(profileData as UserProfile);
-        // Set approver status based on role
         setIsApprover(profileData.role === "approver");
       } else {
         console.log("No user profile found");
         setUserProfile(null);
       }
       
-      // Get current project ID from localStorage
       const storedProjectId = localStorage.getItem('currentProjectId');
       
       if (storedProjectId) {
         setCurrentProjectId(storedProjectId);
         
-        // Check if user is project admin for the current project
         const { data: isProjectAdminData, error: isProjectAdminError } = await supabase
           .rpc('is_project_admin', { 
             user_uuid: userId,
@@ -153,7 +141,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsProjectAdmin(isProjectAdminData === true);
         }
       } else if (!isAdminData) {
-        // If no current project and not global admin, try to find a project
         const { data: projectUserData, error: projectUserError } = await supabase
           .from("project_users")
           .select("project_id, is_admin")
@@ -169,7 +156,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setCurrentProjectId(projectId);
           localStorage.setItem('currentProjectId', projectId);
           
-          // Set project admin status
           setIsProjectAdmin(projectUserData[0].is_admin === true);
         }
       }
@@ -186,7 +172,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log("Starting sign out process");
       
-      // Clear state before the Supabase call for immediate UI response
       setUser(null);
       setSession(null);
       setUserProfile(null);
@@ -195,23 +180,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsApprover(false);
       setCurrentProjectId(null);
       
-      // Clear local storage
       localStorage.removeItem('currentProjectId');
+      sessionStorage.removeItem('currentProjectId');
       
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error("Error during signOut:", error);
-        throw error;
+      try {
+        const { error } = await supabase.auth.signOut();
+        
+        if (error) {
+          console.error("Error during Supabase signOut:", error);
+        } else {
+          console.log("Supabase signOut completed successfully");
+        }
+      } catch (supabaseError) {
+        console.error("Exception during Supabase signOut:", supabaseError);
       }
-      
-      // Force redirect to the authentication page
-      window.location.href = '/auth';
       
       toast({
         title: "Sesión finalizada",
         description: "Has cerrado sesión correctamente."
       });
+      
+      console.log("Sign out process completed");
+      return true;
     } catch (error: any) {
       console.error("Error in signOut function:", error);
       toast({
@@ -219,8 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "No se pudo cerrar sesión completamente.",
         variant: "destructive"
       });
-      // Force redirect despite the error
-      window.location.href = '/auth';
+      return false;
     } finally {
       setLoading(false);
     }
