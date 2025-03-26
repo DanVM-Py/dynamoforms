@@ -22,8 +22,14 @@ const Auth = () => {
   
   // Handle initial authentication state and redirect logic
   useEffect(() => {
-    // Immediately clear storage when reaching auth page, regardless of reason
+    // Only clear storage if we're not a global admin and not performing a specific auth action
     const clearStorage = () => {
+      // Don't clear storage for global admins who are already authenticated
+      if (user && isGlobalAdmin && !forceSignOut) {
+        console.log("Auth page: Skipping storage clear for authenticated global admin");
+        return;
+      }
+      
       console.log("Auth page: Clearing storage as first step");
       localStorage.removeItem('currentProjectId');
       sessionStorage.removeItem('currentProjectId');
@@ -47,8 +53,10 @@ const Auth = () => {
       }
     };
     
-    // Call immediately on every mount
-    clearStorage();
+    // Call storage clearing function conditionally
+    if (!user || !isGlobalAdmin || forceSignOut) {
+      clearStorage();
+    }
     
     // If we have a forced sign-out parameter, ensure we're truly signed out
     if (forceSignOut || searchParams.has('signout')) {
@@ -103,6 +111,13 @@ const Auth = () => {
           }
           setAuthStage("ready_for_auth");
           setAuthInit(false);
+          return;
+        }
+        
+        // If user exists and is a global admin, always navigate directly to home without checks
+        if (user && isGlobalAdmin) {
+          console.log("Auth page: User is already authenticated as global admin, redirecting to home");
+          navigate("/", { replace: true });
           return;
         }
         
