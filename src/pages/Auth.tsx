@@ -42,12 +42,15 @@ const Auth = () => {
           return;
         }
         
+        // Always clear local storage when reaching the auth page to prevent issues
+        // This helps with the NoProjectAccess redirect case
+        localStorage.removeItem('currentProjectId');
+        sessionStorage.removeItem('currentProjectId');
+        
         // Ensure we're fully signed out when reaching this page from NoProjectAccess
         const comingFromNoProjectAccess = document.referrer.includes('no-project-access');
-        if (comingFromNoProjectAccess) {
-          console.log("Auth page: Coming from no-project-access, ensuring clean session");
-          localStorage.removeItem('currentProjectId');
-          sessionStorage.removeItem('currentProjectId');
+        if (comingFromNoProjectAccess || searchParams.has('error')) {
+          console.log("Auth page: Coming from no-project-access or with error, ensuring clean session");
           if (user) {
             await signOut();
             console.log("Auth page: Session cleared for user coming from no-project-access");

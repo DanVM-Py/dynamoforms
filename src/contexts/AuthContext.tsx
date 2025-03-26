@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +22,7 @@ interface AuthContextType {
   isProjectAdmin: boolean;
   isApprover: boolean;
   currentProjectId: string | null;
-  signOut: () => Promise<boolean>; // Changed from Promise<void> to Promise<boolean>
+  signOut: () => Promise<boolean>;
   refreshUserProfile: () => Promise<void>;
 }
 
@@ -167,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signOut = async () => {
+  const signOut = async (): Promise<boolean> => {
     try {
       setLoading(true);
       

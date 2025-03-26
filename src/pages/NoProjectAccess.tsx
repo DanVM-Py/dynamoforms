@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,24 +32,23 @@ const NoProjectAccess = () => {
         description: "Volviendo a la página de inicio de sesión..."
       });
       
-      // Use the signOut method from AuthContext
+      // Use the signOut method from AuthContext and capture the result
       const signOutSuccess = await signOut();
       
       console.log("NoProjectAccess: SignOut completed with status:", signOutSuccess);
       
-      // Use a timeout to ensure the UI updates before navigating
-      setTimeout(() => {
-        navigate('/auth', { replace: true });
-      }, 500);
+      // Force navigation to auth page regardless of signOut success
+      // This ensures we don't get stuck on this page
+      navigate('/auth', { replace: true });
       
     } catch (error) {
       console.error("Error during sign out:", error);
       toast({
         title: "Error",
-        description: "No se pudo cerrar la sesión. Intenta de nuevo.",
+        description: "No se pudo cerrar la sesión. Redirigiendo a la página de inicio de sesión...",
         variant: "destructive"
       });
-      // Even if there's an error with signOut, try to redirect anyway
+      // Even if there's an error, redirect to auth page
       navigate('/auth?error=signout_failed', { replace: true });
     } finally {
       setLoading(false);
