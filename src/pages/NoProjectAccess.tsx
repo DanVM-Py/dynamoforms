@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -14,6 +14,13 @@ const NoProjectAccess = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  
+  // Use an effect to ensure we clean up storage on mount
+  useEffect(() => {
+    // Clean storage as soon as this component mounts
+    localStorage.removeItem('currentProjectId');
+    sessionStorage.removeItem('currentProjectId');
+  }, []);
 
   // Function to manually sign out and redirect to auth page
   const handleSignOut = async () => {
@@ -32,14 +39,16 @@ const NoProjectAccess = () => {
         description: "Volviendo a la página de inicio de sesión..."
       });
       
-      // Call signOut and wait for it to complete
-      await signOut();
-      console.log("NoProjectAccess: SignOut completed, forcing navigation");
+      // Call signOut but don't wait for it to complete
+      signOut().catch(e => console.error("Error in signOut:", e));
       
-      // Force navigation to auth page with a small delay to ensure state updates
+      // Force navigation to auth page with a small delay regardless of signOut result
+      console.log("NoProjectAccess: Forcing navigation to auth page");
+      
+      // Use a very short timeout to ensure this happens after the current JS event loop
       setTimeout(() => {
-        navigate('/auth', { replace: true });
-      }, 100);
+        window.location.href = '/auth?signout=forced';
+      }, 50);
       
     } catch (error) {
       console.error("Error during sign out:", error);
@@ -49,10 +58,8 @@ const NoProjectAccess = () => {
         variant: "destructive"
       });
       
-      // Even if there's an error, redirect to auth page after a small delay
-      setTimeout(() => {
-        navigate('/auth?error=signout_failed', { replace: true });
-      }, 100);
+      // Even if there's an error, force redirect to auth page
+      window.location.href = '/auth?error=signout_failed';
     } finally {
       setLoading(false);
     }

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { LoginForm } from "@/components/auth/LoginForm";
@@ -12,7 +13,7 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const redirect = searchParams.get("redirect") || "/";
   const confirmationSuccess = searchParams.get('confirmation') === 'success';
-  const forceSignOut = searchParams.get('signout') === 'true';
+  const forceSignOut = searchParams.get('signout') === 'true' || searchParams.get('signout') === 'forced';
   const [authInit, setAuthInit] = useState(true);
   const [authStage, setAuthStage] = useState("starting_auth_check");
   const { user, signOut, loading: authContextLoading } = useAuth();
@@ -20,23 +21,47 @@ const Auth = () => {
   
   // Handle initial authentication state and redirect logic
   useEffect(() => {
+    // Immediately clear storage when reaching auth page
+    const clearStorage = () => {
+      console.log("Auth page: Clearing storage as first step");
+      localStorage.removeItem('currentProjectId');
+      sessionStorage.removeItem('currentProjectId');
+      
+      // Also clear any Supabase storage keys
+      try {
+        const storageKeys = Object.keys(localStorage);
+        const supabaseKeys = storageKeys.filter(key => key.startsWith('sb-'));
+        supabaseKeys.forEach(key => {
+          console.log("Clearing supabase storage key:", key);
+          localStorage.removeItem(key);
+        });
+      } catch (e) {
+        console.error("Error clearing supabase storage keys:", e);
+      }
+    };
+    
+    // Call immediately
+    clearStorage();
+    
     const performInitialCheck = async () => {
       try {
         console.log("Auth page initial check starting - User exists:", !!user);
         console.log("Auth page params - forceSignOut:", forceSignOut, "redirect:", redirect);
         
-        // ALWAYS clear storage when reaching the auth page
-        console.log("Auth page: Clearing local storage as precaution");
-        localStorage.removeItem('currentProjectId');
-        sessionStorage.removeItem('currentProjectId');
-        
-        // If explicitly asked to sign out
-        if (forceSignOut) {
+        // If explicitly asked to sign out or coming from no-project-access
+        if (forceSignOut || searchParams.has('signout')) {
           setAuthStage("explicit_signout_requested");
           console.log("Auth page: Explicit signout requested via URL parameter");
           
-          await signOut();
-          console.log("Auth page: Session cleared successfully after explicit request");
+          if (user) {
+            try {
+              await signOut();
+              console.log("Auth page: Session cleared successfully after explicit request");
+            } catch (e) {
+              console.error("Auth page: Error during explicit signout:", e);
+            }
+          }
+          
           setAuthStage("ready_for_auth");
           setAuthInit(false);
           return;

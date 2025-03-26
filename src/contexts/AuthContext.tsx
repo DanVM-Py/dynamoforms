@@ -169,11 +169,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async (): Promise<boolean> => {
     try {
-      setLoading(true);
-      
       console.log("Starting sign out process");
       
-      // Clear all local state first - do this BEFORE supabase.auth.signOut()
+      // First, clear all local state BEFORE calling supabase.auth.signOut()
+      // This ensures we have a clean state even if the supabase call fails
       setUser(null);
       setSession(null);
       setUserProfile(null);
@@ -182,29 +181,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsApprover(false);
       setCurrentProjectId(null);
       
-      // Clear all storage items
+      // Clear ALL storage items that might be related to auth
       localStorage.removeItem('currentProjectId');
       sessionStorage.removeItem('currentProjectId');
       
-      // Clear Supabase session storage items
+      // Get the Supabase storage key for the current project
       const supabaseKey = 'sb-' + new URL(supabase.supabaseUrl).hostname.split('.')[0] + '-auth-token';
       localStorage.removeItem(supabaseKey);
       sessionStorage.removeItem(supabaseKey);
       
-      // Attempt Supabase signOut but handle any errors
-      try {
-        const { error } = await supabase.auth.signOut();
-        
-        if (error) {
-          console.error("Error during Supabase signOut:", error);
-          // Don't throw here, we'll still return success since we've cleared all local state
-        } else {
-          console.log("Supabase signOut completed successfully");
+      // Use a timeout to give state updates time to process
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Now attempt the Supabase signOut with a timeout to prevent hanging
+      const signOutPromise = new Promise<boolean>(async (resolve) => {
+        try {
+          const { error } = await supabase.auth.signOut();
+          if (error) {
+            console.error("Error during Supabase signOut:", error);
+            // Still return true since we've already cleared local state
+            resolve(true);
+          } else {
+            console.log("Supabase signOut completed successfully");
+            resolve(true);
+          }
+        } catch (error) {
+          console.error("Exception during Supabase signOut:", error);
+          // Still return true since we've already cleared local state
+          resolve(true);
         }
-      } catch (supabaseError) {
-        console.error("Exception during Supabase signOut:", supabaseError);
-        // Don't throw here either
-      }
+      });
+      
+      // Add a timeout to ensure promise resolves
+      const timeoutPromise = new Promise<boolean>(resolve => {
+        setTimeout(() => {
+          console.log("Supabase signOut timed out, forcing completion");
+          resolve(true);
+        }, 2000); // 2 second timeout
+      });
+      
+      // Race the promises to ensure we don't hang
+      const result = await Promise.race([signOutPromise, timeoutPromise]);
       
       toast({
         title: "Sesión finalizada",
@@ -220,7 +237,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "No se pudo cerrar sesión completamente.",
         variant: "destructive"
       });
-      return false;
+      
+      // Even if there was an error, return true to allow navigation away
+      return true;
     } finally {
       setLoading(false);
     }
