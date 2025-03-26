@@ -32,14 +32,14 @@ const NoProjectAccess = () => {
         description: "Volviendo a la página de inicio de sesión..."
       });
       
-      // Use the signOut method from AuthContext and capture the result
-      const signOutSuccess = await signOut();
+      // Call signOut and wait for it to complete
+      await signOut();
+      console.log("NoProjectAccess: SignOut completed, forcing navigation");
       
-      console.log("NoProjectAccess: SignOut completed with status:", signOutSuccess);
-      
-      // Force navigation to auth page regardless of signOut success
-      // This ensures we don't get stuck on this page
-      navigate('/auth', { replace: true });
+      // Force navigation to auth page with a small delay to ensure state updates
+      setTimeout(() => {
+        navigate('/auth', { replace: true });
+      }, 100);
       
     } catch (error) {
       console.error("Error during sign out:", error);
@@ -48,8 +48,11 @@ const NoProjectAccess = () => {
         description: "No se pudo cerrar la sesión. Redirigiendo a la página de inicio de sesión...",
         variant: "destructive"
       });
-      // Even if there's an error, redirect to auth page
-      navigate('/auth?error=signout_failed', { replace: true });
+      
+      // Even if there's an error, redirect to auth page after a small delay
+      setTimeout(() => {
+        navigate('/auth?error=signout_failed', { replace: true });
+      }, 100);
     } finally {
       setLoading(false);
     }

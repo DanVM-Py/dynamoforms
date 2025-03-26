@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { LoginForm } from "@/components/auth/LoginForm";
@@ -26,14 +25,15 @@ const Auth = () => {
         console.log("Auth page initial check starting - User exists:", !!user);
         console.log("Auth page params - forceSignOut:", forceSignOut, "redirect:", redirect);
         
+        // ALWAYS clear storage when reaching the auth page
+        console.log("Auth page: Clearing local storage as precaution");
+        localStorage.removeItem('currentProjectId');
+        sessionStorage.removeItem('currentProjectId');
+        
         // If explicitly asked to sign out
         if (forceSignOut) {
           setAuthStage("explicit_signout_requested");
           console.log("Auth page: Explicit signout requested via URL parameter");
-          
-          // Clear local storage first
-          localStorage.removeItem('currentProjectId');
-          sessionStorage.removeItem('currentProjectId');
           
           await signOut();
           console.log("Auth page: Session cleared successfully after explicit request");
@@ -41,11 +41,6 @@ const Auth = () => {
           setAuthInit(false);
           return;
         }
-        
-        // Always clear local storage when reaching the auth page to prevent issues
-        // This helps with the NoProjectAccess redirect case
-        localStorage.removeItem('currentProjectId');
-        sessionStorage.removeItem('currentProjectId');
         
         // Ensure we're fully signed out when reaching this page from NoProjectAccess
         const comingFromNoProjectAccess = document.referrer.includes('no-project-access');

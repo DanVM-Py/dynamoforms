@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -172,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log("Starting sign out process");
       
+      // Clear all local state first - do this BEFORE supabase.auth.signOut()
       setUser(null);
       setSession(null);
       setUserProfile(null);
@@ -180,19 +182,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsApprover(false);
       setCurrentProjectId(null);
       
+      // Clear all storage items
       localStorage.removeItem('currentProjectId');
       sessionStorage.removeItem('currentProjectId');
       
+      // Clear Supabase session storage items
+      const supabaseKey = 'sb-' + new URL(supabase.supabaseUrl).hostname.split('.')[0] + '-auth-token';
+      localStorage.removeItem(supabaseKey);
+      sessionStorage.removeItem(supabaseKey);
+      
+      // Attempt Supabase signOut but handle any errors
       try {
         const { error } = await supabase.auth.signOut();
         
         if (error) {
           console.error("Error during Supabase signOut:", error);
+          // Don't throw here, we'll still return success since we've cleared all local state
         } else {
           console.log("Supabase signOut completed successfully");
         }
       } catch (supabaseError) {
         console.error("Exception during Supabase signOut:", supabaseError);
+        // Don't throw here either
       }
       
       toast({
