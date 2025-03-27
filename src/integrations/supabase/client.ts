@@ -19,6 +19,7 @@ let supabaseInstance = null;
 // Create a single instance of the Supabase client
 const createSupabaseClient = () => {
   if (supabaseInstance) {
+    console.log("Returning existing Supabase instance");
     return supabaseInstance;
   }
 
@@ -99,6 +100,29 @@ export const getCurrentSession = async () => {
 export const isAuthenticated = async () => {
   const session = await getCurrentSession();
   return !!session;
+};
+
+// Function to clean up auth state across the application
+export const cleanupAuthState = () => {
+  console.log("Cleaning up auth state across the application");
+  
+  // Clear local/session storage items
+  localStorage.removeItem('currentProjectId');
+  sessionStorage.removeItem('currentProjectId');
+  localStorage.removeItem('isGlobalAdmin');
+  
+  // Clear Supabase-specific tokens
+  const supabaseKey = 'sb-' + new URL(supabase.supabaseUrl).hostname.split('.')[0] + '-auth-token';
+  localStorage.removeItem(supabaseKey);
+  sessionStorage.removeItem(supabaseKey);
+  
+  // Check for other Supabase keys and clear them too
+  const storageKeys = Object.keys(localStorage);
+  const supabaseKeys = storageKeys.filter(key => key.startsWith('sb-'));
+  supabaseKeys.forEach(key => {
+    console.log("Clearing supabase storage key:", key);
+    localStorage.removeItem(key);
+  });
 };
 
 // Export the service clients using the same instance

@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, cleanupAuthState } from "@/integrations/supabase/client";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
@@ -31,46 +31,9 @@ const Auth = () => {
     }
     
     // Only clear storage if we're not a global admin and not performing a specific auth action
-    const clearStorage = () => {
-      // Double check again to prevent any race conditions
-      if (user && (isGlobalAdmin || localStorage.getItem('isGlobalAdmin') === 'true') && !forceSignOut) {
-        console.log("Auth page: Skipping storage clear for authenticated global admin");
-        return;
-      }
-      
-      console.log("Auth page: Clearing storage as first step");
-      localStorage.removeItem('currentProjectId');
-      sessionStorage.removeItem('currentProjectId');
-      
-      // Do NOT clear 'isGlobalAdmin' here - we'll use it for the redirection logic
-      
-      // Also clear any Supabase storage keys - critical for breaking auth loops
-      try {
-        // Clear any existing Supabase token to force a fresh auth state
-        const supabaseKey = 'sb-' + new URL(supabase.supabaseUrl).hostname.split('.')[0] + '-auth-token';
-        
-        // Only clear these if we're forcing sign out
-        if (forceSignOut) {
-          localStorage.removeItem(supabaseKey);
-          sessionStorage.removeItem(supabaseKey);
-          localStorage.removeItem('isGlobalAdmin');
-          
-          // Check for other Supabase keys and clear them too
-          const storageKeys = Object.keys(localStorage);
-          const supabaseKeys = storageKeys.filter(key => key.startsWith('sb-'));
-          supabaseKeys.forEach(key => {
-            console.log("Clearing supabase storage key:", key);
-            localStorage.removeItem(key);
-          });
-        }
-      } catch (e) {
-        console.error("Error clearing supabase storage keys:", e);
-      }
-    };
-    
-    // Call storage clearing function conditionally
     if (!user || !isGlobalAdmin || forceSignOut) {
-      clearStorage();
+      console.log("Auth page: Clearing storage as first step");
+      cleanupAuthState();
     }
     
     // If we have a forced sign-out parameter, ensure we're truly signed out

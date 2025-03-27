@@ -1,6 +1,6 @@
 
 import { useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, cleanupAuthState } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { config } from "@/config/environment";
 
@@ -27,14 +27,8 @@ export function useAuthActions(
       setIsProjectAdmin(false);
       setIsApprover(false);
       
-      // Clear local storage manually to ensure all auth data is removed
-      localStorage.removeItem(config.storage.authTokenKey);
-      // Clear any Supabase-specific tokens
-      const supabaseKey = 'sb-' + config.supabaseUrl.split('//')[1].split('.')[0] + '-auth-token';
-      localStorage.removeItem(supabaseKey);
-      sessionStorage.removeItem(supabaseKey);
-      sessionStorage.removeItem('currentProjectId');
-      localStorage.removeItem('currentProjectId');
+      // Use the centralized cleanup function
+      cleanupAuthState();
       
       try {
         // Then sign out from Supabase - this may fail if session is already gone
@@ -56,6 +50,8 @@ export function useAuthActions(
         title: "Sesión finalizada",
         description: "Has cerrado sesión correctamente."
       });
+      
+      return true;
     } catch (error: any) {
       console.error("Error in signOut function:", error);
       toast({
@@ -63,6 +59,7 @@ export function useAuthActions(
         description: "No se pudo cerrar sesión completamente.",
         variant: "destructive"
       });
+      return false;
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, cleanupAuthState } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 
 interface UserProfile {
@@ -52,7 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsGlobalAdmin(true);
         }
         
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        // Set up auth state change listener with detailed logging
+        const { data } = await supabase.auth.onAuthStateChange(
           async (event, newSession) => {
             console.log(`Auth state changed: ${event}`, newSession?.user?.email);
             
@@ -65,9 +66,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setIsProjectAdmin(false);
               setIsApprover(false);
               setCurrentProjectId(null);
-              localStorage.removeItem('currentProjectId');
-              localStorage.removeItem('isGlobalAdmin');
-              sessionStorage.removeItem('currentProjectId');
             } 
             else if (newSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
               await fetchUserProfile(newSession.user.id);
@@ -87,7 +85,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         
         return () => {
-          subscription.unsubscribe();
+          if (data?.subscription?.unsubscribe) {
+            data.subscription.unsubscribe();
+          }
         };
       } catch (error) {
         console.error("Error in auth initialization:", error);
@@ -210,14 +210,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsApprover(false);
       setCurrentProjectId(null);
       
-      // Clear ALL storage items that might be related to auth
-      localStorage.removeItem('currentProjectId');
-      sessionStorage.removeItem('currentProjectId');
-      
-      // Get the Supabase storage key for the current project
-      const supabaseKey = 'sb-' + new URL(supabase.supabaseUrl).hostname.split('.')[0] + '-auth-token';
-      localStorage.removeItem(supabaseKey);
-      sessionStorage.removeItem(supabaseKey);
+      // Use the centralized cleanup function
+      cleanupAuthState();
       
       // Use a timeout to give state updates time to process
       await new Promise(resolve => setTimeout(resolve, 50));

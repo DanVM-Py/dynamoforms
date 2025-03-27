@@ -5,6 +5,7 @@ import { User, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/use-toast';
+import { cleanupAuthState } from '@/integrations/supabase/client';
 
 interface SidebarUserSectionProps {
   isExpanded: boolean;
@@ -41,17 +42,30 @@ const SidebarUserSection = ({
     
     try {
       setIsSigningOut(true);
+      
+      // Clean up auth state first (like in NoProjectAccess)
+      cleanupAuthState();
+      
       await signOut();
-      // No need to navigate here as signOut already does this
+      
+      toast({
+        title: "Sesión finalizada",
+        description: "Has cerrado sesión correctamente."
+      });
+      
+      // Force direct navigation to break any potential navigation loops
+      window.location.href = '/auth?signout=forced';
+      
     } catch (error) {
       console.error("Error signing out:", error);
-      // Show a toast notification to the user
       toast({
         title: "Error al cerrar sesión",
         description: "Hubo un problema al cerrar sesión. Intenta de nuevo.",
         variant: "destructive"
       });
-      navigate("/auth");
+      
+      // Even if there's an error, try to navigate to auth page
+      navigate("/auth", { replace: true });
     } finally {
       setIsSigningOut(false);
     }
