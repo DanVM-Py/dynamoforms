@@ -23,8 +23,11 @@ export const createSupabaseClient = (
 ) => {
   // If instance exists for this key, return it
   if (clientInstances.has(key)) {
+    console.log(`Returning existing Supabase client instance for key: ${key}`);
     return clientInstances.get(key);
   }
+  
+  console.log(`Creating new Supabase client instance for key: ${key}`);
   
   // Common config applied to all instances
   const supabaseUrl = config.supabaseUrl;
