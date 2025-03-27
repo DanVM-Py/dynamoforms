@@ -166,10 +166,11 @@ const fetchServiceMetrics = async (): Promise<ServiceHealth[]> => {
   return mapServiceMetrics(data.metrics);
 };
 
-// Refresh all service metrics (collects new data)
+// Refresh all service metrics (collects new data with clearing previous entries)
 const refreshServiceMetrics = async (): Promise<ServiceHealth[]> => {
   const { data, error } = await supabase.functions.invoke('collect-metrics', {
     method: 'POST',
+    body: { clearBeforeInsert: true } // Explicitly request clearing before inserting
   });
 
   if (error) {
@@ -191,11 +192,12 @@ const refreshServiceMetrics = async (): Promise<ServiceHealth[]> => {
 export function ServiceMetrics() {
   const { toast } = useToast();
   
+  // Remove refetchInterval to prevent automatic data collection
   const { data: services = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['serviceMetrics'],
     queryFn: fetchServiceMetrics,
-    refetchInterval: 30000, // Update every 30 seconds
-    staleTime: 15000
+    staleTime: Infinity, // Don't auto-refresh the data
+    refetchOnWindowFocus: false, // Don't refetch when window gets focus
   });
 
   const handleRefresh = async () => {

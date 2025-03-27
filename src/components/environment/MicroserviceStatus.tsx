@@ -89,7 +89,7 @@ export const MicroserviceStatus = () => {
     setIsLoading(true);
     
     try {
-      // Use our edge function to get actual metrics
+      // First, get current metrics data
       const { data, error } = await supabase.functions.invoke('collect-metrics', {
         method: 'GET',
       });
@@ -101,6 +101,7 @@ export const MicroserviceStatus = () => {
       if (data && data.metrics && Array.isArray(data.metrics) && data.metrics.length > 0) {
         // Map the metrics data to our service status format
         const updatedServices = services.map(service => {
+          // Get the service ID from service name (extract the first word and lowercase it)
           const serviceName = service.name.split(' ')[0].toLowerCase();
           const metric = data.metrics.find((m: ServiceMetric) => m.service_id === serviceName);
           
@@ -133,7 +134,57 @@ export const MicroserviceStatus = () => {
     }
   };
 
-  // Check status on mount
+  // Manually trigger a full refresh (with clearing old data)
+  const refreshServiceStatus = async () => {
+    setIsLoading(true);
+    
+    try {
+      // Use our edge function to refresh metrics with clearing
+      const { data, error } = await supabase.functions.invoke('collect-metrics', {
+        method: 'POST',
+        body: { clearBeforeInsert: true }
+      });
+      
+      if (error) throw error;
+      
+      console.log("Refreshed metrics data:", data);
+      
+      if (data && data.metrics && Array.isArray(data.metrics) && data.metrics.length > 0) {
+        // Map the metrics data to our service status format
+        const updatedServices = services.map(service => {
+          const serviceName = service.name.split(' ')[0].toLowerCase();
+          const metric = data.metrics.find((m: ServiceMetric) => m.service_id === serviceName);
+          
+          if (!metric) return service;
+          
+          return {
+            ...service,
+            status: mapStatusToServiceStatus(metric.status),
+            latency: metric.response_time,
+            lastUpdated: new Date(metric.checked_at)
+          };
+        });
+        
+        setServices(updatedServices);
+      }
+      
+      toast({
+        title: "Estado actualizado",
+        description: "Información de microservicios actualizada correctamente."
+      });
+    } catch (error) {
+      console.error("Error refreshing service status:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado de los microservicios",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Check status on mount, but don't use automatic refresh
   useEffect(() => {
     fetchServiceStatus();
   }, []);
@@ -187,7 +238,7 @@ export const MicroserviceStatus = () => {
                 variant="outline" 
                 size="sm" 
                 className="h-8 w-8 p-0"
-                onClick={fetchServiceStatus}
+                onClick={refreshServiceStatus}
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
