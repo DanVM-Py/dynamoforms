@@ -67,7 +67,7 @@ export function useConfirmEmailActions(email: string | undefined, userId?: strin
       // Check if the user has confirmed their email
       const { data, error } = await supabase
         .from("profiles")
-        .select("email_confirmed")
+        .select("*")  // Select all columns to avoid missing columns
         .eq("email", email)
         .maybeSingle();
 
@@ -75,8 +75,10 @@ export function useConfirmEmailActions(email: string | undefined, userId?: strin
         throw error;
       }
 
-      // If confirmed, redirect to login
-      if (data && data.email_confirmed) {
+      // If confirmed, redirect to login - safely check for email_confirmed
+      const emailConfirmed = data && 'email_confirmed' in data ? data.email_confirmed : false;
+      
+      if (emailConfirmed) {
         toast({
           title: "Email confirmado",
           description: "Tu correo ha sido confirmado. Ahora puedes iniciar sesión.",

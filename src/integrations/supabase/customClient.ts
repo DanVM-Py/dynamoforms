@@ -47,6 +47,9 @@ export const customSupabase = createClient<Database>(
   }
 );
 
+// Export a safe URL for the custom client
+export const customSupabaseApiUrl = config.supabaseUrl;
+
 // Log connection information in non-production environments
 if (environment !== 'production') {
   console.log(`Custom Supabase client initialized for ${environment} environment`);

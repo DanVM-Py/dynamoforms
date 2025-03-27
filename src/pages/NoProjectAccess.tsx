@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +5,7 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { FolderLock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseApiUrl } from "@/integrations/supabase/client";
 
 const NoProjectAccess = () => {
   const [loading, setLoading] = useState(false);
@@ -43,7 +42,7 @@ const NoProjectAccess = () => {
       localStorage.removeItem('isGlobalAdmin');
       
       // Clear Supabase auth token
-      const supabaseKey = 'sb-' + new URL(supabase.supabaseUrl).hostname.split('.')[0] + '-auth-token';
+      const supabaseKey = 'sb-' + new URL(supabaseApiUrl).hostname.split('.')[0] + '-auth-token';
       localStorage.removeItem(supabaseKey);
       sessionStorage.removeItem(supabaseKey);
       

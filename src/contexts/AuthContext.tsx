@@ -1,16 +1,16 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
-import { supabase, cleanupAuthState } from "@/integrations/supabase/client";
+import { supabase, cleanupAuthState, supabaseApiUrl } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 
 interface UserProfile {
   id: string;
   email: string;
-  name: string;
+  name: string | null;
   role: string;
-  email_confirmed: boolean;
-  created_at?: string;
+  email_confirmed?: boolean;  // Made optional since it might not exist in older profiles
+  created_at?: string | null;
   project_id?: string;
 }
 
@@ -135,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserProfile(null);
       } else if (profileData) {
         console.log("User profile found:", profileData);
+        // Type assertion here to allow for missing fields
         setUserProfile(profileData as UserProfile);
         
         // Double-check global admin status from profile
@@ -170,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setIsProjectAdmin(isProjectAdminData === true);
           }
         } else {
+          // Query for project users with the is_admin field - adjust query
           const { data: projectUserData, error: projectUserError } = await supabase
             .from("project_users")
             .select("project_id, is_admin")
@@ -185,7 +187,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setCurrentProjectId(projectId);
             localStorage.setItem('currentProjectId', projectId);
             
-            setIsProjectAdmin(projectUserData[0].is_admin === true);
+            // Check is_admin property safely
+            setIsProjectAdmin(!!projectUserData[0].is_admin);
           }
         }
       }

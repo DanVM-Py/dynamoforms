@@ -55,6 +55,9 @@ export const formsClient = supabase;
 export const tasksClient = supabase;
 export const notificationsClient = supabase;
 
+// The Supabase URL is needed in a few places, expose it in a safe way
+export const supabaseApiUrl = config.supabaseUrl;
+
 // Function to get the current session - useful for components that need quick access
 export const getCurrentSession = async () => {
   try {
@@ -100,7 +103,7 @@ export const cleanupAuthState = () => {
   localStorage.removeItem('isGlobalAdmin');
   
   // Clear Supabase-specific tokens
-  const supabaseKey = 'sb-' + new URL(supabase.supabaseUrl).hostname.split('.')[0] + '-auth-token';
+  const supabaseKey = 'sb-' + new URL(supabaseApiUrl).hostname.split('.')[0] + '-auth-token';
   localStorage.removeItem(supabaseKey);
   sessionStorage.removeItem(supabaseKey);
   
