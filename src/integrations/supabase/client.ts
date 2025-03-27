@@ -17,51 +17,71 @@ export const SERVICES = {
 let supabaseInstance = null;
 
 // Create a single instance of the Supabase client
-const createSupabaseClient = () => {
-  if (supabaseInstance) {
-    console.log("Returning existing Supabase instance");
-    return supabaseInstance;
-  }
-
+export const createSupabaseClient = (options = {}) => {
+  // Common config applied to all instances
   const supabaseUrl = config.supabaseUrl;
   const supabaseAnonKey = config.supabaseAnonKey;
   
-  console.log("Initializing Supabase client with:", {
-    url: supabaseUrl,
-    hasKey: !!supabaseAnonKey,
-    authSettings: {
+  // Default options that apply to the main instance
+  const defaultOptions = {
+    auth: {
       storageKey: config.storage.authTokenKey,
       autoRefreshToken: true,
-      persistSession: true
-    }
-  });
-  
-  supabaseInstance = createClient<Database>(
-    supabaseUrl, 
-    supabaseAnonKey,
-    {
-      auth: {
-        storageKey: config.storage.authTokenKey,
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-      },
-      global: {
-        headers: {},
-        fetch: (url, options) => {
-          return fetch(url, {
-            ...options,
-            signal: options?.signal || AbortSignal.timeout(60000)
-          });
-        }
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+    global: {
+      headers: {},
+      fetch: (url, options) => {
+        return fetch(url, {
+          ...options,
+          signal: options?.signal || AbortSignal.timeout(60000)
+        });
       }
     }
-  );
-
+  };
+  
+  // Merge the default options with any provided options
+  const mergedOptions = {
+    ...defaultOptions,
+    ...options,
+    auth: {
+      ...defaultOptions.auth,
+      ...(options.auth || {}),
+    },
+    global: {
+      ...defaultOptions.global,
+      ...(options.global || {}),
+      headers: {
+        ...defaultOptions.global.headers,
+        ...(options.global?.headers || {}),
+      },
+    },
+  };
+  
+  // For the main instance with no custom options, return the singleton
+  if (Object.keys(options).length === 0 && supabaseInstance) {
+    return supabaseInstance;
+  }
+  
+  // For custom options, create a new instance but don't store it as the singleton
+  if (Object.keys(options).length > 0) {
+    console.log("Creating custom Supabase instance with options:", options);
+    return createClient<Database>(supabaseUrl, supabaseAnonKey, mergedOptions);
+  }
+  
+  // Create and store the main singleton instance
+  console.log("Initializing main Supabase singleton instance with:", {
+    url: supabaseUrl,
+    hasKey: !!supabaseAnonKey,
+    options: mergedOptions
+  });
+  
+  supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey, mergedOptions);
   return supabaseInstance;
 };
 
-// Create a single instance and export it
+// Create a single instance and export it as the default client
 export const supabase = createSupabaseClient();
 
 // Export the same instance for admin functions

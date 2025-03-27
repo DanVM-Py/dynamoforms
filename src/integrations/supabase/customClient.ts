@@ -1,12 +1,10 @@
 
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/types/supabase';
+import { createSupabaseClient } from './client';
 import { config, environment } from '@/config/environment';
 
-const SUPABASE_URL = config.supabaseUrl;
-const SUPABASE_PUBLISHABLE_KEY = config.supabaseAnonKey;
-
-export const customSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+// Create a custom Supabase client with specific configuration for public usage
+// The main difference is that we don't persist sessions to avoid auth conflicts
+export const customSupabase = createSupabaseClient({
   db: {
     schema: 'public'
   },
@@ -21,7 +19,7 @@ export const customSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBL
       'Cache-Control': 'no-cache, no-store, must-revalidate',
       'Pragma': 'no-cache',
       'Expires': '0',
-      'apikey': SUPABASE_PUBLISHABLE_KEY,
+      'apikey': config.supabaseAnonKey,
       'Content-Type': 'application/json'
     },
     fetch: (url, options = {}) => {
@@ -30,8 +28,8 @@ export const customSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBL
         ...options,
         headers: {
           ...((options as RequestInit).headers || {}),
-          'apikey': SUPABASE_PUBLISHABLE_KEY,
-          'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+          'apikey': config.supabaseAnonKey,
+          'Authorization': `Bearer ${config.supabaseAnonKey}`,
           'Pragma': 'no-cache',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Expires': '0',
