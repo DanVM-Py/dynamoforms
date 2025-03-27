@@ -13,7 +13,7 @@ export const SERVICES = {
   NOTIFICATIONS: 'notifications'
 };
 
-// Define options interface
+// Define options interface matching Supabase's expected types
 interface SupabaseOptions {
   auth?: {
     storageKey?: string;
@@ -26,7 +26,7 @@ interface SupabaseOptions {
     fetch?: (url: string, options?: any) => Promise<Response>;
   };
   db?: {
-    schema?: string;
+    schema?: "public"; // Important: This must be "public" as a literal type, not just string
   };
 }
 
@@ -55,6 +55,9 @@ export const createSupabaseClient = (options: SupabaseOptions = {}) => {
           signal: options?.signal || AbortSignal.timeout(60000)
         });
       }
+    },
+    db: {
+      schema: "public"
     }
   };
   
@@ -74,6 +77,10 @@ export const createSupabaseClient = (options: SupabaseOptions = {}) => {
         ...(options.global?.headers || {}),
       },
     },
+    db: {
+      ...defaultOptions.db,
+      ...(options.db || {}),
+    }
   };
   
   // For the main instance with no custom options, return the singleton

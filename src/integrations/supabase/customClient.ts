@@ -6,7 +6,7 @@ import { config, environment } from '@/config/environment';
 // The main difference is that we don't persist sessions to avoid auth conflicts
 export const customSupabase = createSupabaseClient({
   db: {
-    schema: 'public'
+    schema: "public"
   },
   auth: {
     // Don't persist the session to avoid authentication issues with public forms
