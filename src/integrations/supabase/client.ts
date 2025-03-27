@@ -1,6 +1,6 @@
 
 // This file connects to the appropriate Supabase service based on the current context
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClientOptions } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { config } from '@/config/environment';
 
@@ -13,34 +13,25 @@ export const SERVICES = {
   NOTIFICATIONS: 'notifications'
 };
 
-// Define options interface matching Supabase's expected types
-interface SupabaseOptions {
-  auth?: {
-    storageKey?: string;
-    autoRefreshToken?: boolean;
-    persistSession?: boolean;
-    detectSessionInUrl?: boolean;
-  };
-  global?: {
-    headers?: Record<string, string>;
-    fetch?: (url: string, options?: any) => Promise<Response>;
-  };
-  db?: {
-    schema?: "public"; // Important: This must be "public" as a literal type, not just string
-  };
-}
+// Store all created clients in a map to prevent duplicate instances
+const clientInstances = new Map();
 
-// Create a single Supabase client instance - SINGLETON PATTERN
-let supabaseInstance = null;
-
-// Create a single instance of the Supabase client
-export const createSupabaseClient = (options: SupabaseOptions = {}) => {
+// Create a Supabase client instance with custom options
+export const createSupabaseClient = (
+  key = 'default',
+  options: Partial<SupabaseClientOptions<"public">> = {}
+) => {
+  // If instance exists for this key, return it
+  if (clientInstances.has(key)) {
+    return clientInstances.get(key);
+  }
+  
   // Common config applied to all instances
   const supabaseUrl = config.supabaseUrl;
   const supabaseAnonKey = config.supabaseAnonKey;
   
-  // Default options that apply to the main instance
-  const defaultOptions: SupabaseOptions = {
+  // Default options that apply to all instances
+  const defaultOptions: SupabaseClientOptions<"public"> = {
     auth: {
       storageKey: config.storage.authTokenKey,
       autoRefreshToken: true,
@@ -61,52 +52,35 @@ export const createSupabaseClient = (options: SupabaseOptions = {}) => {
     }
   };
   
-  // Merge the default options with any provided options
-  const mergedOptions: SupabaseOptions = {
+  // Merge the default options with any provided options carefully
+  const mergedOptions: SupabaseClientOptions<"public"> = {
     ...defaultOptions,
-    ...options,
     auth: {
       ...defaultOptions.auth,
-      ...(options.auth || {}),
+      ...(options.auth || {})
     },
     global: {
       ...defaultOptions.global,
       ...(options.global || {}),
       headers: {
         ...(defaultOptions.global?.headers || {}),
-        ...(options.global?.headers || {}),
-      },
+        ...(options.global?.headers || {})
+      }
     },
-    db: {
-      ...defaultOptions.db,
-      ...(options.db || {}),
-    }
+    db: defaultOptions.db // Always use public schema
   };
+
+  // Create the client instance
+  const client = createClient<Database>(supabaseUrl, supabaseAnonKey, mergedOptions);
   
-  // For the main instance with no custom options, return the singleton
-  if (Object.keys(options).length === 0 && supabaseInstance) {
-    return supabaseInstance;
-  }
+  // Store the instance in our map
+  clientInstances.set(key, client);
   
-  // For custom options, create a new instance but don't store it as the singleton
-  if (Object.keys(options).length > 0) {
-    console.log("Creating custom Supabase instance with options:", options);
-    return createClient<Database>(supabaseUrl, supabaseAnonKey, mergedOptions);
-  }
-  
-  // Create and store the main singleton instance
-  console.log("Initializing main Supabase singleton instance with:", {
-    url: supabaseUrl,
-    hasKey: !!supabaseAnonKey,
-    options: mergedOptions
-  });
-  
-  supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey, mergedOptions);
-  return supabaseInstance;
+  return client;
 };
 
-// Create a single instance and export it as the default client
-export const supabase = createSupabaseClient();
+// Create and export the main client instance
+export const supabase = createSupabaseClient('default');
 
 // Export the same instance for admin functions
 export const supabaseAdmin = supabase;

@@ -3,11 +3,8 @@ import { createSupabaseClient } from './client';
 import { config, environment } from '@/config/environment';
 
 // Create a custom Supabase client with specific configuration for public usage
-// The main difference is that we don't persist sessions to avoid auth conflicts
-export const customSupabase = createSupabaseClient({
-  db: {
-    schema: "public"
-  },
+// We create a separate instance with a unique key to avoid authentication conflicts
+export const customSupabase = createSupabaseClient('public-client', {
   auth: {
     // Don't persist the session to avoid authentication issues with public forms
     persistSession: false,
@@ -24,10 +21,10 @@ export const customSupabase = createSupabaseClient({
     },
     fetch: (url, options = {}) => {
       // Create a new options object with headers
-      const newOptions: RequestInit = {
+      const newOptions = {
         ...options,
         headers: {
-          ...((options as RequestInit).headers || {}),
+          ...((options as any).headers || {}),
           'apikey': config.supabaseAnonKey,
           'Authorization': `Bearer ${config.supabaseAnonKey}`,
           'Pragma': 'no-cache',
@@ -35,7 +32,7 @@ export const customSupabase = createSupabaseClient({
           'Expires': '0',
           'Content-Type': 'application/json'
         },
-        cache: 'no-store' as RequestCache
+        cache: 'no-store'
       };
       
       return fetch(url, newOptions);
