@@ -96,7 +96,9 @@ export const MicroserviceStatus = () => {
       
       if (error) throw error;
       
-      if (data && data.metrics && data.metrics.length > 0) {
+      console.log("Retrieved metrics data:", data);
+      
+      if (data && data.metrics && Array.isArray(data.metrics) && data.metrics.length > 0) {
         // Map the metrics data to our service status format
         const updatedServices = services.map(service => {
           const serviceName = service.name.split(' ')[0].toLowerCase();

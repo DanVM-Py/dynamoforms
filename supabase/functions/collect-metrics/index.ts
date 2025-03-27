@@ -67,7 +67,7 @@ async function checkServiceHealth(serviceId: string, endpoint: string) {
       throw error
     }
 
-    return data
+    return data[0]
   } catch (error) {
     console.error(`Failed to check health of ${serviceId}:`, error)
     throw error
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
         throw error
       }
 
-      return new Response(JSON.stringify({ metrics: latestMetrics }), {
+      return new Response(JSON.stringify({ metrics: latestMetrics || [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       })
@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
         )
       )
 
-      return new Response(JSON.stringify({ success: true, data: results }), {
+      return new Response(JSON.stringify({ metrics: results }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       })

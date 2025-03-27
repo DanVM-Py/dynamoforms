@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -5,17 +6,27 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { RefreshCw, AlertCircle, CheckCircle, Activity, Database, Server, Network } from 'lucide-react';
-import { SERVICES } from '@/integrations/supabase/client';
-import { environment } from '@/config/environment';
 import { Area, AreaChart, Bar, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-// Tipos para los datos de métricas
+// Types for metric data
 interface ServiceMetric {
-  timestamp: number;
-  value: number;
+  id: string;
+  service_id: string;
+  status: 'healthy' | 'degraded' | 'down';
+  response_time: number;
+  error_rate: number;
+  cpu_usage: number;
+  memory_usage: number;
+  request_count: number;
+  checked_at: string;
+  metrics_data?: {
+    responseTime: Array<{ timestamp: number; value: number }>;
+    errorRate: Array<{ timestamp: number; value: number }>;
+    requestCount: Array<{ timestamp: number; value: number }>;
+  };
 }
 
 interface ServiceHealth {
@@ -29,13 +40,13 @@ interface ServiceHealth {
   memoryUsage: number;
   lastChecked: Date;
   metrics: {
-    responseTime: ServiceMetric[];
-    errorRate: ServiceMetric[];
-    requestCount: ServiceMetric[];
+    responseTime: Array<{ timestamp: number; value: number }>;
+    errorRate: Array<{ timestamp: number; value: number }>;
+    requestCount: Array<{ timestamp: number; value: number }>;
   };
 }
 
-// Servicios a monitorear
+// Services to monitor
 const serviceConfig = [
   { 
     id: 'auth', 
@@ -70,9 +81,24 @@ const serviceConfig = [
 ];
 
 // Map database records to UI format
-const mapServiceMetrics = (metricsData: any[]): ServiceHealth[] => {
-  if (!metricsData || metricsData.length === 0) {
-    return [];
+const mapServiceMetrics = (metricsData: ServiceMetric[]): ServiceHealth[] => {
+  if (!metricsData || !Array.isArray(metricsData) || metricsData.length === 0) {
+    return serviceConfig.map(service => ({
+      id: service.id,
+      name: service.name,
+      status: 'down' as const,
+      responseTime: 0,
+      errorRate: 0,
+      requestCount: 0,
+      cpuUsage: 0,
+      memoryUsage: 0,
+      lastChecked: new Date(),
+      metrics: {
+        responseTime: [],
+        errorRate: [],
+        requestCount: []
+      }
+    }));
   }
 
   return serviceConfig.map(service => {
@@ -84,7 +110,7 @@ const mapServiceMetrics = (metricsData: any[]): ServiceHealth[] => {
       return {
         id: service.id,
         name: service.name,
-        status: 'down',
+        status: 'down' as const,
         responseTime: 0,
         errorRate: 0,
         requestCount: 0,
@@ -130,6 +156,13 @@ const fetchServiceMetrics = async (): Promise<ServiceHealth[]> => {
     throw error;
   }
 
+  console.log('Received metrics data:', data);
+  
+  if (!data || !data.metrics || !Array.isArray(data.metrics)) {
+    console.warn('Invalid metrics data format received', data);
+    return [];
+  }
+
   return mapServiceMetrics(data.metrics);
 };
 
@@ -144,17 +177,24 @@ const refreshServiceMetrics = async (): Promise<ServiceHealth[]> => {
     throw error;
   }
 
-  return mapServiceMetrics(data);
+  console.log('Refreshed metrics data:', data);
+  
+  if (!data || !data.metrics || !Array.isArray(data.metrics)) {
+    console.warn('Invalid metrics data format received', data);
+    return [];
+  }
+
+  return mapServiceMetrics(data.metrics);
 };
 
-// Componente principal de métricas de servicio
+// Main service metrics component
 export function ServiceMetrics() {
   const { toast } = useToast();
   
   const { data: services = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['serviceMetrics'],
     queryFn: fetchServiceMetrics,
-    refetchInterval: 30000, // Actualizar cada 30 segundos
+    refetchInterval: 30000, // Update every 30 seconds
     staleTime: 15000
   });
 
@@ -176,7 +216,7 @@ export function ServiceMetrics() {
     }
   };
 
-  // Función para obtener color basado en estado
+  // Function to get color based on status
   const getStatusColor = (status: ServiceHealth['status']) => {
     switch (status) {
       case 'healthy': return 'bg-green-500';
@@ -186,7 +226,7 @@ export function ServiceMetrics() {
     }
   };
 
-  // Función para obtener icono basado en estado
+  // Function to get icon based on status
   const getStatusIcon = (status: ServiceHealth['status']) => {
     switch (status) {
       case 'healthy': return <CheckCircle className="h-4 w-4 text-green-500" />;
@@ -196,24 +236,24 @@ export function ServiceMetrics() {
     }
   };
 
-  // Función para formatear fecha
+  // Function to format date
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Función para formatear timestamp para gráficos
+  // Function to format timestamp for charts
   const formatTimestamp = (timestamp: number) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Calcular estadísticas generales
+  // Calculate general statistics
   const healthyCount = services.filter(s => s.status === 'healthy').length;
   const degradedCount = services.filter(s => s.status === 'degraded').length;
   const downCount = services.filter(s => s.status === 'down').length;
   const healthPercentage = services.length ? Math.round((healthyCount / services.length) * 100) : 0;
 
-  // Preparar datos para gráficos de resumen
+  // Prepare data for summary charts
   const responseTimeChartData = services.map(service => ({
     name: service.name,
     value: service.responseTime
