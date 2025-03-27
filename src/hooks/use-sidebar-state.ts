@@ -4,6 +4,8 @@ import { useLocation } from 'react-router-dom';
 
 // Define paths that should hide the sidebar
 export const HIDE_SIDEBAR_PATHS = [
+  '/auth', // Auth page should not show sidebar
+  '/no-project-access', // No project access page should not show sidebar
   '/public/forms', // Public form submissions should not show sidebar
 ];
 

@@ -140,14 +140,6 @@ export const routes = createBrowserRouter([
         ),
       },
       {
-        path: "/monitoring",
-        element: (
-          <ProtectedRoute requireGlobalAdmin={true}>
-            <Monitoring />
-          </ProtectedRoute>
-        ),
-      },
-      {
         path: "/no-project-access",
         element: <NoProjectAccess />,
       },
