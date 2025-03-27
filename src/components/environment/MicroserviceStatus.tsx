@@ -94,7 +94,10 @@ export const MicroserviceStatus = () => {
         method: 'GET',
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error al obtener métricas:', error);
+        throw error;
+      }
       
       console.log("Retrieved metrics data:", data);
       
@@ -116,12 +119,19 @@ export const MicroserviceStatus = () => {
         });
         
         setServices(updatedServices);
+        
+        toast({
+          title: "Estado actualizado",
+          description: "Información de microservicios actualizada correctamente."
+        });
+      } else {
+        console.warn('No se encontraron métricas o el formato es incorrecto:', data);
+        toast({
+          title: "Sin datos",
+          description: "No hay datos de métricas disponibles actualmente.",
+          variant: "default"
+        });
       }
-      
-      toast({
-        title: "Estado actualizado",
-        description: "Información de microservicios actualizada correctamente."
-      });
     } catch (error) {
       console.error("Error fetching service status:", error);
       toast({
@@ -139,13 +149,21 @@ export const MicroserviceStatus = () => {
     setIsLoading(true);
     
     try {
+      toast({
+        title: "Actualizando estado",
+        description: "Recolectando nuevas métricas de servicios..."
+      });
+      
       // Use our edge function to refresh metrics with clearing
       const { data, error } = await supabase.functions.invoke('collect-metrics', {
         method: 'POST',
         body: { clearBeforeInsert: true }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error al actualizar métricas:', error);
+        throw error;
+      }
       
       console.log("Refreshed metrics data:", data);
       
@@ -166,12 +184,19 @@ export const MicroserviceStatus = () => {
         });
         
         setServices(updatedServices);
+        
+        toast({
+          title: "Estado actualizado",
+          description: "Información de microservicios actualizada correctamente."
+        });
+      } else {
+        console.warn('No se encontraron métricas después de actualizar:', data);
+        toast({
+          title: "Sin datos nuevos",
+          description: "No se pudieron generar nuevos datos de métricas.",
+          variant: "default"
+        });
       }
-      
-      toast({
-        title: "Estado actualizado",
-        description: "Información de microservicios actualizada correctamente."
-      });
     } catch (error) {
       console.error("Error refreshing service status:", error);
       toast({

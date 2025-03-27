@@ -102,10 +102,17 @@ Deno.serve(async (req) => {
         .limit(20) // Increased limit to get more data points
 
       if (error) {
+        console.error('Error fetching metrics:', error)
         throw error
       }
 
-      return new Response(JSON.stringify({ metrics: latestMetrics || [] }), {
+      // Log what we're returning to help with debugging
+      console.log(`Returning ${latestMetrics?.length || 0} metrics records`)
+      
+      return new Response(JSON.stringify({ 
+        metrics: latestMetrics || [],
+        success: true 
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       })
@@ -134,6 +141,8 @@ Deno.serve(async (req) => {
         )
       )
       
+      console.log(`Generated ${metricsArray.length} metrics records`)
+      
       // Store all metrics in the database
       const { data, error } = await supabase
         .from('service_metrics')
@@ -145,7 +154,12 @@ Deno.serve(async (req) => {
         throw error
       }
 
-      return new Response(JSON.stringify({ metrics: data || [] }), {
+      console.log(`Successfully stored ${data?.length || 0} metrics records`)
+      
+      return new Response(JSON.stringify({ 
+        metrics: data || [],
+        success: true 
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       })
@@ -157,7 +171,10 @@ Deno.serve(async (req) => {
     }
   } catch (error) {
     console.error('Error in collect-metrics function:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      success: false 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     })

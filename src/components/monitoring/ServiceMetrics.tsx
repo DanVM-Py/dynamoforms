@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,7 +10,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-// Types for metric data
 interface ServiceMetric {
   id: string;
   service_id: string;
@@ -46,7 +44,6 @@ interface ServiceHealth {
   };
 }
 
-// Services to monitor
 const serviceConfig = [
   { 
     id: 'auth', 
@@ -80,9 +77,9 @@ const serviceConfig = [
   }
 ];
 
-// Map database records to UI format
 const mapServiceMetrics = (metricsData: ServiceMetric[]): ServiceHealth[] => {
   if (!metricsData || !Array.isArray(metricsData) || metricsData.length === 0) {
+    console.log("No hay datos de métricas disponibles o formato incorrecto", metricsData);
     return serviceConfig.map(service => ({
       id: service.id,
       name: service.name,
@@ -101,12 +98,13 @@ const mapServiceMetrics = (metricsData: ServiceMetric[]): ServiceHealth[] => {
     }));
   }
 
+  console.log("Mapeando métricas de servicios:", metricsData);
+
   return serviceConfig.map(service => {
-    // Find the corresponding metrics for this service
     const serviceMetric = metricsData.find(m => m.service_id === service.id);
     
     if (!serviceMetric) {
-      // Return default values if no metrics found
+      console.log(`No se encontraron métricas para el servicio: ${service.id}`);
       return {
         id: service.id,
         name: service.name,
@@ -125,7 +123,6 @@ const mapServiceMetrics = (metricsData: ServiceMetric[]): ServiceHealth[] => {
       };
     }
     
-    // Extract metrics from the database record
     return {
       id: service.id,
       name: service.name,
@@ -145,65 +142,98 @@ const mapServiceMetrics = (metricsData: ServiceMetric[]): ServiceHealth[] => {
   });
 };
 
-// Fetch service metrics from our Supabase edge function
 const fetchServiceMetrics = async (): Promise<ServiceHealth[]> => {
-  const { data, error } = await supabase.functions.invoke('collect-metrics', {
-    method: 'GET',
-  });
+  console.log("Obteniendo métricas de servicios...");
+  
+  try {
+    const { data, error } = await supabase.functions.invoke('collect-metrics', {
+      method: 'GET',
+    });
 
-  if (error) {
-    console.error('Error fetching service metrics:', error);
+    if (error) {
+      console.error('Error fetching service metrics:', error);
+      throw error;
+    }
+
+    console.log('Received metrics data:', data);
+    
+    if (!data || !data.metrics) {
+      console.warn('Formato de datos de métricas no válido recibido', data);
+      return [];
+    }
+    
+    const metricsArray = Array.isArray(data.metrics) ? data.metrics : [];
+    
+    if (metricsArray.length === 0) {
+      console.warn('No se recibieron métricas de servicios');
+    }
+
+    return mapServiceMetrics(metricsArray);
+  } catch (error) {
+    console.error('Error al obtener métricas:', error);
     throw error;
   }
-
-  console.log('Received metrics data:', data);
-  
-  if (!data || !data.metrics || !Array.isArray(data.metrics)) {
-    console.warn('Invalid metrics data format received', data);
-    return [];
-  }
-
-  return mapServiceMetrics(data.metrics);
 };
 
-// Refresh all service metrics (collects new data with clearing previous entries)
 const refreshServiceMetrics = async (): Promise<ServiceHealth[]> => {
-  const { data, error } = await supabase.functions.invoke('collect-metrics', {
-    method: 'POST',
-    body: { clearBeforeInsert: true } // Explicitly request clearing before inserting
-  });
+  console.log("Actualizando métricas de servicios con limpieza previa...");
+  
+  try {
+    const { data, error } = await supabase.functions.invoke('collect-metrics', {
+      method: 'POST',
+      body: { clearBeforeInsert: true } // Explicitly request clearing before inserting
+    });
 
-  if (error) {
-    console.error('Error refreshing service metrics:', error);
+    if (error) {
+      console.error('Error refreshing service metrics:', error);
+      throw error;
+    }
+
+    console.log('Refreshed metrics data:', data);
+    
+    if (!data || !data.metrics) {
+      console.warn('Formato de datos de métricas no válido recibido', data);
+      return [];
+    }
+    
+    const metricsArray = Array.isArray(data.metrics) ? data.metrics : [];
+    
+    if (metricsArray.length === 0) {
+      console.warn('No se recibieron métricas nuevas de servicios');
+    }
+
+    return mapServiceMetrics(metricsArray);
+  } catch (error) {
+    console.error('Error al actualizar métricas:', error);
     throw error;
   }
-
-  console.log('Refreshed metrics data:', data);
-  
-  if (!data || !data.metrics || !Array.isArray(data.metrics)) {
-    console.warn('Invalid metrics data format received', data);
-    return [];
-  }
-
-  return mapServiceMetrics(data.metrics);
 };
 
-// Main service metrics component
 export function ServiceMetrics() {
   const { toast } = useToast();
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Remove refetchInterval to prevent automatic data collection
-  const { data: services = [], isLoading, refetch, isRefetching } = useQuery({
+  const { data: services = [], isLoading, refetch } = useQuery({
     queryKey: ['serviceMetrics'],
     queryFn: fetchServiceMetrics,
-    staleTime: Infinity, // Don't auto-refresh the data
-    refetchOnWindowFocus: false, // Don't refetch when window gets focus
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
   const handleRefresh = async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
     try {
+      toast({
+        title: "Actualizando métricas",
+        description: "Obteniendo datos en tiempo real..."
+      });
+      
+      console.log("Iniciando actualización manual de métricas");
       await refreshServiceMetrics();
       await refetch();
+      
       toast({
         title: "Métricas actualizadas",
         description: "Los datos de los servicios han sido actualizados correctamente."
@@ -215,10 +245,11 @@ export function ServiceMetrics() {
         description: "No se pudieron actualizar los datos de los servicios.",
         variant: "destructive"
       });
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
-  // Function to get color based on status
   const getStatusColor = (status: ServiceHealth['status']) => {
     switch (status) {
       case 'healthy': return 'bg-green-500';
@@ -228,7 +259,6 @@ export function ServiceMetrics() {
     }
   };
 
-  // Function to get icon based on status
   const getStatusIcon = (status: ServiceHealth['status']) => {
     switch (status) {
       case 'healthy': return <CheckCircle className="h-4 w-4 text-green-500" />;
@@ -238,24 +268,20 @@ export function ServiceMetrics() {
     }
   };
 
-  // Function to format date
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Function to format timestamp for charts
   const formatTimestamp = (timestamp: number) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Calculate general statistics
   const healthyCount = services.filter(s => s.status === 'healthy').length;
   const degradedCount = services.filter(s => s.status === 'degraded').length;
   const downCount = services.filter(s => s.status === 'down').length;
   const healthPercentage = services.length ? Math.round((healthyCount / services.length) * 100) : 0;
 
-  // Prepare data for summary charts
   const responseTimeChartData = services.map(service => ({
     name: service.name,
     value: service.responseTime
@@ -283,9 +309,9 @@ export function ServiceMetrics() {
             variant="outline" 
             size="sm" 
             onClick={handleRefresh}
-            disabled={isLoading || isRefetching}
+            disabled={isLoading || isRefreshing}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>
         </div>
@@ -312,7 +338,6 @@ export function ServiceMetrics() {
           </TabsList>
           
           <TabsContent value="overview" className="space-y-4">
-            {/* Resumen de estado del sistema */}
             <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
               <Card>
                 <CardHeader className="pb-2">
@@ -357,7 +382,6 @@ export function ServiceMetrics() {
               </Card>
             </div>
             
-            {/* Gráficos de métricas */}
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
               <Card>
                 <CardHeader className="pb-2">
@@ -542,7 +566,6 @@ export function ServiceMetrics() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Matriz de comunicación entre servicios */}
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-left border-b">
@@ -557,12 +580,10 @@ export function ServiceMetrics() {
                         <tr key={`row-${source.id}`} className="border-b">
                           <td className="py-2 font-medium">{source.name.replace(' Service', '')}</td>
                           {serviceConfig.map((target) => {
-                            // No mostrar comunicación consigo mismo
                             if (source.id === target.id) {
                               return <td key={`cell-${source.id}-${target.id}`} className="py-2 text-center">-</td>;
                             }
                             
-                            // Valores simulados de latencia y éxito
                             const latency = Math.round(20 + Math.random() * 60);
                             const success = Math.round(95 + Math.random() * 5);
                             const isHealthy = success > 97;
