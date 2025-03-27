@@ -17,7 +17,7 @@ export function useAuthInit({
 }) {
   // Use refs to prevent unnecessary re-renders and track initialization
   const initialized = useRef(false);
-  const authListenerRef = useRef<{ subscription?: { unsubscribe?: () => void } } | null>(null);
+  const authListenerRef = useRef<{ data?: { subscription?: { unsubscribe?: () => void } } } | null>(null);
   const timeoutRef = useRef<number | null>(null);
   const stageRef = useRef<string>("not_started");
 
@@ -173,13 +173,13 @@ export function useAuthInit({
     
     // Clean up listener and timeouts on component unmount
     return () => {
-      if (authListenerRef.current) {
+      if (authListenerRef.current && authListenerRef.current.data) {
         try {
           console.log("Cleaning up auth listener. Final stage:", stageRef.current);
           // Only try to unsubscribe if the subscription exists and has unsubscribe method
-          if (authListenerRef.current.subscription && 
-              typeof authListenerRef.current.subscription.unsubscribe === 'function') {
-            authListenerRef.current.subscription.unsubscribe();
+          if (authListenerRef.current.data.subscription && 
+              typeof authListenerRef.current.data.subscription.unsubscribe === 'function') {
+            authListenerRef.current.data.subscription.unsubscribe();
           }
           authListenerRef.current = null;
         } catch (error) {

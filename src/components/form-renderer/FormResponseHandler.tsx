@@ -19,6 +19,7 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
     const triggerTaskCreation = async () => {
       try {
         // Select the appropriate client based on whether this is a public form
+        // For public forms, use the completely separate customSupabase client
         const client = isPublic ? customSupabase : supabase;
         
         console.log("[FormResponseHandler] Triggering task creation for form response:", {
@@ -62,7 +63,7 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
     // Make sure we use the correct paths consistently
     if (isPublic) {
       // Use the correct public form success path
-      navigate(`/public/forms/${formId}/success`);
+      navigate(`/public/forms/success`);
     } else {
       toast({
         title: "Formulario enviado",

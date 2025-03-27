@@ -13,80 +13,47 @@ export const SERVICES = {
   NOTIFICATIONS: 'notifications'
 };
 
-// Store all created clients in a map to prevent duplicate instances
-const clientInstances = new Map();
-
-// Create a Supabase client instance with custom options
-export const createSupabaseClient = (
-  key = 'default',
-  options: Partial<SupabaseClientOptions<"public">> = {}
-) => {
-  // If instance exists for this key, return it
-  if (clientInstances.has(key)) {
-    console.log(`Returning existing Supabase client instance for key: ${key}`);
-    return clientInstances.get(key);
-  }
-  
-  console.log(`Creating new Supabase client instance for key: ${key}`);
-  
-  // Common config applied to all instances
-  const supabaseUrl = config.supabaseUrl;
-  const supabaseAnonKey = config.supabaseAnonKey;
-  
-  // Default options that apply to all instances
-  const defaultOptions: SupabaseClientOptions<"public"> = {
-    auth: {
-      storageKey: config.storage.authTokenKey,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-    },
-    global: {
-      headers: {},
-      fetch: (url, options) => {
-        return fetch(url, {
-          ...options,
-          signal: options?.signal || AbortSignal.timeout(60000)
-        });
-      }
-    },
-    db: {
-      schema: "public"
+// Create a single global Supabase client instance with default options
+const supabaseClientOptions: SupabaseClientOptions<"public"> = {
+  auth: {
+    storageKey: config.storage.authTokenKey,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+  global: {
+    headers: {},
+    fetch: (url, options) => {
+      return fetch(url, {
+        ...options,
+        signal: options?.signal || AbortSignal.timeout(60000)
+      });
     }
-  };
-  
-  // Merge the default options with any provided options carefully
-  const mergedOptions: SupabaseClientOptions<"public"> = {
-    ...defaultOptions,
-    auth: {
-      ...defaultOptions.auth,
-      ...(options.auth || {})
-    },
-    global: {
-      ...defaultOptions.global,
-      ...(options.global || {}),
-      headers: {
-        ...(defaultOptions.global?.headers || {}),
-        ...(options.global?.headers || {})
-      }
-    },
-    db: defaultOptions.db // Always use public schema
-  };
-
-  // Create the client instance
-  const client = createClient<Database>(supabaseUrl, supabaseAnonKey, mergedOptions);
-  
-  // Store the instance in our map
-  clientInstances.set(key, client);
-  
-  return client;
+  },
+  db: {
+    schema: "public"
+  }
 };
 
-// Create and export the main client instance
-export const supabase = createSupabaseClient('default');
+// Create one client for the entire application
+const supabase = createClient<Database>(
+  config.supabaseUrl,
+  config.supabaseAnonKey,
+  supabaseClientOptions
+);
+
+// Export the same instance for all standard operations
+export { supabase };
 
 // Export the same instance for admin functions
 export const supabaseAdmin = supabase;
+
+// Explicitly export service-specific clients using the same instance
+export const authClient = supabase;
+export const projectsClient = supabase;
+export const formsClient = supabase;
+export const tasksClient = supabase;
+export const notificationsClient = supabase;
 
 // Function to get the current session - useful for components that need quick access
 export const getCurrentSession = async () => {
@@ -145,10 +112,3 @@ export const cleanupAuthState = () => {
     localStorage.removeItem(key);
   });
 };
-
-// Export the service clients using the same instance
-export const authClient = supabase;
-export const projectsClient = supabase;
-export const formsClient = supabase;
-export const tasksClient = supabase;
-export const notificationsClient = supabase;
