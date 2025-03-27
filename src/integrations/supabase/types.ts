@@ -371,6 +371,45 @@ export type Database = {
           },
         ]
       }
+      service_metrics: {
+        Row: {
+          checked_at: string
+          cpu_usage: number
+          error_rate: number
+          id: string
+          memory_usage: number
+          metrics_data: Json | null
+          request_count: number
+          response_time: number
+          service_id: string
+          status: Database["public"]["Enums"]["service_status"]
+        }
+        Insert: {
+          checked_at?: string
+          cpu_usage: number
+          error_rate: number
+          id?: string
+          memory_usage: number
+          metrics_data?: Json | null
+          request_count: number
+          response_time: number
+          service_id: string
+          status: Database["public"]["Enums"]["service_status"]
+        }
+        Update: {
+          checked_at?: string
+          cpu_usage?: number
+          error_rate?: number
+          id?: string
+          memory_usage?: number
+          metrics_data?: Json | null
+          request_count?: number
+          response_time?: number
+          service_id?: string
+          status?: Database["public"]["Enums"]["service_status"]
+        }
+        Relationships: []
+      }
       task_templates: {
         Row: {
           assignee_form_field: string | null
@@ -635,6 +674,7 @@ export type Database = {
       form_status: "draft" | "active" | "closed"
       notification_status: "sent" | "failed" | "retrying"
       notification_type: "email" | "whatsapp"
+      service_status: "healthy" | "degraded" | "down"
       task_status: "pending" | "in_progress" | "completed"
       user_role: "global_admin" | "project_admin" | "user" | "approver"
       user_role_old:

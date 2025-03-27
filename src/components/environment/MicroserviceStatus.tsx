@@ -7,12 +7,29 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
+interface ServiceMetric {
+  service_id: string;
+  status: "healthy" | "degraded" | "down";
+  response_time: number;
+  checked_at: string;
+}
+
 interface ServiceStatus {
   name: string;
   status: "operational" | "degraded" | "outage" | "planned" | "upcoming" | "in_progress" | "completed";
   latency?: number;
   lastUpdated?: Date;
 }
+
+// Service name mapping
+const SERVICE_NAMES = {
+  'gateway': 'API Gateway',
+  'auth': 'Auth Service',
+  'projects': 'Projects Service',
+  'forms': 'Forms Service',
+  'tasks': 'Tasks Service',
+  'notifications': 'Notifications Service'
+};
 
 // This component shows the current microservice architecture status
 export const MicroserviceStatus = () => {
@@ -51,6 +68,22 @@ export const MicroserviceStatus = () => {
   ]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Map metrics status to service status
+  const mapStatusToServiceStatus = (
+    status: "healthy" | "degraded" | "down"
+  ): ServiceStatus["status"] => {
+    switch (status) {
+      case "healthy":
+        return "operational";
+      case "degraded":
+        return "degraded";
+      case "down":
+        return "outage";
+      default:
+        return "completed";
+    }
+  };
+
   // Check actual service status
   const fetchServiceStatus = async () => {
     setIsLoading(true);
@@ -67,20 +100,15 @@ export const MicroserviceStatus = () => {
         // Map the metrics data to our service status format
         const updatedServices = services.map(service => {
           const serviceName = service.name.split(' ')[0].toLowerCase();
-          const metric = data.metrics.find(m => m.service_id === serviceName);
+          const metric = data.metrics.find((m: ServiceMetric) => m.service_id === serviceName);
           
           if (!metric) return service;
           
-          // Map the status from metrics
-          let status: ServiceStatus['status'] = 'completed';
-          if (metric.status === 'degraded') status = 'degraded';
-          if (metric.status === 'down') status = 'outage';
-          
           return {
             ...service,
-            status,
+            status: mapStatusToServiceStatus(metric.status),
             latency: metric.response_time,
-            lastUpdated: new Date()
+            lastUpdated: new Date(metric.checked_at)
           };
         });
         
