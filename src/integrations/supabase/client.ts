@@ -13,17 +13,34 @@ export const SERVICES = {
   NOTIFICATIONS: 'notifications'
 };
 
+// Define options interface
+interface SupabaseOptions {
+  auth?: {
+    storageKey?: string;
+    autoRefreshToken?: boolean;
+    persistSession?: boolean;
+    detectSessionInUrl?: boolean;
+  };
+  global?: {
+    headers?: Record<string, string>;
+    fetch?: (url: string, options?: any) => Promise<Response>;
+  };
+  db?: {
+    schema?: string;
+  };
+}
+
 // Create a single Supabase client instance - SINGLETON PATTERN
 let supabaseInstance = null;
 
 // Create a single instance of the Supabase client
-export const createSupabaseClient = (options = {}) => {
+export const createSupabaseClient = (options: SupabaseOptions = {}) => {
   // Common config applied to all instances
   const supabaseUrl = config.supabaseUrl;
   const supabaseAnonKey = config.supabaseAnonKey;
   
   // Default options that apply to the main instance
-  const defaultOptions = {
+  const defaultOptions: SupabaseOptions = {
     auth: {
       storageKey: config.storage.authTokenKey,
       autoRefreshToken: true,
@@ -42,7 +59,7 @@ export const createSupabaseClient = (options = {}) => {
   };
   
   // Merge the default options with any provided options
-  const mergedOptions = {
+  const mergedOptions: SupabaseOptions = {
     ...defaultOptions,
     ...options,
     auth: {
@@ -53,7 +70,7 @@ export const createSupabaseClient = (options = {}) => {
       ...defaultOptions.global,
       ...(options.global || {}),
       headers: {
-        ...defaultOptions.global.headers,
+        ...(defaultOptions.global?.headers || {}),
         ...(options.global?.headers || {}),
       },
     },
