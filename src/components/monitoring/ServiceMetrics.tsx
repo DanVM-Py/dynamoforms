@@ -1,17 +1,16 @@
-
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { RefreshCw, AlertCircle, CheckCircle, Activity, Database, Server, Network } from 'lucide-react';
 import { SERVICES } from '@/integrations/supabase/client';
 import { environment } from '@/config/environment';
 import { Area, AreaChart, Bar, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
+import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 // Tipos para los datos de métricas
 interface ServiceMetric {
@@ -39,27 +38,27 @@ interface ServiceHealth {
 // Servicios a monitorear
 const serviceConfig = [
   { 
-    id: SERVICES.AUTH, 
+    id: 'auth', 
     name: 'Auth Service',
     endpoint: '/api/auth/health'
   },
   { 
-    id: SERVICES.PROJECTS, 
+    id: 'projects', 
     name: 'Projects Service',
     endpoint: '/api/projects/health'
   },
   { 
-    id: SERVICES.FORMS, 
+    id: 'forms', 
     name: 'Forms Service',
     endpoint: '/api/forms/health'
   },
   { 
-    id: SERVICES.TASKS, 
+    id: 'tasks', 
     name: 'Tasks Service',
     endpoint: '/api/tasks/health'
   },
   { 
-    id: SERVICES.NOTIFICATIONS, 
+    id: 'notifications', 
     name: 'Notifications Service',
     endpoint: '/api/notifications/health'
   },
@@ -70,81 +69,88 @@ const serviceConfig = [
   }
 ];
 
-// Función para generar datos simulados (en producción, esto vendría de una API real)
-const generateMockMetrics = (): ServiceHealth[] => {
-  return serviceConfig.map(service => {
-    // Generar datos históricos para gráficos (últimas 24 horas)
-    const responseTimeData: ServiceMetric[] = [];
-    const errorRateData: ServiceMetric[] = [];
-    const requestCountData: ServiceMetric[] = [];
-    
-    // Datos para las últimas 24 horas, en intervalos de 1 hora
-    const now = Date.now();
-    for (let i = 0; i < 24; i++) {
-      const timestamp = now - (i * 60 * 60 * 1000);
-      
-      // Valores aleatorios realistas para cada métrica
-      responseTimeData.unshift({
-        timestamp,
-        value: Math.round(50 + Math.random() * 150) // 50-200ms
-      });
-      
-      errorRateData.unshift({
-        timestamp,
-        value: Math.min(5, Math.max(0, Math.random() * 3)) // 0-3%
-      });
-      
-      requestCountData.unshift({
-        timestamp,
-        value: Math.round(100 + Math.random() * 400) // 100-500 requests
-      });
-    }
+// Map database records to UI format
+const mapServiceMetrics = (metricsData: any[]): ServiceHealth[] => {
+  if (!metricsData || metricsData.length === 0) {
+    return [];
+  }
 
-    // Valores actuales
-    const responseTime = responseTimeData[responseTimeData.length - 1].value;
-    const errorRate = errorRateData[errorRateData.length - 1].value;
-    const requestCount = requestCountData[requestCountData.length - 1].value;
+  return serviceConfig.map(service => {
+    // Find the corresponding metrics for this service
+    const serviceMetric = metricsData.find(m => m.service_id === service.id);
     
-    // Determinar estado basado en valores actuales
-    let status: 'healthy' | 'degraded' | 'down' = 'healthy';
-    if (errorRate > 3 || responseTime > 200) {
-      status = 'degraded';
-    }
-    if (errorRate > 8 || responseTime > 500) {
-      status = 'down';
+    if (!serviceMetric) {
+      // Return default values if no metrics found
+      return {
+        id: service.id,
+        name: service.name,
+        status: 'down',
+        responseTime: 0,
+        errorRate: 0,
+        requestCount: 0,
+        cpuUsage: 0,
+        memoryUsage: 0,
+        lastChecked: new Date(),
+        metrics: {
+          responseTime: [],
+          errorRate: [],
+          requestCount: []
+        }
+      };
     }
     
+    // Extract metrics from the database record
     return {
       id: service.id,
       name: service.name,
-      status,
-      responseTime,
-      errorRate,
-      requestCount,
-      cpuUsage: Math.round(10 + Math.random() * 40), // 10-50%
-      memoryUsage: Math.round(20 + Math.random() * 50), // 20-70%
-      lastChecked: new Date(),
-      metrics: {
-        responseTime: responseTimeData,
-        errorRate: errorRateData,
-        requestCount: requestCountData
+      status: serviceMetric.status,
+      responseTime: serviceMetric.response_time,
+      errorRate: serviceMetric.error_rate,
+      requestCount: serviceMetric.request_count,
+      cpuUsage: serviceMetric.cpu_usage,
+      memoryUsage: serviceMetric.memory_usage,
+      lastChecked: new Date(serviceMetric.checked_at),
+      metrics: serviceMetric.metrics_data || {
+        responseTime: [],
+        errorRate: [],
+        requestCount: []
       }
     };
   });
 };
 
-// En el futuro, esto se conectaría a endpoints reales
+// Fetch service metrics from our Supabase edge function
 const fetchServiceMetrics = async (): Promise<ServiceHealth[]> => {
-  // Simular latencia de red
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  // En un entorno real, se haría una solicitud HTTP a cada servicio
-  // para obtener sus métricas. Por ahora, generamos datos simulados.
-  return generateMockMetrics();
+  const { data, error } = await supabase.functions.invoke('collect-metrics', {
+    method: 'GET',
+  });
+
+  if (error) {
+    console.error('Error fetching service metrics:', error);
+    throw error;
+  }
+
+  return mapServiceMetrics(data.metrics);
+};
+
+// Refresh all service metrics (collects new data)
+const refreshServiceMetrics = async (): Promise<ServiceHealth[]> => {
+  const { data, error } = await supabase.functions.invoke('collect-metrics', {
+    method: 'POST',
+  });
+
+  if (error) {
+    console.error('Error refreshing service metrics:', error);
+    throw error;
+  }
+
+  return mapServiceMetrics(data);
 };
 
 // Componente principal de métricas de servicio
 export function ServiceMetrics() {
+  const { toast } = useToast();
+  
   const { data: services = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['serviceMetrics'],
     queryFn: fetchServiceMetrics,
@@ -152,8 +158,22 @@ export function ServiceMetrics() {
     staleTime: 15000
   });
 
-  const handleRefresh = () => {
-    refetch();
+  const handleRefresh = async () => {
+    try {
+      await refreshServiceMetrics();
+      await refetch();
+      toast({
+        title: "Métricas actualizadas",
+        description: "Los datos de los servicios han sido actualizados correctamente."
+      });
+    } catch (error) {
+      console.error('Error refreshing metrics:', error);
+      toast({
+        title: "Error al actualizar métricas",
+        description: "No se pudieron actualizar los datos de los servicios.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Función para obtener color basado en estado
@@ -575,9 +595,9 @@ export function ServiceMetrics() {
                       }}
                     />
                     <Area type="monotone" dataKey="auth" stackId="1" stroke="#8884d8" fill="#8884d880" />
-                    <Area type="monotone" dataKey="projects" stackId="2" stroke="#82ca9d" fill="#82ca9d80" />
-                    <Area type="monotone" dataKey="forms" stackId="3" stroke="#ffc658" fill="#ffc65880" />
-                    <Area type="monotone" dataKey="tasks" stackId="4" stroke="#ff8042" fill="#ff804280" />
+                    <Area type="monotone" dataKey="projects" stackId="2" stroke="#ffc658" fill="#ffc65880" />
+                    <Area type="monotone" dataKey="forms" stackId="3" stroke="#ff8042" fill="#ff804280" />
+                    <Area type="monotone" dataKey="tasks" stackId="4" stroke="#0088fe" fill="#0088fe80" />
                     <Area type="monotone" dataKey="notifications" stackId="5" stroke="#0088fe" fill="#0088fe80" />
                   </AreaChart>
                 </ResponsiveContainer>

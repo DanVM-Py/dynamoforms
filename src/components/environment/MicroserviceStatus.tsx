@@ -5,6 +5,7 @@ import { environment } from "@/config/environment";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ServiceStatus {
   name: string;
@@ -50,23 +51,51 @@ export const MicroserviceStatus = () => {
   ]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Simplified function since we've completed migration
+  // Check actual service status
   const fetchServiceStatus = async () => {
     setIsLoading(true);
     
     try {
-      // Simulate API call with a delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Use our edge function to get actual metrics
+      const { data, error } = await supabase.functions.invoke('collect-metrics', {
+        method: 'GET',
+      });
+      
+      if (error) throw error;
+      
+      if (data && data.metrics && data.metrics.length > 0) {
+        // Map the metrics data to our service status format
+        const updatedServices = services.map(service => {
+          const serviceName = service.name.split(' ')[0].toLowerCase();
+          const metric = data.metrics.find(m => m.service_id === serviceName);
+          
+          if (!metric) return service;
+          
+          // Map the status from metrics
+          let status: ServiceStatus['status'] = 'completed';
+          if (metric.status === 'degraded') status = 'degraded';
+          if (metric.status === 'down') status = 'outage';
+          
+          return {
+            ...service,
+            status,
+            latency: metric.response_time,
+            lastUpdated: new Date()
+          };
+        });
+        
+        setServices(updatedServices);
+      }
       
       toast({
         title: "Estado actualizado",
-        description: "La migración a microservicios se ha completado."
+        description: "Información de microservicios actualizada correctamente."
       });
     } catch (error) {
       console.error("Error fetching service status:", error);
       toast({
         title: "Error",
-        description: "No se pudo actualizar el estado de la migración",
+        description: "No se pudo actualizar el estado de los microservicios",
         variant: "destructive"
       });
     } finally {
@@ -74,11 +103,9 @@ export const MicroserviceStatus = () => {
     }
   };
 
-  // Check status on mount in non-production environments
+  // Check status on mount
   useEffect(() => {
-    if (environment !== 'production') {
-      fetchServiceStatus();
-    }
+    fetchServiceStatus();
   }, []);
 
   const getStatusIcon = (status: ServiceStatus["status"]) => {
@@ -119,10 +146,6 @@ export const MicroserviceStatus = () => {
     }
   };
 
-  if (environment === 'production') {
-    return null; // Don't show in production yet
-  }
-
   return (
     <div className="bg-background border rounded-md p-4 mt-4">
       <div className="flex items-center justify-between mb-3">
@@ -161,7 +184,7 @@ export const MicroserviceStatus = () => {
       </div>
       <div className="mt-3 text-xs text-muted-foreground">
         <p>La migración a microservicios ha sido completada.</p>
-        <p>Todos los servicios están operativos y funcionando de forma independiente.</p>
+        <p>Todos los servicios están operativos y funcionando como instancias independientes.</p>
       </div>
     </div>
   );
