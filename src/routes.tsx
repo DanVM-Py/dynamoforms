@@ -76,7 +76,7 @@ export const routes = createBrowserRouter([
         ),
       },
       {
-        path: "/project-users",
+        path: "/projects/:projectId/users",
         element: (
           <ProtectedRoute requireProjectAdmin={true}>
             <ProjectUsers />
@@ -84,7 +84,7 @@ export const routes = createBrowserRouter([
         ),
       },
       {
-        path: "/project-roles",
+        path: "/projects/:projectId/roles",
         element: (
           <ProtectedRoute requireProjectAdmin={true}>
             <ProjectRoles />
@@ -120,6 +120,22 @@ export const routes = createBrowserRouter([
         element: (
           <ProtectedRoute requireGlobalAdmin={true}>
             <Admin />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/systems/monitoring",
+        element: (
+          <ProtectedRoute requireGlobalAdmin={true}>
+            <Monitoring />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/forms-editor",
+        element: (
+          <ProtectedRoute requireGlobalAdmin={true}>
+            <FormEdit />
           </ProtectedRoute>
         ),
       },

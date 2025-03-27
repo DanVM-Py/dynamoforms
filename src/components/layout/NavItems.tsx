@@ -3,7 +3,6 @@ import {
   FolderKanban,
   ListTodo,
   Settings,
-  UserCog,
   Bell,
   Activity,
   Database,
@@ -227,8 +226,8 @@ const NavItems = ({
 
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.href || 
-      (item.href.includes("/systems/monitoring") && location.pathname.includes("/monitoring")) ||
-      (item.href === "/forms-editor" && location.pathname.startsWith("/forms-editor"));
+      (item.href === "/systems/monitoring" && location.pathname === "/systems/monitoring") ||
+      (item.href === "/forms-editor" && location.pathname === "/forms-editor");
     
     return (
       <Button

@@ -58,11 +58,9 @@ export function useAdminOperations() {
     try {
       checkGlobalAdminAccess();
       
-      // Determine which table to operate on based on the user's role in the project
-      const table = isAdmin ? 'project_admins' : 'project_users';
-      
+      // Using project_users table for both regular users and admins, checking is_admin flag
       const { error } = await supabase
-        .from(table)
+        .from('project_users')
         .delete()
         .match({ user_id: userId, project_id: projectId });
       
