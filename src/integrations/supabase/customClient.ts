@@ -32,7 +32,7 @@ export const customSupabase = createSupabaseClient('public-client', {
           'Expires': '0',
           'Content-Type': 'application/json'
         },
-        cache: 'no-store'
+        cache: 'no-store' as RequestCache // Explicitly type this as RequestCache
       };
       
       return fetch(url, newOptions);
