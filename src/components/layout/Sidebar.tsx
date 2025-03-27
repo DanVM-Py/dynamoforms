@@ -21,14 +21,13 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
     isExpanded, 
     isMobileMenuOpen, 
     toggleSidebar, 
-    toggleMobileMenu, 
-    shouldShowSidebar
+    toggleMobileMenu
   } = useSidebarState({
     forceVisible,
     isMobile
   });
 
-  if (!user || !shouldShowSidebar) {
+  if (!user) {
     return null;
   }
 
