@@ -21,13 +21,15 @@ export function Sidebar({ forceVisible = false }: SidebarProps) {
     isExpanded, 
     isMobileMenuOpen, 
     toggleSidebar, 
-    toggleMobileMenu
+    toggleMobileMenu,
+    shouldShowSidebar
   } = useSidebarState({
     forceVisible,
     isMobile
   });
 
-  if (!user) {
+  // Don't render sidebar if user is not authenticated or if we're on a page where sidebar should be hidden
+  if (!user || !shouldShowSidebar) {
     return null;
   }
 

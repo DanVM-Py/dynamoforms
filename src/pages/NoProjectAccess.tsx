@@ -40,6 +40,7 @@ const NoProjectAccess = () => {
       // Clear all storage related to projects and auth
       localStorage.removeItem('currentProjectId');
       sessionStorage.removeItem('currentProjectId');
+      localStorage.removeItem('isGlobalAdmin');
       
       // Clear Supabase auth token
       const supabaseKey = 'sb-' + new URL(supabase.supabaseUrl).hostname.split('.')[0] + '-auth-token';
@@ -51,7 +52,10 @@ const NoProjectAccess = () => {
         description: "Volviendo a la página de inicio de sesión..."
       });
       
-      // Force direct signout with Supabase - don't use context method
+      // Use context signOut method first
+      await signOut();
+      
+      // Then force direct signout with Supabase as a fallback
       await supabase.auth.signOut();
       
       // Critical: Use a direct location change rather than React Router navigation

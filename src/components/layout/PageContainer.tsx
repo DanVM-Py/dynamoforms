@@ -1,46 +1,42 @@
 
-import React from 'react';
-import { Sidebar } from './Sidebar';
-import { cn } from '@/lib/utils';
-import { useAuth } from '@/contexts/AuthContext';
+import { ReactNode } from "react";
+import { Sidebar } from "./Sidebar";
+import { useLocation } from "react-router-dom";
 import { HIDE_SIDEBAR_PATHS } from '@/hooks/use-sidebar-state';
-import { useLocation } from 'react-router-dom';
 
 interface PageContainerProps {
-  children: React.ReactNode;
-  className?: string;
-  hideSidebar?: boolean;
+  children: ReactNode;
   title?: string;
+  hideSidebar?: boolean;
+  className?: string;
 }
 
-export const PageContainer = ({ children, className, hideSidebar = false, title }: PageContainerProps) => {
-  const { user, loading } = useAuth();
-  const isAuthenticated = !!user && !loading;
+export const PageContainer = ({
+  children,
+  title,
+  hideSidebar = false,
+  className = "p-6",
+}: PageContainerProps) => {
   const location = useLocation();
   
-  // Check if current path is in hide sidebar paths
+  // Check if current path is in the paths that should hide sidebar
   const isHiddenSidebarPath = HIDE_SIDEBAR_PATHS.some(path => 
     location.pathname === path || 
     location.pathname.startsWith(`${path}/`)
   );
   
-  // Only hide sidebar if explicitly requested OR if path is in hidden paths
+  // Respect the explicit hideSidebar prop if provided, otherwise use path-based logic
   const shouldHideSidebar = hideSidebar || isHiddenSidebarPath;
-  
-  // Show sidebar if user is authenticated and sidebar should not be hidden
-  const shouldShowSidebar = isAuthenticated && !shouldHideSidebar;
-  
+
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {shouldShowSidebar && <Sidebar />}
-      <main 
-        className={cn(
-          "flex-1 p-6", 
-          !shouldShowSidebar ? 'w-full' : '',
-          className
+    <div className="min-h-screen bg-gray-50 flex">
+      {!shouldHideSidebar && <Sidebar />}
+      <main className={`flex-1 ${className}`}>
+        {title && (
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-800">{title}</h1>
+          </div>
         )}
-      >
-        {title && <h1 className="text-2xl font-bold mb-6">{title}</h1>}
         {children}
       </main>
     </div>
