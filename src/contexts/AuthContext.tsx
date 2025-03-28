@@ -180,15 +180,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .limit(1);
             
           if (projectUserError) {
-            console.error("Error fetching project admin status:", projectUserError);
+            console.error("Error fetching project user status:", projectUserError);
           } else if (projectUserData && projectUserData.length > 0) {
-            const projectId = projectUserData[0].project_id;
-            console.log("Found project for user:", projectId);
-            setCurrentProjectId(projectId);
-            localStorage.setItem('currentProjectId', projectId);
-            
-            // Check is_admin property safely
-            setIsProjectAdmin(!!projectUserData[0].is_admin);
+            // Check if data was returned and contains proper properties
+            if (projectUserData[0] && 'project_id' in projectUserData[0]) {
+              const projectId = projectUserData[0].project_id;
+              console.log("Found project for user:", projectId);
+              setCurrentProjectId(projectId);
+              localStorage.setItem('currentProjectId', projectId);
+              
+              // Check is_admin property safely
+              if ('is_admin' in projectUserData[0]) {
+                setIsProjectAdmin(!!projectUserData[0].is_admin);
+              } else {
+                console.warn("is_admin property not found in project_users");
+                setIsProjectAdmin(false);
+              }
+            } else {
+              console.warn("project_id not found in project_users response");
+            }
           }
         }
       }
