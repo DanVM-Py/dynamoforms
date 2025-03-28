@@ -184,7 +184,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else if (projectUserData && projectUserData.length > 0) {
             // Check if data was returned and contains proper properties
             if (projectUserData[0] && 'project_id' in projectUserData[0]) {
-              const projectId = projectUserData[0].project_id;
+              // Explicitly cast to string to satisfy TypeScript
+              const projectId = String(projectUserData[0].project_id);
               console.log("Found project for user:", projectId);
               setCurrentProjectId(projectId);
               localStorage.setItem('currentProjectId', projectId);
