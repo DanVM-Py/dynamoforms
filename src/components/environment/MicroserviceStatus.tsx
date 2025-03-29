@@ -59,17 +59,15 @@ export const MicroserviceStatus = () => {
   
   const [isLoading, setIsLoading] = useState(false);
   
-  // Function to fetch current metrics
+  // Function to fetch current metrics - using functions.invoke instead of direct table query
   const fetchCurrentMetrics = async () => {
     try {
       setIsLoading(true);
       
-      // Using customSupabase to avoid TypeScript issues since it doesn't have strict typing
-      const { data, error } = await customSupabase
-        .from('service_metrics')
-        .select('*')
-        .order('checked_at', { ascending: false })
-        .limit(30);
+      // Using the edge function to retrieve metrics instead of querying the table directly
+      const { data, error } = await customSupabase.functions.invoke('collect-metrics', {
+        method: 'GET'
+      });
       
       if (error) {
         console.error("Error fetching metrics:", error);
@@ -77,14 +75,15 @@ export const MicroserviceStatus = () => {
         return;
       }
       
-      if (!data || data.length === 0) {
+      if (!data || !data.metrics || data.metrics.length === 0) {
         console.log("No metrics data available");
         setIsLoading(false);
         return;
       }
       
       // Group metrics by service_id to get the latest for each service
-      const latestMetricsByService = data.reduce((acc: Record<string, any>, metric: any) => {
+      const metricsArray = data.metrics;
+      const latestMetricsByService = metricsArray.reduce((acc: Record<string, any>, metric: any) => {
         if (!acc[metric.service_id] || 
             new Date(metric.checked_at) > new Date(acc[metric.service_id].checked_at)) {
           acc[metric.service_id] = metric;
