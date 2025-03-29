@@ -12,8 +12,8 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 /**
- * This function is designed to be called by a cron job to collect metrics regularly.
- * It can also be triggered manually for testing.
+ * This function is now only used for manual triggering of metrics collection.
+ * It has been simplified to work reliably.
  */
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -24,8 +24,12 @@ Deno.serve(async (req) => {
   try {
     console.log('Schedule-metrics-collection function triggered')
 
-    // Call the collect-metrics function to fetch and store metrics
-    const response = await fetch(`${supabaseUrl}/functions/v1/collect-metrics`, {
+    // Call the collect-metrics function directly using fetch with auth
+    // This is more reliable than using supabase.functions.invoke
+    const url = `${supabaseUrl}/functions/v1/collect-metrics`;
+    console.log(`Calling collect-metrics at: ${url}`);
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -51,7 +55,8 @@ Deno.serve(async (req) => {
       success: true,
       message: 'Metrics collection triggered successfully',
       timestamp: new Date().toISOString(),
-      metrics: data?.metrics?.length || 0
+      metrics: data?.metrics?.length || 0,
+      endpoints: data?.endpoints || []
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,

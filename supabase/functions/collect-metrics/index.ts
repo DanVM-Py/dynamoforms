@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 
 const corsHeaders = {
@@ -24,48 +23,48 @@ interface ServiceConfig {
   timeout: number; // milliseconds
 }
 
-// Configuration by environment
+// Configuration by environment - use localhost for development to make it accessible in Postman
 const serviceConfigs: Record<Environment, ServiceConfig[]> = {
   development: [
     {
       id: 'auth',
       name: 'Auth Service',
-      baseUrl: 'https://api.dynamoforms.app/auth',
+      baseUrl: 'https://mock-service-auth.vercel.app',
       healthEndpoint: '/health',
       timeout: 5000
     },
     {
       id: 'projects',
       name: 'Projects Service',
-      baseUrl: 'https://api.dynamoforms.app/projects',
+      baseUrl: 'https://mock-service-projects.vercel.app',
       healthEndpoint: '/health',
       timeout: 5000
     },
     {
       id: 'forms',
       name: 'Forms Service',
-      baseUrl: 'https://api.dynamoforms.app/forms',
+      baseUrl: 'https://mock-service-forms.vercel.app',
       healthEndpoint: '/health',
       timeout: 5000
     },
     {
       id: 'tasks',
       name: 'Tasks Service',
-      baseUrl: 'https://api.dynamoforms.app/tasks',
+      baseUrl: 'https://mock-service-tasks.vercel.app',
       healthEndpoint: '/health',
       timeout: 5000
     },
     {
       id: 'notifications',
       name: 'Notifications Service',
-      baseUrl: 'https://api.dynamoforms.app/notifications',
+      baseUrl: 'https://mock-service-notifications.vercel.app',
       healthEndpoint: '/health',
       timeout: 5000
     },
     {
       id: 'gateway',
       name: 'API Gateway',
-      baseUrl: 'https://api.dynamoforms.app',
+      baseUrl: 'https://mock-service-gateway.vercel.app',
       healthEndpoint: '/health',
       timeout: 5000
     }
@@ -349,7 +348,11 @@ Deno.serve(async (req) => {
       
       return new Response(JSON.stringify({ 
         metrics: latestMetrics || [],
-        success: true 
+        success: true,
+        endpoints: activeServiceConfigs.map(config => ({
+          id: config.id,
+          url: `${config.baseUrl}${config.healthEndpoint}`
+        }))
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
@@ -375,73 +378,54 @@ Deno.serve(async (req) => {
         await clearMetricsData();
       }
       
-      // Check if we need to fetch new metrics
-      if (forceFetch || clearBeforeInsert) {
-        // Collect fresh metrics from all services in parallel
-        console.log(`Collecting fresh metrics for ${activeServiceConfigs.length} services`);
-        const metricsPromises = activeServiceConfigs.map(serviceConfig => 
-          checkServiceHealth(serviceConfig)
-            .then(async (currentMetric) => {
-              // Fetch historical metrics for this service
-              const historicalMetrics = await fetchHistoricalMetrics(serviceConfig.id);
-              
-              // Calculate trends based on historical data
-              const trends = calculateTrends(currentMetric, historicalMetrics);
-              
-              // Add trends to the metric data
-              return {
-                ...currentMetric,
-                trends
-              };
-            })
-        );
-        
-        const metricsArray = await Promise.all(metricsPromises);
-        
-        console.log(`Generated ${metricsArray.length} metrics records`);
-        
-        // Store all metrics in the database
-        const { data, error } = await supabase
-          .from('service_metrics')
-          .insert(metricsArray)
-          .select();
-        
-        if (error) {
-          console.error('Error storing metrics:', error);
-          throw error;
-        }
-
-        console.log(`Successfully stored ${data?.length || 0} metrics records`);
-        
-        return new Response(JSON.stringify({ 
-          metrics: data || [],
-          success: true 
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        });
-      } else {
-        // Just return the latest metrics without collecting new data
-        const { data: latestMetrics, error } = await supabase
-          .from('service_metrics')
-          .select('*')
-          .order('checked_at', { ascending: false })
-          .limit(activeServiceConfigs.length * 3);
-        
-        if (error) {
-          console.error('Error fetching metrics:', error);
-          throw error;
-        }
-        
-        return new Response(JSON.stringify({ 
-          metrics: latestMetrics || [],
-          success: true,
-          fresh: false
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        });
+      // Always fetch new metrics for POST request
+      // Collect fresh metrics from all services in parallel
+      console.log(`Collecting fresh metrics for ${activeServiceConfigs.length} services`);
+      const metricsPromises = activeServiceConfigs.map(serviceConfig => 
+        checkServiceHealth(serviceConfig)
+          .then(async (currentMetric) => {
+            // Fetch historical metrics for this service
+            const historicalMetrics = await fetchHistoricalMetrics(serviceConfig.id);
+            
+            // Calculate trends based on historical data
+            const trends = calculateTrends(currentMetric, historicalMetrics);
+            
+            // Add trends to the metric data
+            return {
+              ...currentMetric,
+              trends
+            };
+          })
+      );
+      
+      const metricsArray = await Promise.all(metricsPromises);
+      
+      console.log(`Generated ${metricsArray.length} metrics records`);
+      
+      // Store all metrics in the database
+      const { data, error } = await supabase
+        .from('service_metrics')
+        .insert(metricsArray)
+        .select();
+      
+      if (error) {
+        console.error('Error storing metrics:', error);
+        throw error;
       }
+
+      console.log(`Successfully stored ${data?.length || 0} metrics records`);
+      
+      return new Response(JSON.stringify({ 
+        metrics: data || [],
+        success: true,
+        endpoints: activeServiceConfigs.map(config => ({
+          id: config.id,
+          url: `${config.baseUrl}${config.healthEndpoint}`
+        }))
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
     } else {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
