@@ -9,7 +9,23 @@ interface ServiceMetric {
   service_id: string;
   status: "healthy" | "degraded" | "down";
   response_time: number;
+  error_rate: number;
+  cpu_usage: number;
+  memory_usage: number;
+  request_count: number;
   checked_at: string;
+  metrics_data?: {
+    responseTime: Array<{ timestamp: number; value: number }>;
+    errorRate: Array<{ timestamp: number; value: number }>;
+    requestCount: Array<{ timestamp: number; value: number }>;
+  };
+  trends?: {
+    responseTimeTrend: number;
+    errorRateTrend: number;
+    cpuUsageTrend: number;
+    memoryUsageTrend: number;
+    requestCountTrend: number;
+  };
 }
 
 interface ServiceStatus {
@@ -58,6 +74,7 @@ export const MicroserviceStatus = () => {
   ]);
   
   const [isLoading, setIsLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   
   // Function to fetch current metrics - using functions.invoke instead of direct table query
   const fetchCurrentMetrics = async () => {
@@ -118,6 +135,7 @@ export const MicroserviceStatus = () => {
       });
       
       setServices(updatedServices);
+      setLastUpdated(new Date());
       setIsLoading(false);
     } catch (error) {
       console.error("Error in fetchCurrentMetrics:", error);
@@ -148,11 +166,47 @@ export const MicroserviceStatus = () => {
       
       console.log("Metrics collection triggered successfully:", data);
       
-      // Wait a moment for metrics to be processed
-      setTimeout(() => {
-        fetchCurrentMetrics();
-      }, 1000);
+      // Update the UI with the collected metrics
+      if (data && data.metrics && data.metrics.length > 0) {
+        // Group metrics by service_id to get the latest for each service
+        const metricsArray = data.metrics;
+        const latestMetricsByService = metricsArray.reduce((acc: Record<string, any>, metric: any) => {
+          if (!acc[metric.service_id] || 
+              new Date(metric.checked_at) > new Date(acc[metric.service_id].checked_at)) {
+            acc[metric.service_id] = metric;
+          }
+          return acc;
+        }, {});
+        
+        // Update services with metric data
+        const updatedServices = services.map(service => {
+          // Get the service ID from service name
+          const serviceId = Object.entries(SERVICE_NAMES).find(
+            ([_, name]) => name === service.name
+          )?.[0];
+          
+          if (!serviceId || !latestMetricsByService[serviceId]) {
+            return service;
+          }
+          
+          const metric = latestMetricsByService[serviceId];
+          
+          return {
+            ...service,
+            status: mapStatusToServiceStatus(metric.status),
+            latency: metric.response_time,
+            lastUpdated: new Date(metric.checked_at)
+          };
+        });
+        
+        setServices(updatedServices);
+        setLastUpdated(new Date());
+      } else {
+        // If no metrics are returned, fetch them
+        await fetchCurrentMetrics();
+      }
       
+      setIsLoading(false);
     } catch (error) {
       console.error("Error triggering metrics collection:", error);
       setIsLoading(false);
@@ -196,7 +250,12 @@ export const MicroserviceStatus = () => {
   return (
     <div className="bg-background border rounded-md p-4 mt-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium">Estado de Microservicios</h3>
+        <div>
+          <h3 className="text-sm font-medium">Estado de Microservicios</h3>
+          <p className="text-xs text-muted-foreground">
+            Última actualización: {lastUpdated ? lastUpdated.toLocaleString() : 'Nunca'}
+          </p>
+        </div>
         <Button 
           variant="outline" 
           size="sm" 

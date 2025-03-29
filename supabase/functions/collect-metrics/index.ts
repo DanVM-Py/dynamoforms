@@ -24,48 +24,48 @@ interface ServiceConfig {
   timeout: number; // milliseconds
 }
 
-// Configuration by environment - use localhost for development to make it accessible in Postman
+// Configuration by environment - using working mockup services
 const serviceConfigs: Record<Environment, ServiceConfig[]> = {
   development: [
     {
       id: 'auth',
       name: 'Auth Service',
-      baseUrl: 'https://mock-service-auth.vercel.app',
+      baseUrl: 'https://mockapi.io/dynamo/auth',
       healthEndpoint: '/health',
       timeout: 5000
     },
     {
       id: 'projects',
       name: 'Projects Service',
-      baseUrl: 'https://mock-service-projects.vercel.app',
+      baseUrl: 'https://mockapi.io/dynamo/projects',
       healthEndpoint: '/health',
       timeout: 5000
     },
     {
       id: 'forms',
       name: 'Forms Service',
-      baseUrl: 'https://mock-service-forms.vercel.app',
+      baseUrl: 'https://mockapi.io/dynamo/forms',
       healthEndpoint: '/health',
       timeout: 5000
     },
     {
       id: 'tasks',
       name: 'Tasks Service',
-      baseUrl: 'https://mock-service-tasks.vercel.app',
+      baseUrl: 'https://mockapi.io/dynamo/tasks',
       healthEndpoint: '/health',
       timeout: 5000
     },
     {
       id: 'notifications',
       name: 'Notifications Service',
-      baseUrl: 'https://mock-service-notifications.vercel.app',
+      baseUrl: 'https://mockapi.io/dynamo/notifications',
       healthEndpoint: '/health',
       timeout: 5000
     },
     {
       id: 'gateway',
       name: 'API Gateway',
-      baseUrl: 'https://mock-service-gateway.vercel.app',
+      baseUrl: 'https://mockapi.io/dynamo/gateway',
       healthEndpoint: '/health',
       timeout: 5000
     }
@@ -349,8 +349,7 @@ function generateFallbackMetrics() {
       errorRate = Math.random() * 20 + 10; // 10-30%
     }
     
-    return {
-      id: crypto.randomUUID(),
+    const metrics = {
       service_id: service.id,
       status: status,
       response_time: responseTime,
@@ -365,7 +364,39 @@ function generateFallbackMetrics() {
         requestCount: [{ timestamp: Date.now(), value: Math.floor(Math.random() * 500) + 100 }]
       }
     };
+    
+    return metrics;
   });
+}
+
+// Modified function to properly store metrics without the trends column
+async function storeMetrics(metricsArray: any[]) {
+  try {
+    // Remove the trends field from each metrics object before storing
+    const cleanMetricsArray = metricsArray.map(metric => {
+      // Create a shallow copy of the metric object
+      const { trends, ...cleanMetric } = metric;
+      return cleanMetric; 
+    });
+    
+    console.log(`Storing ${cleanMetricsArray.length} metrics in database`);
+    
+    const { data, error } = await supabase
+      .from('service_metrics')
+      .insert(cleanMetricsArray)
+      .select();
+    
+    if (error) {
+      console.error('Error storing metrics:', error);
+      throw error;
+    }
+    
+    console.log(`Successfully stored ${data?.length || 0} metrics records`);
+    return data || cleanMetricsArray;
+  } catch (error) {
+    console.error('Failed to store metrics:', error);
+    throw error;
+  }
 }
 
 // Main handler function
@@ -498,38 +529,44 @@ Deno.serve(async (req) => {
       
       console.log(`Generated ${metricsArray.length} metrics records`);
       
-      // Store all metrics in the database
-      const { data, error } = await supabase
-        .from('service_metrics')
-        .insert(metricsArray)
-        .select();
-      
-      if (error) {
-        console.error('Error storing metrics:', error);
+      // Use the modified function to store metrics without trends column
+      try {
+        const storedData = await storeMetrics(metricsArray);
+        
+        // Add trends back to the response
+        const responseData = metricsArray.map((metric, index) => {
+          const storedMetric = storedData[index] || {};
+          return {
+            ...storedMetric,
+            trends: metric.trends
+          };
+        });
+        
+        return new Response(JSON.stringify({ 
+          metrics: responseData,
+          success: true,
+          endpoints: activeServiceConfigs.map(config => ({
+            id: config.id,
+            url: `${config.baseUrl}${config.healthEndpoint}`
+          }))
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        });
+      } catch (storeError) {
+        // If we can't store in the database, just return the generated metrics
+        console.error('Failed to store metrics in database:', storeError);
+        
         return new Response(JSON.stringify({ 
           metrics: metricsArray,
           success: false,
-          error: error.message,
+          error: storeError.message,
           note: "Generated metrics could not be stored in database"
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200,
         });
       }
-
-      console.log(`Successfully stored ${data?.length || 0} metrics records`);
-      
-      return new Response(JSON.stringify({ 
-        metrics: data || metricsArray,
-        success: true,
-        endpoints: activeServiceConfigs.map(config => ({
-          id: config.id,
-          url: `${config.baseUrl}${config.healthEndpoint}`
-        }))
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      });
     } else {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
