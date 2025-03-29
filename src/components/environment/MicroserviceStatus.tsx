@@ -1,8 +1,9 @@
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, RefreshCw } from "lucide-react";
 import { environment } from "@/config/environment";
-import { supabase } from "@/integrations/supabase/client";
+import { customSupabase } from "@/integrations/supabase/customClient";
+import { Button } from "@/components/ui/button";
 
 interface ServiceMetric {
   service_id: string;
@@ -56,32 +57,39 @@ export const MicroserviceStatus = () => {
     { name: "Notifications Service", status: "completed" }
   ]);
   
+  const [isLoading, setIsLoading] = useState(false);
+  
   // Function to fetch current metrics
   const fetchCurrentMetrics = async () => {
     try {
-      const { data, error } = await supabase.from('service_metrics')
+      setIsLoading(true);
+      
+      const { data, error } = await customSupabase
+        .from('service_metrics')
         .select('*')
         .order('checked_at', { ascending: false })
         .limit(30);
       
       if (error) {
         console.error("Error fetching metrics:", error);
+        setIsLoading(false);
         return;
       }
       
       if (!data || data.length === 0) {
         console.log("No metrics data available");
+        setIsLoading(false);
         return;
       }
       
       // Group metrics by service_id to get the latest for each service
-      const latestMetricsByService = data.reduce((acc, metric) => {
+      const latestMetricsByService = data.reduce((acc: Record<string, any>, metric: any) => {
         if (!acc[metric.service_id] || 
             new Date(metric.checked_at) > new Date(acc[metric.service_id].checked_at)) {
           acc[metric.service_id] = metric;
         }
         return acc;
-      }, {} as Record<string, ServiceMetric>);
+      }, {});
       
       // Update services with metric data
       const updatedServices = services.map(service => {
@@ -105,15 +113,51 @@ export const MicroserviceStatus = () => {
       });
       
       setServices(updatedServices);
+      setIsLoading(false);
     } catch (error) {
       console.error("Error in fetchCurrentMetrics:", error);
+      setIsLoading(false);
     }
   };
   
-  // Fetch metrics on initial load
-  useEffect(() => {
-    fetchCurrentMetrics();
-  }, []);
+  // Function to trigger metrics collection via edge function
+  const triggerMetricsCollection = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch the URL from the environment
+      const baseUrl = environment.supabaseUrl;
+      const url = `${baseUrl}/functions/v1/collect-metrics`;
+      
+      console.log("Triggering metrics collection at:", url);
+      
+      // Call the collect-metrics function directly
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Add Authorization if needed
+        },
+        body: JSON.stringify({ 
+          forceFetch: true,
+          clearBeforeInsert: false
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to collect metrics: ${response.status}`);
+      }
+      
+      // Wait a moment for metrics to be processed
+      setTimeout(() => {
+        fetchCurrentMetrics();
+      }, 1000);
+      
+    } catch (error) {
+      console.error("Error triggering metrics collection:", error);
+      setIsLoading(false);
+    }
+  };
   
   const getStatusIcon = (status: ServiceStatus["status"]) => {
     switch (status) {
@@ -148,6 +192,20 @@ export const MicroserviceStatus = () => {
     <div className="bg-background border rounded-md p-4 mt-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium">Estado de Microservicios</h3>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={triggerMetricsCollection}
+          disabled={isLoading}
+          className="flex items-center gap-1"
+        >
+          {isLoading ? (
+            <RefreshCw className="h-3 w-3 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3 w-3" />
+          )}
+          Actualizar Datos
+        </Button>
       </div>
       <div className="space-y-2">
         {services.map((service) => (
