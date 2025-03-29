@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AlertTriangle, CheckCircle2, Clock, RefreshCw } from "lucide-react";
 import { config } from "@/config/environment";
 import { customSupabase } from "@/integrations/supabase/customClient";
@@ -63,6 +63,7 @@ export const MicroserviceStatus = () => {
   const fetchCurrentMetrics = async () => {
     try {
       setIsLoading(true);
+      console.log("Fetching metrics data...");
       
       // Using the edge function to retrieve metrics instead of querying the table directly
       const { data, error } = await customSupabase.functions.invoke('collect-metrics', {
@@ -74,6 +75,8 @@ export const MicroserviceStatus = () => {
         setIsLoading(false);
         return;
       }
+      
+      console.log("Metrics data received:", data);
       
       if (!data || !data.metrics || data.metrics.length === 0) {
         console.log("No metrics data available");
@@ -90,6 +93,8 @@ export const MicroserviceStatus = () => {
         }
         return acc;
       }, {});
+      
+      console.log("Latest metrics by service:", latestMetricsByService);
       
       // Update services with metric data
       const updatedServices = services.map(service => {
@@ -124,29 +129,24 @@ export const MicroserviceStatus = () => {
   const triggerMetricsCollection = async () => {
     try {
       setIsLoading(true);
+      console.log("Triggering metrics collection...");
       
-      // Fetch the URL from the config, not environment
-      const baseUrl = config.supabaseUrl;
-      const url = `${baseUrl}/functions/v1/collect-metrics`;
-      
-      console.log("Triggering metrics collection at:", url);
-      
-      // Call the collect-metrics function directly
-      const response = await fetch(url, {
+      // Direct invocation of the collect-metrics function with POST method
+      const { data, error } = await customSupabase.functions.invoke('collect-metrics', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add Authorization if needed
-        },
-        body: JSON.stringify({ 
+        body: { 
           forceFetch: true,
           clearBeforeInsert: false
-        })
+        }
       });
       
-      if (!response.ok) {
-        throw new Error(`Failed to collect metrics: ${response.status}`);
+      if (error) {
+        console.error("Error triggering metrics collection:", error);
+        setIsLoading(false);
+        throw error;
       }
+      
+      console.log("Metrics collection triggered successfully:", data);
       
       // Wait a moment for metrics to be processed
       setTimeout(() => {
@@ -158,6 +158,11 @@ export const MicroserviceStatus = () => {
       setIsLoading(false);
     }
   };
+  
+  // Load initial data when component mounts
+  useEffect(() => {
+    fetchCurrentMetrics();
+  }, []);
   
   const getStatusIcon = (status: ServiceStatus["status"]) => {
     switch (status) {
