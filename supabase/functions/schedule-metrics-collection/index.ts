@@ -25,20 +25,27 @@ Deno.serve(async (req) => {
     console.log('Schedule-metrics-collection function triggered')
 
     // Call the collect-metrics function to fetch and store metrics
-    const { data, error } = await supabase.functions.invoke('collect-metrics', {
+    const response = await fetch(`${supabaseUrl}/functions/v1/collect-metrics`, {
       method: 'POST',
-      body: { 
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        ...corsHeaders
+      },
+      body: JSON.stringify({ 
         forceFetch: true,
         clearBeforeInsert: false // Don't clear data, just add new metrics
-      }
-    })
+      })
+    });
 
-    if (error) {
-      console.error('Error invoking collect-metrics function:', error)
-      throw error
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to invoke collect-metrics: ${response.status} ${errorText}`);
     }
 
-    console.log('Metrics collection completed successfully')
+    const data = await response.json();
+    
+    console.log('Metrics collection completed successfully');
     
     return new Response(JSON.stringify({ 
       success: true,
