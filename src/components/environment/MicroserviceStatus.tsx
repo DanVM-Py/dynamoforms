@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 interface ServiceMetric {
   service_id: string;
@@ -31,107 +32,117 @@ const SERVICE_NAMES = {
   'notifications': 'Notifications Service'
 };
 
+// Map metrics status to service status
+const mapStatusToServiceStatus = (
+  status: "healthy" | "degraded" | "down"
+): ServiceStatus["status"] => {
+  switch (status) {
+    case "healthy":
+      return "operational";
+    case "degraded":
+      return "degraded";
+    case "down":
+      return "outage";
+    default:
+      return "completed";
+  }
+};
+
+// Function to fetch service metrics from our Edge Function
+const fetchServiceMetrics = async () => {
+  try {
+    const { data, error } = await supabase.functions.invoke('collect-metrics', {
+      method: 'GET',
+    });
+    
+    if (error) {
+      console.error('Error fetching metrics:', error);
+      throw error;
+    }
+    
+    if (!data || !data.metrics || !Array.isArray(data.metrics)) {
+      return { metrics: [] };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error in fetchServiceMetrics:', error);
+    throw error;
+  }
+};
+
 // This component shows the current microservice architecture status
 export const MicroserviceStatus = () => {
   const { toast } = useToast();
-  const [services, setServices] = useState<ServiceStatus[]>([
-    { 
-      name: "API Gateway", 
-      status: "completed", 
-      lastUpdated: new Date() 
-    },
-    { 
-      name: "Auth Service", 
-      status: "completed", 
-      lastUpdated: new Date() 
-    },
-    { 
-      name: "Projects Service", 
-      status: "completed", 
-      lastUpdated: new Date() 
-    },
-    { 
-      name: "Forms Service", 
-      status: "completed", 
-      lastUpdated: new Date() 
-    },
-    { 
-      name: "Tasks Service", 
-      status: "completed", 
-      lastUpdated: new Date() 
-    },
-    { 
-      name: "Notifications Service", 
-      status: "completed", 
-      lastUpdated: new Date() 
-    }
-  ]);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Map metrics status to service status
-  const mapStatusToServiceStatus = (
-    status: "healthy" | "degraded" | "down"
-  ): ServiceStatus["status"] => {
-    switch (status) {
-      case "healthy":
-        return "operational";
-      case "degraded":
-        return "degraded";
-      case "down":
-        return "outage";
-      default:
-        return "completed";
+  
+  // Use React Query to fetch and cache service metrics
+  const { data, status, refetch } = useQuery({
+    queryKey: ['serviceMetrics'],
+    queryFn: fetchServiceMetrics,
+    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+    staleTime: 60 * 1000, // Consider data stale after 1 minute
+  });
+  
+  // Prepare services with status information
+  const [services, setServices] = useState<ServiceStatus[]>([
+    { name: "API Gateway", status: "completed", lastUpdated: new Date() },
+    { name: "Auth Service", status: "completed", lastUpdated: new Date() },
+    { name: "Projects Service", status: "completed", lastUpdated: new Date() },
+    { name: "Forms Service", status: "completed", lastUpdated: new Date() },
+    { name: "Tasks Service", status: "completed", lastUpdated: new Date() },
+    { name: "Notifications Service", status: "completed", lastUpdated: new Date() }
+  ]);
+  
+  // Update services when data is fetched
+  useEffect(() => {
+    if (data?.metrics && Array.isArray(data.metrics)) {
+      // Group metrics by service_id to get the latest for each service
+      const latestMetricsByService = data.metrics.reduce((acc, metric) => {
+        if (!acc[metric.service_id] || 
+            new Date(metric.checked_at) > new Date(acc[metric.service_id].checked_at)) {
+          acc[metric.service_id] = metric;
+        }
+        return acc;
+      }, {} as Record<string, ServiceMetric>);
+      
+      // Update services with metric data
+      const updatedServices = services.map(service => {
+        // Get the service ID from service name
+        const serviceId = Object.entries(SERVICE_NAMES).find(
+          ([_, name]) => name === service.name
+        )?.[0];
+        
+        if (!serviceId || !latestMetricsByService[serviceId]) {
+          return service;
+        }
+        
+        const metric = latestMetricsByService[serviceId];
+        
+        return {
+          ...service,
+          status: mapStatusToServiceStatus(metric.status),
+          latency: metric.response_time,
+          lastUpdated: new Date(metric.checked_at)
+        };
+      });
+      
+      setServices(updatedServices);
     }
-  };
+  }, [data?.metrics]);
 
   // Check actual service status
   const fetchServiceStatus = async () => {
     setIsLoading(true);
     
     try {
-      // First, get current metrics data
-      const { data, error } = await supabase.functions.invoke('collect-metrics', {
-        method: 'GET',
+      // Use the same function as the query
+      await refetch();
+      
+      toast({
+        title: "Estado actualizado",
+        description: "Información de microservicios actualizada correctamente."
       });
-      
-      if (error) {
-        console.error('Error al obtener métricas:', error);
-        throw error;
-      }
-      
-      console.log("Retrieved metrics data:", data);
-      
-      if (data && data.metrics && Array.isArray(data.metrics) && data.metrics.length > 0) {
-        // Map the metrics data to our service status format
-        const updatedServices = services.map(service => {
-          // Get the service ID from service name (extract the first word and lowercase it)
-          const serviceName = service.name.split(' ')[0].toLowerCase();
-          const metric = data.metrics.find((m: ServiceMetric) => m.service_id === serviceName);
-          
-          if (!metric) return service;
-          
-          return {
-            ...service,
-            status: mapStatusToServiceStatus(metric.status),
-            latency: metric.response_time,
-            lastUpdated: new Date(metric.checked_at)
-          };
-        });
-        
-        setServices(updatedServices);
-        
-        toast({
-          title: "Estado actualizado",
-          description: "Información de microservicios actualizada correctamente."
-        });
-      } else {
-        console.warn('No se encontraron métricas o el formato es incorrecto:', data);
-        toast({
-          title: "Sin datos",
-          description: "No hay datos de métricas disponibles actualmente.",
-          variant: "default"
-        });
-      }
     } catch (error) {
       console.error("Error fetching service status:", error);
       toast({
@@ -157,7 +168,10 @@ export const MicroserviceStatus = () => {
       // Use our edge function to refresh metrics with clearing
       const { data, error } = await supabase.functions.invoke('collect-metrics', {
         method: 'POST',
-        body: { clearBeforeInsert: true }
+        body: { 
+          clearBeforeInsert: true,
+          forceFetch: true
+        }
       });
       
       if (error) {
@@ -167,36 +181,13 @@ export const MicroserviceStatus = () => {
       
       console.log("Refreshed metrics data:", data);
       
-      if (data && data.metrics && Array.isArray(data.metrics) && data.metrics.length > 0) {
-        // Map the metrics data to our service status format
-        const updatedServices = services.map(service => {
-          const serviceName = service.name.split(' ')[0].toLowerCase();
-          const metric = data.metrics.find((m: ServiceMetric) => m.service_id === serviceName);
-          
-          if (!metric) return service;
-          
-          return {
-            ...service,
-            status: mapStatusToServiceStatus(metric.status),
-            latency: metric.response_time,
-            lastUpdated: new Date(metric.checked_at)
-          };
-        });
-        
-        setServices(updatedServices);
-        
-        toast({
-          title: "Estado actualizado",
-          description: "Información de microservicios actualizada correctamente."
-        });
-      } else {
-        console.warn('No se encontraron métricas después de actualizar:', data);
-        toast({
-          title: "Sin datos nuevos",
-          description: "No se pudieron generar nuevos datos de métricas.",
-          variant: "default"
-        });
-      }
+      // After refreshing, update the UI with the new data
+      await refetch();
+      
+      toast({
+        title: "Estado actualizado",
+        description: "Información de microservicios actualizada correctamente."
+      });
     } catch (error) {
       console.error("Error refreshing service status:", error);
       toast({
@@ -208,11 +199,6 @@ export const MicroserviceStatus = () => {
       setIsLoading(false);
     }
   };
-
-  // Check status on mount, but don't use automatic refresh
-  useEffect(() => {
-    fetchServiceStatus();
-  }, []);
 
   const getStatusIcon = (status: ServiceStatus["status"]) => {
     switch (status) {
@@ -289,8 +275,8 @@ export const MicroserviceStatus = () => {
         ))}
       </div>
       <div className="mt-3 text-xs text-muted-foreground">
-        <p>La migración a microservicios ha sido completada.</p>
-        <p>Todos los servicios están operativos y funcionando como instancias independientes.</p>
+        <p>Monitoreo conectado a servicios en producción.</p>
+        <p>Los estados se actualizan automáticamente cada 5 minutos.</p>
       </div>
     </div>
   );

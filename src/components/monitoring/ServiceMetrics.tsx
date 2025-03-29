@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, AlertCircle, CheckCircle, Activity, Database, Server, Network } from 'lucide-react';
+import { RefreshCw, AlertCircle, CheckCircle, Activity, Database, Server, Network, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/use-toast';
@@ -25,6 +25,13 @@ interface ServiceMetric {
     errorRate: Array<{ timestamp: number; value: number }>;
     requestCount: Array<{ timestamp: number; value: number }>;
   };
+  trends?: {
+    responseTimeTrend: number;
+    errorRateTrend: number;
+    cpuUsageTrend: number;
+    memoryUsageTrend: number;
+    requestCountTrend: number;
+  };
 }
 
 interface ServiceHealth {
@@ -41,6 +48,13 @@ interface ServiceHealth {
     responseTime: Array<{ timestamp: number; value: number }>;
     errorRate: Array<{ timestamp: number; value: number }>;
     requestCount: Array<{ timestamp: number; value: number }>;
+  };
+  trends: {
+    responseTime: number;
+    errorRate: number;
+    cpuUsage: number;
+    memoryUsage: number;
+    requestCount: number;
   };
 }
 
@@ -94,14 +108,29 @@ const mapServiceMetrics = (metricsData: ServiceMetric[]): ServiceHealth[] => {
         responseTime: [],
         errorRate: [],
         requestCount: []
+      },
+      trends: {
+        responseTime: 0,
+        errorRate: 0,
+        cpuUsage: 0,
+        memoryUsage: 0,
+        requestCount: 0
       }
     }));
   }
 
   console.log("Mapeando métricas de servicios:", metricsData);
+  
+  const latestMetricsByService = metricsData.reduce((acc, metric) => {
+    if (!acc[metric.service_id] || 
+        new Date(metric.checked_at) > new Date(acc[metric.service_id].checked_at)) {
+      acc[metric.service_id] = metric;
+    }
+    return acc;
+  }, {} as Record<string, ServiceMetric>);
 
   return serviceConfig.map(service => {
-    const serviceMetric = metricsData.find(m => m.service_id === service.id);
+    const serviceMetric = latestMetricsByService[service.id];
     
     if (!serviceMetric) {
       console.log(`No se encontraron métricas para el servicio: ${service.id}`);
@@ -119,6 +148,13 @@ const mapServiceMetrics = (metricsData: ServiceMetric[]): ServiceHealth[] => {
           responseTime: [],
           errorRate: [],
           requestCount: []
+        },
+        trends: {
+          responseTime: 0,
+          errorRate: 0,
+          cpuUsage: 0,
+          memoryUsage: 0,
+          requestCount: 0
         }
       };
     }
@@ -137,6 +173,13 @@ const mapServiceMetrics = (metricsData: ServiceMetric[]): ServiceHealth[] => {
         responseTime: [],
         errorRate: [],
         requestCount: []
+      },
+      trends: {
+        responseTime: serviceMetric.trends?.responseTimeTrend || 0,
+        errorRate: serviceMetric.trends?.errorRateTrend || 0,
+        cpuUsage: serviceMetric.trends?.cpuUsageTrend || 0,
+        memoryUsage: serviceMetric.trends?.memoryUsageTrend || 0,
+        requestCount: serviceMetric.trends?.requestCountTrend || 0
       }
     };
   });
@@ -181,7 +224,10 @@ const refreshServiceMetrics = async (): Promise<ServiceHealth[]> => {
   try {
     const { data, error } = await supabase.functions.invoke('collect-metrics', {
       method: 'POST',
-      body: { clearBeforeInsert: true } // Explicitly request clearing before inserting
+      body: { 
+        clearBeforeInsert: true,
+        forceFetch: true
+      }
     });
 
     if (error) {
@@ -216,8 +262,9 @@ export function ServiceMetrics() {
   const { data: services = [], isLoading, refetch } = useQuery({
     queryKey: ['serviceMetrics'],
     queryFn: fetchServiceMetrics,
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
+    refetchInterval: 60000,
+    staleTime: 30000,
+    refetchOnWindowFocus: true,
   });
 
   const handleRefresh = async () => {
@@ -268,8 +315,14 @@ export function ServiceMetrics() {
     }
   };
 
+  const getTrendIcon = (value: number) => {
+    if (value > 5) return <TrendingUp className="h-3 w-3 text-red-500" />;
+    if (value < -5) return <TrendingDown className="h-3 w-3 text-green-500" />;
+    return <Minus className="h-3 w-3 text-gray-500" />;
+  };
+
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
 
   const formatTimestamp = (timestamp: number) => {
@@ -361,8 +414,12 @@ export function ServiceMetrics() {
                   <div className="text-2xl font-bold">
                     {Math.round(services.reduce((acc, s) => acc + s.responseTime, 0) / Math.max(1, services.length))}ms
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">
+                  <div className="text-xs text-muted-foreground mt-1 flex items-center">
                     Últimos 5 minutos
+                    {getTrendIcon(services.reduce((acc, s) => acc + s.trends.responseTime, 0) / services.length)}
+                    <span className="ml-1">
+                      {(services.reduce((acc, s) => acc + s.trends.responseTime, 0) / services.length).toFixed(1)}%
+                    </span>
                   </div>
                 </CardContent>
               </Card>
@@ -375,8 +432,12 @@ export function ServiceMetrics() {
                   <div className="text-2xl font-bold">
                     {(services.reduce((acc, s) => acc + s.errorRate, 0) / Math.max(1, services.length)).toFixed(2)}%
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">
+                  <div className="text-xs text-muted-foreground mt-1 flex items-center">
                     Últimos 5 minutos
+                    {getTrendIcon(services.reduce((acc, s) => acc + s.trends.errorRate, 0) / services.length)}
+                    <span className="ml-1">
+                      {(services.reduce((acc, s) => acc + s.trends.errorRate, 0) / services.length).toFixed(1)}%
+                    </span>
                   </div>
                 </CardContent>
               </Card>
@@ -466,19 +527,31 @@ export function ServiceMetrics() {
                   <CardContent className="pb-3">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <div className="text-xs text-muted-foreground">Tiempo de respuesta</div>
+                        <div className="text-xs text-muted-foreground flex items-center">
+                          Tiempo de respuesta
+                          {getTrendIcon(service.trends.responseTime)}
+                        </div>
                         <div className="font-medium">{service.responseTime}ms</div>
                       </div>
                       <div>
-                        <div className="text-xs text-muted-foreground">Tasa de error</div>
+                        <div className="text-xs text-muted-foreground flex items-center">
+                          Tasa de error
+                          {getTrendIcon(service.trends.errorRate)}
+                        </div>
                         <div className="font-medium">{service.errorRate}%</div>
                       </div>
                       <div>
-                        <div className="text-xs text-muted-foreground">CPU</div>
+                        <div className="text-xs text-muted-foreground flex items-center">
+                          CPU
+                          {getTrendIcon(service.trends.cpuUsage)}
+                        </div>
                         <div className="font-medium">{service.cpuUsage}%</div>
                       </div>
                       <div>
-                        <div className="text-xs text-muted-foreground">Memoria</div>
+                        <div className="text-xs text-muted-foreground flex items-center">
+                          Memoria
+                          {getTrendIcon(service.trends.memoryUsage)}
+                        </div>
                         <div className="font-medium">{service.memoryUsage}%</div>
                       </div>
                     </div>
@@ -584,17 +657,34 @@ export function ServiceMetrics() {
                               return <td key={`cell-${source.id}-${target.id}`} className="py-2 text-center">-</td>;
                             }
                             
-                            const latency = Math.round(20 + Math.random() * 60);
-                            const success = Math.round(95 + Math.random() * 5);
+                            const sourceMetric = services.find(s => s.id === source.id);
+                            const targetMetric = services.find(s => s.id === target.id);
+                            
+                            const bothActive = sourceMetric?.status !== 'down' && targetMetric?.status !== 'down';
+                            const sourceResponseTime = sourceMetric?.responseTime || 0;
+                            const targetResponseTime = targetMetric?.responseTime || 0;
+                            
+                            const latency = bothActive 
+                              ? Math.round((sourceResponseTime + targetResponseTime) * 0.3) 
+                              : 0;
+                              
+                            const success = bothActive
+                              ? Math.round(98 - (sourceMetric?.errorRate || 0) * 0.5 - (targetMetric?.errorRate || 0) * 0.5)
+                              : 0;
+                              
                             const isHealthy = success > 97;
                             
                             return (
                               <td key={`cell-${source.id}-${target.id}`} className="py-2">
-                                <div className="flex items-center space-x-1">
-                                  <span className={isHealthy ? 'text-green-500' : 'text-amber-500'}>•</span>
-                                  <span>{latency}ms</span>
-                                  <span className="text-muted-foreground">({success}%)</span>
-                                </div>
+                                {bothActive ? (
+                                  <div className="flex items-center space-x-1">
+                                    <span className={isHealthy ? 'text-green-500' : 'text-amber-500'}>•</span>
+                                    <span>{latency}ms</span>
+                                    <span className="text-muted-foreground">({success}%)</span>
+                                  </div>
+                                ) : (
+                                  <div className="text-center text-muted-foreground">N/A</div>
+                                )}
                               </td>
                             );
                           })}
@@ -620,13 +710,19 @@ export function ServiceMetrics() {
                       const hour = new Date();
                       hour.setHours(hour.getHours() - 23 + i);
                       
+                      const authService = services.find(s => s.id === 'auth');
+                      const projectsService = services.find(s => s.id === 'projects');
+                      const formsService = services.find(s => s.id === 'forms');
+                      const tasksService = services.find(s => s.id === 'tasks');
+                      const notificationsService = services.find(s => s.id === 'notifications');
+                      
                       return {
                         name: hour.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        auth: Math.round(30 + Math.random() * 50),
-                        projects: Math.round(35 + Math.random() * 60),
-                        forms: Math.round(40 + Math.random() * 70),
-                        tasks: Math.round(35 + Math.random() * 55),
-                        notifications: Math.round(25 + Math.random() * 45),
+                        auth: Math.round((authService?.responseTime || 50) * (0.7 + Math.random() * 0.6)),
+                        projects: Math.round((projectsService?.responseTime || 60) * (0.7 + Math.random() * 0.6)),
+                        forms: Math.round((formsService?.responseTime || 70) * (0.7 + Math.random() * 0.6)),
+                        tasks: Math.round((tasksService?.responseTime || 55) * (0.7 + Math.random() * 0.6)),
+                        notifications: Math.round((notificationsService?.responseTime || 45) * (0.7 + Math.random() * 0.6)),
                       };
                     })}
                   >
@@ -661,7 +757,7 @@ export function ServiceMetrics() {
                     <Area type="monotone" dataKey="projects" stackId="2" stroke="#ffc658" fill="#ffc65880" />
                     <Area type="monotone" dataKey="forms" stackId="3" stroke="#ff8042" fill="#ff804280" />
                     <Area type="monotone" dataKey="tasks" stackId="4" stroke="#0088fe" fill="#0088fe80" />
-                    <Area type="monotone" dataKey="notifications" stackId="5" stroke="#0088fe" fill="#0088fe80" />
+                    <Area type="monotone" dataKey="notifications" stackId="5" stroke="#82ca9d" fill="#82ca9d80" />
                   </AreaChart>
                 </ResponsiveContainer>
               </CardContent>

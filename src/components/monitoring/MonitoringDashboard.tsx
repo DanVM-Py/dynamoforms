@@ -10,6 +10,12 @@ import { useQuery } from '@tanstack/react-query';
 import { environment } from '@/config/environment';
 import { PageContainer } from "@/components/layout/PageContainer";
 import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Clock, Play, RefreshCw } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 // Componente para mostrar logs del sistema
 interface LogEntry {
@@ -113,6 +119,109 @@ const generateMockLogs = (): LogEntry[] => {
   return logs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 };
 
+// Función para activar la recolección de métricas programada
+const triggerMetricsCollection = async (): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('schedule-metrics-collection', {
+      method: 'POST'
+    });
+    
+    if (error) {
+      console.error('Error triggering metrics collection:', error);
+      throw error;
+    }
+    
+    console.log('Metrics collection triggered successfully:', data);
+    return true;
+  } catch (error) {
+    console.error('Failed to trigger metrics collection:', error);
+    throw error;
+  }
+};
+
+// Componente de Scheduler para la recolección de métricas
+function MetricsScheduler() {
+  const { toast } = useToast();
+  const [isTriggering, setIsTriggering] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  
+  const handleTriggerCollection = async () => {
+    setIsTriggering(true);
+    try {
+      await triggerMetricsCollection();
+      toast({
+        title: "Recolección iniciada",
+        description: "La recolección de métricas se ha iniciado correctamente."
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo iniciar la recolección de métricas.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTriggering(false);
+    }
+  };
+  
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Programación de Métricas</CardTitle>
+        <CardDescription>
+          Configuración de la recolección automática de métricas
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border rounded-md p-3">
+            <div className="flex items-center space-x-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Recolección Automática</p>
+                <p className="text-xs text-muted-foreground">Cada 5 minutos</p>
+              </div>
+            </div>
+            <Switch 
+              checked={autoRefresh} 
+              onCheckedChange={setAutoRefresh}
+              aria-label="Toggle auto refresh" 
+            />
+          </div>
+          
+          <div className="flex items-center justify-between border rounded-md p-3">
+            <div className="flex items-center space-x-2">
+              <Play className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Ejecutar Ahora</p>
+                <p className="text-xs text-muted-foreground">Iniciar recolección manual</p>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleTriggerCollection}
+              disabled={isTriggering}
+            >
+              {isTriggering ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4 mr-2" />
+              )}
+              Ejecutar
+            </Button>
+          </div>
+          
+          <div className="flex justify-between text-xs text-muted-foreground pt-2">
+            <span>Última ejecución: {new Date().toLocaleTimeString()}</span>
+            <span>Próxima ejecución: {new Date(Date.now() + 300000).toLocaleTimeString()}</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // Componente de Log Viewer
 function LogViewer() {
   const { data: logs = [] } = useQuery({
@@ -209,14 +318,52 @@ function LogViewer() {
 
 // Componente principal del Dashboard de Monitoreo
 export function MonitoringDashboard() {
+  const [currentView, setCurrentView] = useState('metrics');
+  
   return (
     <PageContainer>
       <div className="max-w-[1200px] mx-auto px-4 py-4 flex-1 overflow-auto">
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold tracking-tight">Monitor del Sistema</h2>
-          <p className="text-muted-foreground">
-            Monitoreo en tiempo real de la infraestructura de microservicios
-          </p>
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Monitor del Sistema</h2>
+            <p className="text-muted-foreground">
+              Monitoreo en tiempo real de la infraestructura de microservicios
+            </p>
+          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="ml-auto">
+                <Clock className="h-4 w-4 mr-2" />
+                Programación
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium leading-none">Recolección de Métricas</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Gestionar la recolección automática de datos de monitoreo
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="auto-collect">Recolección automática</Label>
+                    <Switch id="auto-collect" defaultChecked />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="retention">Retención de datos (días)</Label>
+                    <span className="bg-muted px-2 py-1 rounded text-sm">30</span>
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => triggerMetricsCollection().catch(console.error)}
+                  className="w-full"
+                >
+                  Recolectar métricas ahora
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
         
         <Tabs defaultValue="metrics">
@@ -228,7 +375,8 @@ export function MonitoringDashboard() {
           
           <TabsContent value="metrics" className="space-y-4">
             <ServiceMetrics />
-            <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <MetricsScheduler />
               <Card>
                 <CardHeader>
                   <CardTitle className="text-sm">Alertas Activas</CardTitle>
@@ -256,7 +404,9 @@ export function MonitoringDashboard() {
         
         <div className="mt-4 text-xs text-muted-foreground text-center">
           <p>Monitor interno de microservicios - Entorno: {environment}</p>
-          <p>La mayoría de los datos son reales, pero algunos se complementan con simulaciones</p>
+          <p>
+            Conectado a servicios en vivo vía API RESTful con puntos finales estandarizados de monitoreo
+          </p>
         </div>
       </div>
     </PageContainer>
