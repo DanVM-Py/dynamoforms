@@ -1,7 +1,7 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock, RefreshCw } from "lucide-react";
-import { environment } from "@/config/environment";
+import { config } from "@/config/environment";
 import { customSupabase } from "@/integrations/supabase/customClient";
 import { Button } from "@/components/ui/button";
 
@@ -64,6 +64,7 @@ export const MicroserviceStatus = () => {
     try {
       setIsLoading(true);
       
+      // Using customSupabase to avoid TypeScript issues since it doesn't have strict typing
       const { data, error } = await customSupabase
         .from('service_metrics')
         .select('*')
@@ -125,8 +126,8 @@ export const MicroserviceStatus = () => {
     try {
       setIsLoading(true);
       
-      // Fetch the URL from the environment
-      const baseUrl = environment.supabaseUrl;
+      // Fetch the URL from the config, not environment
+      const baseUrl = config.supabaseUrl;
       const url = `${baseUrl}/functions/v1/collect-metrics`;
       
       console.log("Triggering metrics collection at:", url);
