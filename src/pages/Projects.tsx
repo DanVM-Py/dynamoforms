@@ -18,13 +18,18 @@ import { Project } from "@/types/supabase";
 import { EditProjectModal } from "@/components/projects/EditProjectModal";
 import ProjectCard from "@/components/projects/ProjectCard";
 
+// Define extended project type that includes adminId
+interface ExtendedProject extends Project {
+  adminId?: string;
+}
+
 const Projects = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
-  const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
+  const [projectToEdit, setProjectToEdit] = useState<ExtendedProject | null>(null);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [projectAdminId, setProjectAdminId] = useState("");
@@ -184,10 +189,13 @@ const Projects = () => {
         console.error("Error fetching project admin:", adminError);
       }
       
-      setProjectToEdit({
+      // Create an extended project with adminId property
+      const extendedProject: ExtendedProject = {
         ...project,
         adminId: adminData?.user_id
-      });
+      };
+      
+      setProjectToEdit(extendedProject);
       setIsEditModalOpen(true);
       
     } catch (error) {
