@@ -14,15 +14,15 @@ export enum SERVICES {
 }
 
 // Storage keys for consistent auth state - use unique keys to avoid conflicts
-export const AUTH_STORAGE_KEY = 'dynamo-auth-token';
-export const PUBLIC_STORAGE_KEY = 'dynamo-public-token';
+export const AUTH_STORAGE_KEY = 'dynamo-auth-storage-key';
+export const PUBLIC_STORAGE_KEY = 'dynamo-public-storage-key';
 
-// Create a singleton instance of the Supabase client
+// Create a true singleton instance of the Supabase client
 let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
 let supabaseAdminInstance: ReturnType<typeof createClient<Database>> | null = null;
 let customSupabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
 
-// Define standard client options
+// Define standard client options with the correct storage configuration
 const getClientOptions = (customHeaders = {}, storageKey = AUTH_STORAGE_KEY): SupabaseClientOptions<"public"> => ({
   auth: {
     storageKey: storageKey,
@@ -47,7 +47,7 @@ const getClientOptions = (customHeaders = {}, storageKey = AUTH_STORAGE_KEY): Su
 // Singleton getter for primary Supabase client
 export const getSupabase = () => {
   if (!supabaseInstance) {
-    console.log("Creating new primary Supabase client");
+    console.log("Creating new primary Supabase client instance");
     supabaseInstance = createClient<Database>(
       config.supabaseUrl,
       config.supabaseAnonKey,
@@ -60,7 +60,7 @@ export const getSupabase = () => {
 // Singleton getter for admin client
 export const getSupabaseAdmin = () => {
   if (!supabaseAdminInstance) {
-    console.log("Creating new admin Supabase client");
+    console.log("Creating new admin Supabase client instance");
     supabaseAdminInstance = createClient<Database>(
       config.supabaseUrl,
       config.supabaseAnonKey,
@@ -76,7 +76,7 @@ export const getSupabaseAdmin = () => {
 // Singleton getter for public/anonymous client
 export const getCustomSupabase = () => {
   if (!customSupabaseInstance) {
-    console.log("Creating new custom Supabase client");
+    console.log("Creating new custom Supabase client instance");
     customSupabaseInstance = createClient<Database>(
       config.supabaseUrl,
       config.supabaseAnonKey,
@@ -88,7 +88,7 @@ export const getCustomSupabase = () => {
   return customSupabaseInstance;
 };
 
-// Create primary client instance
+// Initialize the singleton instances
 const supabase = getSupabase();
 const supabaseAdmin = getSupabaseAdmin();
 const customSupabase = getCustomSupabase();
@@ -152,5 +152,5 @@ export const cleanupAuthState = () => {
   });
 };
 
-// Export instances
+// Export instances - always use these exported instances, NEVER create new ones
 export { supabase, supabaseAdmin, customSupabase };
