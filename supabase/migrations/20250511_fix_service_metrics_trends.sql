@@ -36,6 +36,19 @@ BEGIN
   END IF;
 END $$;
 
+-- Ensure message column exists
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public'
+    AND table_name = 'service_metrics'
+    AND column_name = 'message'
+  ) THEN
+    ALTER TABLE public.service_metrics ADD COLUMN message TEXT NULL;
+  END IF;
+END $$;
+
 -- Update indexes
 CREATE INDEX IF NOT EXISTS idx_service_metrics_service_id ON public.service_metrics(service_id);
 CREATE INDEX IF NOT EXISTS idx_service_metrics_status ON public.service_metrics(status);

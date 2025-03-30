@@ -14,6 +14,7 @@ interface ServiceMetric {
   memory_usage: number;
   request_count: number;
   checked_at: string;
+  message?: string;
   metrics_data?: {
     responseTime: Array<{ timestamp: number; value: number }>;
     errorRate: Array<{ timestamp: number; value: number }>;
@@ -26,7 +27,6 @@ interface ServiceMetric {
     memoryUsageTrend: number;
     requestCountTrend: number;
   };
-  message?: string;
 }
 
 interface ServiceStatus {

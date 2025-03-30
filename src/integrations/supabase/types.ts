@@ -378,6 +378,7 @@ export type Database = {
           error_rate: number
           id: string
           memory_usage: number
+          message: string | null
           metrics_data: Json | null
           request_count: number
           response_time: number
@@ -391,6 +392,7 @@ export type Database = {
           error_rate: number
           id?: string
           memory_usage: number
+          message?: string | null
           metrics_data?: Json | null
           request_count: number
           response_time: number
@@ -404,6 +406,7 @@ export type Database = {
           error_rate?: number
           id?: string
           memory_usage?: number
+          message?: string | null
           metrics_data?: Json | null
           request_count?: number
           response_time?: number

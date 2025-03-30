@@ -123,6 +123,7 @@ async function checkServiceHealth(serviceConfig: ServiceConfig): Promise<any> {
         memory_usage: 0,
         request_count: 0,
         checked_at: new Date().toISOString(),
+        message: `HTTP status: ${response.status}`,
         metrics_data: {
           responseTime: [{ timestamp: Date.now(), value: responseTime }],
           errorRate: [{ timestamp: Date.now(), value: 100 }],
@@ -178,6 +179,7 @@ async function checkServiceHealth(serviceConfig: ServiceConfig): Promise<any> {
       memory_usage: memoryUsage,
       request_count: requestCount,
       checked_at: new Date().toISOString(),
+      message: healthData.message || `Service is ${normalizedStatus}`,
       metrics_data: {
         responseTime: [{ timestamp: Date.now(), value: responseTime }],
         errorRate: [{ timestamp: Date.now(), value: reportedErrorRate }],
@@ -282,21 +284,14 @@ function calculateTrends(currentMetric: any, historicalMetrics: any[]) {
   };
 }
 
-// Modified function to properly store metrics without the trends column
+// Store metrics in the database
 async function storeMetrics(metricsArray: any[]) {
   try {
-    // Remove the trends field from each metrics object before storing
-    const cleanMetricsArray = metricsArray.map(metric => {
-      // Create a shallow copy of the metric object
-      const { trends, ...cleanMetric } = metric;
-      return cleanMetric; 
-    });
-    
-    console.log(`Storing ${cleanMetricsArray.length} metrics in database`);
+    console.log(`Storing ${metricsArray.length} metrics in database`);
     
     const { data, error } = await supabase
       .from('service_metrics')
-      .insert(cleanMetricsArray)
+      .insert(metricsArray)
       .select();
     
     if (error) {
@@ -305,7 +300,7 @@ async function storeMetrics(metricsArray: any[]) {
     }
     
     console.log(`Successfully stored ${data?.length || 0} metrics records`);
-    return data || cleanMetricsArray;
+    return data || metricsArray;
   } catch (error) {
     console.error('Failed to store metrics:', error);
     throw error;
@@ -429,21 +424,12 @@ Deno.serve(async (req) => {
       
       console.log(`Generated ${metricsArray.length} metrics records from real services`);
       
-      // Store metrics without trends column
+      // Store metrics
       try {
         const storedData = await storeMetrics(metricsArray);
         
-        // Add trends back to the response
-        const responseData = metricsArray.map((metric, index) => {
-          const storedMetric = storedData[index] || {};
-          return {
-            ...storedMetric,
-            trends: metric.trends
-          };
-        });
-        
         return new Response(JSON.stringify({ 
-          metrics: responseData,
+          metrics: storedData,
           success: true,
           message: "Successfully collected real-time metrics from all microservices",
           endpoints: serviceConfigs.map(config => ({
