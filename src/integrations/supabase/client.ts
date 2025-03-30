@@ -4,6 +4,15 @@ import { createClient, SupabaseClientOptions } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { config } from '@/config/environment';
 
+// Define service constants for microservice identification
+export enum SERVICES {
+  AUTH = 'auth_service',
+  PROJECTS = 'projects_service',
+  FORMS = 'forms_service',
+  TASKS = 'tasks_service',
+  NOTIFICATIONS = 'notifications_service'
+}
+
 // Define standard client options
 const getClientOptions = (customHeaders = {}): SupabaseClientOptions<"public"> => ({
   auth: {
@@ -31,6 +40,16 @@ const supabase = createClient<Database>(
   config.supabaseUrl,
   config.supabaseAnonKey,
   getClientOptions()
+);
+
+// Admin client for operations requiring admin privileges
+export const supabaseAdmin = createClient<Database>(
+  config.supabaseUrl,
+  config.supabaseAnonKey,
+  getClientOptions({
+    'X-Client-Info': 'admin-client',
+    'X-Admin-Access': 'true'
+  })
 );
 
 // Custom client for anonymous operations (used for public forms, metrics, etc.)

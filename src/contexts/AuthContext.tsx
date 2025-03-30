@@ -2,7 +2,7 @@
 import { createContext, useContext, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { useToast } from "@/components/ui/use-toast";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth as useAuthHook } from "@/hooks/useAuth";
 import { UserProfile } from "@/services/authService";
 
 interface AuthContextType {
@@ -12,6 +12,7 @@ interface AuthContextType {
   loading: boolean;
   isGlobalAdmin: boolean;
   isProjectAdmin: boolean;
+  isApprover: boolean;
   currentProjectId: string | null;
   signOut: () => Promise<boolean>;
   refreshUserProfile: () => Promise<void>;
@@ -32,7 +33,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     currentProjectId,
     signOut,
     refreshAuthState
-  } = useAuth();
+  } = useAuthHook();
+
+  // Add isApprover state (defaulting to false)
+  const isApprover = userProfile?.role === 'approver' || false;
 
   const refreshUserProfile = async () => {
     try {
@@ -58,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     isGlobalAdmin,
     isProjectAdmin,
+    isApprover,
     currentProjectId,
     signOut,
     refreshUserProfile
