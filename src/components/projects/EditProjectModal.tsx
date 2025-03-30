@@ -66,8 +66,39 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
       setAdminId(project?.adminId || "");
       setErrors({});
       fetchUsers();
+      
+      // Fetch current admin if not provided
+      if (!project?.adminId) {
+        fetchCurrentAdmin();
+      }
     }
   }, [open, project]);
+
+  const fetchCurrentAdmin = async () => {
+    try {
+      // Check for existing project admin in project_users table
+      const { data, error } = await supabase
+        .from('project_users')
+        .select('user_id')
+        .eq('project_id', project.id)
+        .eq('is_admin', true)
+        .eq('status', 'active')
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      if (data) {
+        setAdminId(data.user_id);
+      }
+    } catch (error: any) {
+      console.error('Error fetching current admin:', error);
+      toast({
+        title: "Error loading project admin",
+        description: error?.message || "Could not load project admin information.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -138,38 +169,83 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
       if (error) throw error;
       
       // If adminId has changed and is not empty, update project admin
-      if (adminId && adminId !== project.adminId) {
+      if (adminId) {
         // First check if there's an existing admin
         const { data: existingAdmin, error: fetchError } = await supabase
-          .from('project_admins')
+          .from('project_users')
           .select('*')
           .eq('project_id', project.id)
-          .single();
+          .eq('is_admin', true)
+          .maybeSingle();
         
         if (fetchError && fetchError.code !== 'PGRST116') {
           throw fetchError;
         }
         
-        // If there's an existing admin, update it
-        if (existingAdmin) {
+        // If there's an existing admin that is different from new one, update their status
+        if (existingAdmin && existingAdmin.user_id !== adminId) {
+          // Deactivate the current admin
           const { error: updateError } = await supabase
-            .from('project_admins')
-            .update({ user_id: adminId })
+            .from('project_users')
+            .update({ is_admin: false })
             .eq('id', existingAdmin.id);
             
           if (updateError) throw updateError;
-        } else {
-          // Otherwise, insert a new admin
+          
+          // Check if new admin is already a project user
+          const { data: existingUser, error: userError } = await supabase
+            .from('project_users')
+            .select('*')
+            .eq('project_id', project.id)
+            .eq('user_id', adminId)
+            .maybeSingle();
+            
+          if (userError && userError.code !== 'PGRST116') {
+            throw userError;
+          }
+          
+          if (existingUser) {
+            // Update existing user to be admin
+            const { error: promoteError } = await supabase
+              .from('project_users')
+              .update({
+                is_admin: true,
+                status: 'active'
+              })
+              .eq('id', existingUser.id);
+              
+            if (promoteError) throw promoteError;
+          } else {
+            // Create new admin
+            const { error: insertError } = await supabase
+              .from('project_users')
+              .insert({
+                project_id: project.id,
+                user_id: adminId,
+                is_admin: true,
+                status: 'active',
+                invited_by: user?.id,
+                created_by: user?.id
+              });
+              
+            if (insertError) throw insertError;
+          }
+        } else if (!existingAdmin) {
+          // No admin exists, insert a new one
           const { error: insertError } = await supabase
-            .from('project_admins')
+            .from('project_users')
             .insert({
               project_id: project.id,
               user_id: adminId,
-              assigned_by: user?.id  // Using assigned_by to match the database schema
+              is_admin: true,
+              status: 'active',
+              invited_by: user?.id,
+              created_by: user?.id
             });
             
           if (insertError) throw insertError;
         }
+        // If admin is the same, no changes needed
       }
       
       // Complete the update process

@@ -3,9 +3,9 @@ import React, { useState, useEffect } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/use-toast";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Project } from "@/types/supabase";
 import { EditProjectModal } from "@/components/projects/EditProjectModal";
 import ProjectCard from "@/components/projects/ProjectCard";
@@ -36,6 +36,7 @@ const Projects = () => {
     admin?: string;
   }>({});
   const [isDeleting, setIsDeleting] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: projects, refetch } = useQuery({
     queryKey: ['projects'],
@@ -134,12 +135,16 @@ const Projects = () => {
       if (projectData && projectData.length > 0) {
         const newProject = projectData[0];
         
+        // Create project admin in the project_users table with is_admin=true
         const { error: adminError } = await supabase
-          .from('project_admins')
+          .from('project_users')
           .insert({
             project_id: newProject.id, 
             user_id: projectAdminId,
-            assigned_by: user?.id  // Using assigned_by to match the database schema
+            is_admin: true,
+            status: 'active',
+            invited_by: user?.id,
+            created_by: user?.id
           });
           
         if (adminError) throw adminError;
@@ -164,9 +169,35 @@ const Projects = () => {
     }
   };
 
-  const handleEditProject = (project: Project) => {
-    setProjectToEdit(project);
-    setIsEditModalOpen(true);
+  const handleEditProject = async (project: Project) => {
+    try {
+      // Get the current admin for this project
+      const { data: adminData, error: adminError } = await supabase
+        .from('project_users')
+        .select('user_id')
+        .eq('project_id', project.id)
+        .eq('is_admin', true)
+        .eq('status', 'active')
+        .maybeSingle();
+      
+      if (adminError && adminError.code !== 'PGRST116') {
+        console.error("Error fetching project admin:", adminError);
+      }
+      
+      setProjectToEdit({
+        ...project,
+        adminId: adminData?.user_id
+      });
+      setIsEditModalOpen(true);
+      
+    } catch (error) {
+      console.error("Error preparing project edit:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la información del proyecto para editar.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDeleteProject = (project: Project) => {
@@ -310,7 +341,7 @@ const Projects = () => {
           <ProjectCard
             key={project.id}
             project={project}
-            onEdit={handleEditProject}
+            onEdit={() => handleEditProject(project)}
             onDelete={handleDeleteProject}
           />
         ))}
@@ -352,7 +383,8 @@ const Projects = () => {
           project={{
             id: projectToEdit.id,
             name: projectToEdit.name,
-            description: projectToEdit.description
+            description: projectToEdit.description,
+            adminId: projectToEdit.adminId
           }}
           onProjectUpdated={() => {
             setIsEditModalOpen(false);
