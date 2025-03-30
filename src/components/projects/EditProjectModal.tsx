@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { 
   Dialog, 
@@ -23,7 +24,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProjectUser } from "@/types/custom";
-import type { Profile } from "@/types/supabase";
+import type { Profile } from "@/integrations/supabase/types";
 
 export interface EditProjectModalProps {
   open: boolean;
