@@ -25,42 +25,42 @@ const serviceConfigs: ServiceConfig[] = [
   {
     id: 'auth',
     name: 'Auth Service',
-    baseUrl: 'https://api.dynamoforms.app/auth',
+    baseUrl: 'https://api.dynamoforms.lovable.app/auth',
     healthEndpoint: '/health',
     timeout: 5000
   },
   {
     id: 'projects',
     name: 'Projects Service',
-    baseUrl: 'https://api.dynamoforms.app/projects',
+    baseUrl: 'https://api.dynamoforms.lovable.app/projects',
     healthEndpoint: '/health',
     timeout: 5000
   },
   {
     id: 'forms',
     name: 'Forms Service',
-    baseUrl: 'https://api.dynamoforms.app/forms',
+    baseUrl: 'https://api.dynamoforms.lovable.app/forms',
     healthEndpoint: '/health',
     timeout: 5000
   },
   {
     id: 'tasks',
     name: 'Tasks Service',
-    baseUrl: 'https://api.dynamoforms.app/tasks',
+    baseUrl: 'https://api.dynamoforms.lovable.app/tasks',
     healthEndpoint: '/health',
     timeout: 5000
   },
   {
     id: 'notifications',
     name: 'Notifications Service',
-    baseUrl: 'https://api.dynamoforms.app/notifications',
+    baseUrl: 'https://api.dynamoforms.lovable.app/notifications',
     healthEndpoint: '/health',
     timeout: 5000
   },
   {
     id: 'gateway',
     name: 'API Gateway',
-    baseUrl: 'https://api.dynamoforms.app',
+    baseUrl: 'https://api.dynamoforms.lovable.app',
     healthEndpoint: '/health',
     timeout: 5000
   }
