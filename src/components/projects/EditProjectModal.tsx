@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Profile } from "@/types/supabase";
+import { Profile, ProjectUser } from "@/types/supabase";
 
 export interface EditProjectModalProps {
   open: boolean;
