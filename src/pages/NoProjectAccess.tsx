@@ -5,7 +5,6 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { FolderLock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase, supabaseApiUrl } from "@/integrations/supabase/client";
 
 const NoProjectAccess = () => {
   const [loading, setLoading] = useState(false);
@@ -13,13 +12,12 @@ const NoProjectAccess = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   
-  // Use an effect to ensure we clean up storage on mount
+  // Clean up storage on mount
   useEffect(() => {
-    // Clean storage as soon as this component mounts
     localStorage.removeItem('currentProjectId');
     sessionStorage.removeItem('currentProjectId');
     
-    // Also clear any Supabase storage keys
+    // Clear any Supabase storage keys
     const storageKeys = Object.keys(localStorage);
     const supabaseKeys = storageKeys.filter(key => key.startsWith('sb-'));
     supabaseKeys.forEach(key => {
@@ -28,42 +26,32 @@ const NoProjectAccess = () => {
     });
   }, []);
 
-  // Function to manually sign out and redirect to auth page
+  // Sign out function
   const handleSignOut = async () => {
-    if (loading) return; // Prevent multiple clicks
+    if (loading) return;
     
     try {
       setLoading(true);
       console.log("NoProjectAccess: User manually triggered sign out");
-      
-      // Clear all storage related to projects and auth
-      localStorage.removeItem('currentProjectId');
-      sessionStorage.removeItem('currentProjectId');
-      localStorage.removeItem('isGlobalAdmin');
-      
-      // Clear Supabase auth token
-      const supabaseKey = 'sb-' + new URL(supabaseApiUrl).hostname.split('.')[0] + '-auth-token';
-      localStorage.removeItem(supabaseKey);
-      sessionStorage.removeItem(supabaseKey);
       
       toast({
         title: "Cerrando sesión",
         description: "Volviendo a la página de inicio de sesión..."
       });
       
-      // Use context signOut method first
-      await signOut();
+      // Use the context signOut method
+      const success = await signOut();
       
-      // Then force direct signout with Supabase as a fallback
-      await supabase.auth.signOut();
-      
-      // Critical: Use a direct location change rather than React Router navigation
-      // This ensures a full page reload and breaks any navigation loops
-      console.log("NoProjectAccess: Forcing direct navigation to auth page");
-      window.location.href = '/auth?signout=forced';
-      
+      if (success) {
+        // Force direct navigation to break any loops
+        window.location.href = '/auth?signout=forced';
+      } else {
+        // Even if there's an error, force page reload to auth page
+        window.location.href = '/auth?error=signout_failed';
+      }
     } catch (error) {
       console.error("Error during sign out:", error);
+      
       toast({
         title: "Error",
         description: "No se pudo cerrar la sesión. Redirigiendo a la página de inicio de sesión...",

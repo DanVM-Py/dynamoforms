@@ -1,8 +1,7 @@
 
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { customSupabase } from "@/integrations/supabase/customClient";
+import { supabase, customSupabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 
 interface FormResponseHandlerProps {
@@ -19,7 +18,6 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
     const triggerTaskCreation = async () => {
       try {
         // Select the appropriate client based on whether this is a public form
-        // For public forms, use the completely separate customSupabase client
         const client = isPublic ? customSupabase : supabase;
         
         console.log("[FormResponseHandler] Triggering task creation for form response:", {
@@ -34,7 +32,7 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
           body: JSON.stringify({
             formResponseId: responseId,
             sourceFormId: formId,
-            isAnonymous: isPublic // Pass the anonymous flag to the edge function
+            isAnonymous: isPublic
           }),
           headers: {
             'Content-Type': 'application/json'
@@ -53,16 +51,14 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
         }
       } catch (err) {
         console.error("[FormResponseHandler] Failed to trigger task creation:", err);
-        // We don't show this error to the user as it's a background process
       }
     };
 
     // Attempt to trigger task creation
     triggerTaskCreation();
 
-    // Make sure we use the correct paths consistently
+    // Navigate to the appropriate page
     if (isPublic) {
-      // Use the correct public form success path
       navigate(`/public/forms/success`);
     } else {
       toast({

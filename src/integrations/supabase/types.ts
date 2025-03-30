@@ -382,7 +382,8 @@ export type Database = {
           request_count: number
           response_time: number
           service_id: string
-          status: Database["public"]["Enums"]["service_status"]
+          status: string
+          trends: Json | null
         }
         Insert: {
           checked_at?: string
@@ -394,7 +395,8 @@ export type Database = {
           request_count: number
           response_time: number
           service_id: string
-          status: Database["public"]["Enums"]["service_status"]
+          status: string
+          trends?: Json | null
         }
         Update: {
           checked_at?: string
@@ -406,7 +408,8 @@ export type Database = {
           request_count?: number
           response_time?: number
           service_id?: string
-          status?: Database["public"]["Enums"]["service_status"]
+          status?: string
+          trends?: Json | null
         }
         Relationships: []
       }

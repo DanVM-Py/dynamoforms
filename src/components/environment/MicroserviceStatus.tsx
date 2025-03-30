@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { AlertTriangle, CheckCircle2, Clock, RefreshCw } from "lucide-react";
-import { config } from "@/config/environment";
-import { customSupabase } from "@/integrations/supabase/customClient";
+import { customSupabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
 interface ServiceMetric {
@@ -34,7 +33,6 @@ interface ServiceStatus {
   lastUpdated?: Date;
 }
 
-// Service name mapping
 const SERVICE_NAMES = {
   'gateway': 'API Gateway',
   'auth': 'Auth Service',
@@ -44,7 +42,6 @@ const SERVICE_NAMES = {
   'notifications': 'Notifications Service'
 };
 
-// Map metrics status to service status
 const mapStatusToServiceStatus = (
   status: "healthy" | "degraded" | "down"
 ): ServiceStatus["status"] => {
@@ -60,7 +57,6 @@ const mapStatusToServiceStatus = (
   }
 };
 
-// This component shows the current microservice architecture status
 export const MicroserviceStatus = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -73,13 +69,11 @@ export const MicroserviceStatus = () => {
     { name: "Notifications Service", status: "completed" }
   ]);
   
-  // Function to fetch current metrics - using customSupabase instance for edge function invocation
   const fetchCurrentMetrics = async () => {
     try {
       setIsLoading(true);
       console.log("Fetching metrics data...");
       
-      // Using the edge function to retrieve metrics instead of querying the table directly
       const { data, error } = await customSupabase.functions.invoke('collect-metrics', {
         method: 'GET'
       });
@@ -98,7 +92,6 @@ export const MicroserviceStatus = () => {
         return;
       }
       
-      // Group metrics by service_id to get the latest for each service
       const metricsArray = data.metrics;
       const latestMetricsByService = metricsArray.reduce((acc: Record<string, any>, metric: any) => {
         if (!acc[metric.service_id] || 
@@ -110,9 +103,7 @@ export const MicroserviceStatus = () => {
       
       console.log("Latest metrics by service:", latestMetricsByService);
       
-      // Update services with metric data
       const updatedServices = services.map(service => {
-        // Get the service ID from service name
         const serviceId = Object.entries(SERVICE_NAMES).find(
           ([_, name]) => name === service.name
         )?.[0];
@@ -140,13 +131,11 @@ export const MicroserviceStatus = () => {
     }
   };
   
-  // Function to trigger metrics collection via edge function - using customSupabase to avoid auth issues
   const triggerMetricsCollection = async () => {
     try {
       setIsLoading(true);
       console.log("Triggering metrics collection...");
       
-      // Direct invocation of the collect-metrics function with POST method
       const { data, error } = await customSupabase.functions.invoke('collect-metrics', {
         method: 'POST',
         body: { 
@@ -163,9 +152,7 @@ export const MicroserviceStatus = () => {
       
       console.log("Metrics collection triggered successfully:", data);
       
-      // Update the UI with the collected metrics
       if (data && data.metrics && data.metrics.length > 0) {
-        // Group metrics by service_id to get the latest for each service
         const metricsArray = data.metrics;
         const latestMetricsByService = metricsArray.reduce((acc: Record<string, any>, metric: any) => {
           if (!acc[metric.service_id] || 
@@ -175,9 +162,7 @@ export const MicroserviceStatus = () => {
           return acc;
         }, {});
         
-        // Update services with metric data
         const updatedServices = services.map(service => {
-          // Get the service ID from service name
           const serviceId = Object.entries(SERVICE_NAMES).find(
             ([_, name]) => name === service.name
           )?.[0];
@@ -199,7 +184,6 @@ export const MicroserviceStatus = () => {
         setServices(updatedServices);
         setLastUpdated(new Date());
       } else {
-        // If no metrics are returned, fetch them
         await fetchCurrentMetrics();
       }
       
@@ -210,7 +194,6 @@ export const MicroserviceStatus = () => {
     }
   };
   
-  // Load initial data when component mounts
   useEffect(() => {
     fetchCurrentMetrics();
   }, []);
