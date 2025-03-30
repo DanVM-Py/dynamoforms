@@ -53,7 +53,8 @@ export const supabaseAdmin = createClient<Database>(
 );
 
 // Custom client for anonymous operations (used for public forms, metrics, etc.)
-const customSupabase = createClient<Database>(
+// This uses separate storage keys to avoid authentication conflicts
+export const customSupabase = createClient<Database>(
   config.supabaseUrl,
   config.supabaseAnonKey,
   getClientOptions({
