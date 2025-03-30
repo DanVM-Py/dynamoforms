@@ -83,7 +83,6 @@ export const MicroserviceStatus = () => {
     { name: "Notifications Service", status: "unknown" }
   ]);
   const [error, setError] = useState<string | null>(null);
-  const [isMockData, setIsMockData] = useState(false);
   
   const fetchCurrentMetrics = async () => {
     try {
@@ -132,9 +131,6 @@ export const MicroserviceStatus = () => {
         setIsLoading(false);
         return;
       }
-      
-      // Check if we're using mock data
-      setIsMockData(data.mock === true);
       
       const metricsArray = data.metrics;
       const latestMetricsByService = metricsArray.reduce((acc: Record<string, any>, metric: any) => {
@@ -227,9 +223,6 @@ export const MicroserviceStatus = () => {
       
       console.log("Metrics collection triggered successfully:", data);
       
-      // Check if we're using mock data
-      setIsMockData(data.mock === true);
-      
       if (data && data.metrics && data.metrics.length > 0) {
         const metricsArray = data.metrics;
         const latestMetricsByService = metricsArray.reduce((acc: Record<string, any>, metric: any) => {
@@ -268,10 +261,8 @@ export const MicroserviceStatus = () => {
         
         const healthyCount = metricsArray.filter((m: any) => m.status === 'healthy').length;
         toast({
-          title: data.mock ? "Mock metrics generated" : "Metrics updated",
-          description: data.mock 
-            ? "Using generated demo data since real services are not available."
-            : `Successfully collected metrics from ${healthyCount} healthy services.`,
+          title: "Metrics updated",
+          description: `Successfully collected metrics from ${healthyCount} healthy services.`,
         });
       } else {
         // Fall back to fetching stored metrics if collection doesn't return data
@@ -360,7 +351,6 @@ export const MicroserviceStatus = () => {
           <h3 className="text-sm font-medium">Estado de Microservicios</h3>
           <p className="text-xs text-muted-foreground">
             Última actualización: {lastUpdated ? lastUpdated.toLocaleString() : 'Nunca'}
-            {isMockData && <span className="ml-1 text-amber-500 font-medium">(Datos de demostración)</span>}
           </p>
         </div>
         <Button 
@@ -382,13 +372,6 @@ export const MicroserviceStatus = () => {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-3 mb-3 text-xs">
           {error}
-        </div>
-      )}
-      
-      {isMockData && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-md p-3 mb-3 text-xs">
-          <strong>Nota:</strong> Los microservicios reales no están disponibles o no responden. 
-          Se están mostrando datos simulados para fines de demostración.
         </div>
       )}
       
@@ -443,21 +426,15 @@ export const MicroserviceStatus = () => {
       </div>
       
       <div className="mt-3 text-xs text-muted-foreground">
-        {isMockData ? (
-          <p className="italic">Mostrando datos de demostración generados localmente mientras los servicios reales no están disponibles.</p>
-        ) : (
-          <>
-            <p>Monitoreo conectado a servicios en producción.</p>
-            <p className="font-medium">URLs de monitoreo:</p>
-            <ul className="mt-1 space-y-1">
-              {Object.entries(SERVICE_URLS).map(([serviceId, url]) => (
-                <li key={serviceId}>
-                  <span className="font-medium">{SERVICE_NAMES[serviceId as keyof typeof SERVICE_NAMES]}:</span> {url}
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
+        <p>Monitoreo conectado a servicios en producción.</p>
+        <p className="font-medium">URLs de monitoreo:</p>
+        <ul className="mt-1 space-y-1">
+          {Object.entries(SERVICE_URLS).map(([serviceId, url]) => (
+            <li key={serviceId}>
+              <span className="font-medium">{SERVICE_NAMES[serviceId as keyof typeof SERVICE_NAMES]}:</span> {url}
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

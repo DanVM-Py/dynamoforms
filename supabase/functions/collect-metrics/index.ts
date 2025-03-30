@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 
 const corsHeaders = {
@@ -17,58 +18,51 @@ interface ServiceConfig {
   baseUrl: string;
   healthEndpoint: string;
   timeout: number; // milliseconds
-  mockEnabled?: boolean; // Flag to enable mock data for testing
 }
 
-// Real production service endpoints (with mockEnabled flag added)
+// Real production service endpoints
 const serviceConfigs: ServiceConfig[] = [
   {
     id: 'auth',
     name: 'Auth Service',
     baseUrl: 'https://api.dynamoforms.app/auth',
     healthEndpoint: '/health',
-    timeout: 5000,
-    mockEnabled: true // Enable mock while real service is unavailable
+    timeout: 5000
   },
   {
     id: 'projects',
     name: 'Projects Service',
     baseUrl: 'https://api.dynamoforms.app/projects',
     healthEndpoint: '/health',
-    timeout: 5000,
-    mockEnabled: true // Enable mock while real service is unavailable
+    timeout: 5000
   },
   {
     id: 'forms',
     name: 'Forms Service',
     baseUrl: 'https://api.dynamoforms.app/forms',
     healthEndpoint: '/health',
-    timeout: 5000,
-    mockEnabled: true // Enable mock while real service is unavailable
+    timeout: 5000
   },
   {
     id: 'tasks',
     name: 'Tasks Service',
     baseUrl: 'https://api.dynamoforms.app/tasks',
     healthEndpoint: '/health',
-    timeout: 5000,
-    mockEnabled: true // Enable mock while real service is unavailable
+    timeout: 5000
   },
   {
     id: 'notifications',
     name: 'Notifications Service',
     baseUrl: 'https://api.dynamoforms.app/notifications',
     healthEndpoint: '/health',
-    timeout: 5000,
-    mockEnabled: true // Enable mock while real service is unavailable
+    timeout: 5000
   },
   {
     id: 'gateway',
     name: 'API Gateway',
     baseUrl: 'https://api.dynamoforms.app',
     healthEndpoint: '/health',
-    timeout: 5000,
-    mockEnabled: true // Enable mock while real service is unavailable
+    timeout: 5000
   }
 ];
 
@@ -109,130 +103,9 @@ function createServiceDownMetric(serviceId: string, errorMessage: string): any {
   };
 }
 
-// Generate mock service health data for testing/development
-function generateMockServiceMetric(serviceId: string): any {
-  // Create various health states for demonstration
-  let status: 'healthy' | 'degraded' | 'down';
-  let message = '';
-  let responseTime = 0;
-  let errorRate = 0;
-  let cpuUsage = 0;
-  let memoryUsage = 0;
-  let requestCount = 0;
-  
-  // Create a pseudo-random but consistent state based on service ID
-  const randomSeed = serviceId.charCodeAt(0) + serviceId.length;
-  
-  // Determine status based on service ID (for testing purposes)
-  if (serviceId === 'gateway' || serviceId === 'auth') {
-    status = 'healthy';
-    message = 'Service is operating normally';
-    responseTime = 20 + (randomSeed % 10);
-    errorRate = 0;
-    cpuUsage = 20 + (randomSeed % 30);
-    memoryUsage = 30 + (randomSeed % 20);
-    requestCount = 100 + (randomSeed * 10);
-  } else if (serviceId === 'projects') {
-    status = 'degraded';
-    message = 'Service experiencing higher than normal latency';
-    responseTime = 150 + (randomSeed % 50);
-    errorRate = 3.5;
-    cpuUsage = 65 + (randomSeed % 15);
-    memoryUsage = 70 + (randomSeed % 10);
-    requestCount = 80 + (randomSeed * 5);
-  } else if (serviceId === 'notifications') {
-    status = 'down';
-    message = 'Service is currently unavailable - scheduled maintenance';
-    responseTime = 0;
-    errorRate = 100;
-    cpuUsage = 0;
-    memoryUsage = 0;
-    requestCount = 0;
-  } else {
-    // Other services get random health status
-    const healthRoll = randomSeed % 3;
-    if (healthRoll === 0) {
-      status = 'healthy';
-      message = 'Service is operating normally';
-      responseTime = 30 + (randomSeed % 20);
-      errorRate = 0.5 + (randomSeed % 2);
-      cpuUsage = 25 + (randomSeed % 25);
-      memoryUsage = 40 + (randomSeed % 15);
-      requestCount = 90 + (randomSeed * 8);
-    } else if (healthRoll === 1) {
-      status = 'degraded';
-      message = 'Service experiencing minor issues';
-      responseTime = 120 + (randomSeed % 80);
-      errorRate = 5 + (randomSeed % 5);
-      cpuUsage = 60 + (randomSeed % 20);
-      memoryUsage = 65 + (randomSeed % 20);
-      requestCount = 50 + (randomSeed * 6);
-    } else {
-      status = 'healthy';
-      message = 'Service recovered from recent issues';
-      responseTime = 50 + (randomSeed % 30);
-      errorRate = 1 + (randomSeed % 2);
-      cpuUsage = 35 + (randomSeed % 20);
-      memoryUsage = 45 + (randomSeed % 15);
-      requestCount = 75 + (randomSeed * 7);
-    }
-  }
-  
-  // Add some time variance to make the dashboard interesting
-  const timestamp = Date.now();
-  const timeOffset = randomSeed * 1000 * 60; // Offset by minutes based on service ID
-  
-  // Create mock metric data over time for charts
-  const historyPoints = 10;
-  const responseTimeHistory = Array.from({ length: historyPoints }, (_, i) => ({
-    timestamp: timestamp - (historyPoints - i) * 60000,
-    value: Math.max(1, responseTime * (0.7 + (Math.sin(i * 0.6) + 1) * 0.25))
-  }));
-  
-  const errorRateHistory = Array.from({ length: historyPoints }, (_, i) => ({
-    timestamp: timestamp - (historyPoints - i) * 60000,
-    value: Math.max(0, errorRate * (0.8 + (Math.cos(i * 0.4) + 0.5) * 0.4))
-  }));
-  
-  const requestCountHistory = Array.from({ length: historyPoints }, (_, i) => ({
-    timestamp: timestamp - (historyPoints - i) * 60000,
-    value: Math.max(1, requestCount * (0.8 + (Math.sin(i * 0.3) + 0.5) * 0.3))
-  }));
-  
-  return {
-    service_id: serviceId,
-    status: status,
-    response_time: responseTime,
-    error_rate: errorRate,
-    cpu_usage: cpuUsage,
-    memory_usage: memoryUsage,
-    request_count: requestCount,
-    checked_at: new Date(timestamp - timeOffset).toISOString(),
-    message: message,
-    metrics_data: {
-      responseTime: responseTimeHistory,
-      errorRate: errorRateHistory,
-      requestCount: requestCountHistory
-    },
-    trends: {
-      responseTimeTrend: Math.round((Math.random() * 20) - 10), // -10 to +10
-      errorRateTrend: Math.round((Math.random() * 16) - 8),     // -8 to +8
-      cpuUsageTrend: Math.round((Math.random() * 30) - 15),     // -15 to +15
-      memoryUsageTrend: Math.round((Math.random() * 20) - 10),  // -10 to +10
-      requestCountTrend: Math.round((Math.random() * 40) - 10)  // -10 to +30
-    }
-  };
-}
-
 // Function to check health of a microservice with real HTTP request
 async function checkServiceHealth(serviceConfig: ServiceConfig): Promise<any> {
-  const { id, baseUrl, healthEndpoint, timeout, mockEnabled } = serviceConfig;
-  
-  // Use mock data if enabled (for development/testing)
-  if (mockEnabled) {
-    console.log(`Using mock data for ${id} since mockEnabled is true`);
-    return generateMockServiceMetric(id);
-  }
+  const { id, baseUrl, healthEndpoint, timeout } = serviceConfig;
   
   const healthUrl = `${baseUrl}${healthEndpoint}`;
   const startTime = Date.now();
@@ -466,51 +339,7 @@ Deno.serve(async (req) => {
         throw error;
       }
 
-      // If no metrics found, generate demo data
-      if (!latestMetrics || latestMetrics.length === 0) {
-        console.log("No metrics found in database. Generating demo data automatically.");
-        
-        const mockMetrics = serviceConfigs.map(config => generateMockServiceMetric(config.id));
-        
-        try {
-          // Store mock metrics in the database
-          await storeMetrics(mockMetrics);
-          
-          console.log("Successfully generated and stored demo metrics");
-          return new Response(JSON.stringify({ 
-            metrics: mockMetrics,
-            success: true,
-            mock: true,
-            message: "Generated demo metrics for visualization purposes. Use 'Refresh' for current data.",
-            endpoints: serviceConfigs.map(config => ({
-              id: config.id,
-              url: `${config.baseUrl}${config.healthEndpoint}`,
-              mockEnabled: config.mockEnabled
-            }))
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-          });
-        } catch (storeError) {
-          console.error('Error storing generated metrics:', storeError);
-          // Return mock data even if storage failed
-          return new Response(JSON.stringify({ 
-            metrics: mockMetrics,
-            success: true,
-            mock: true,
-            error: `Note: Generated metrics could not be stored: ${storeError.message}`,
-            endpoints: serviceConfigs.map(config => ({
-              id: config.id, 
-              url: `${config.baseUrl}${config.healthEndpoint}`,
-              mockEnabled: config.mockEnabled
-            }))
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-          });
-        }
-      }
-
+      // Return the metrics from database
       console.log(`Returning ${latestMetrics?.length || 0} metrics records`);
       
       return new Response(JSON.stringify({ 
@@ -518,8 +347,7 @@ Deno.serve(async (req) => {
         success: true,
         endpoints: serviceConfigs.map(config => ({
           id: config.id,
-          url: `${config.baseUrl}${config.healthEndpoint}`,
-          mockEnabled: config.mockEnabled
+          url: `${config.baseUrl}${config.healthEndpoint}`
         }))
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -559,13 +387,13 @@ Deno.serve(async (req) => {
           return { ...metric, trends };
         } catch (serviceError) {
           console.error(`Error processing ${serviceConfig.id}:`, serviceError);
-          // Return a mock metric when the service check fails
-          return generateMockServiceMetric(serviceConfig.id);
+          // Return a down service metric when the service check fails
+          return createServiceDownMetric(serviceConfig.id, `Error: ${serviceError.message}`);
         }
       });
       
       const metricsArray = await Promise.all(servicePromises);
-      console.log(`Generated ${metricsArray.length} metrics records (${metricsArray.filter(m => m.status === 'healthy').length} healthy)`);
+      console.log(`Generated ${metricsArray.length} metrics records from real services`);
       
       // Store metrics
       try {
@@ -577,8 +405,7 @@ Deno.serve(async (req) => {
           message: "Successfully collected metrics from all services",
           endpoints: serviceConfigs.map(config => ({
             id: config.id,
-            url: `${config.baseUrl}${config.healthEndpoint}`,
-            mockEnabled: config.mockEnabled
+            url: `${config.baseUrl}${config.healthEndpoint}`
           }))
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
