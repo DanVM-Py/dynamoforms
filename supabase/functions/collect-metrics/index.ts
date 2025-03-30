@@ -11,11 +11,7 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-// Environment-specific configuration
-type Environment = 'development' | 'production'
-const CURRENT_ENV: Environment = Deno.env.get('RUNTIME_ENV') as Environment || 'development'
-
-// Actual service endpoints configuration
+// Actual service endpoints configuration - PRODUCTION ENDPOINTS
 interface ServiceConfig {
   id: string;
   name: string;
@@ -24,97 +20,51 @@ interface ServiceConfig {
   timeout: number; // milliseconds
 }
 
-// Configuration by environment - using working mockup services
-const serviceConfigs: Record<Environment, ServiceConfig[]> = {
-  development: [
-    {
-      id: 'auth',
-      name: 'Auth Service',
-      baseUrl: 'https://mockapi.io/dynamo/auth',
-      healthEndpoint: '/health',
-      timeout: 5000
-    },
-    {
-      id: 'projects',
-      name: 'Projects Service',
-      baseUrl: 'https://mockapi.io/dynamo/projects',
-      healthEndpoint: '/health',
-      timeout: 5000
-    },
-    {
-      id: 'forms',
-      name: 'Forms Service',
-      baseUrl: 'https://mockapi.io/dynamo/forms',
-      healthEndpoint: '/health',
-      timeout: 5000
-    },
-    {
-      id: 'tasks',
-      name: 'Tasks Service',
-      baseUrl: 'https://mockapi.io/dynamo/tasks',
-      healthEndpoint: '/health',
-      timeout: 5000
-    },
-    {
-      id: 'notifications',
-      name: 'Notifications Service',
-      baseUrl: 'https://mockapi.io/dynamo/notifications',
-      healthEndpoint: '/health',
-      timeout: 5000
-    },
-    {
-      id: 'gateway',
-      name: 'API Gateway',
-      baseUrl: 'https://mockapi.io/dynamo/gateway',
-      healthEndpoint: '/health',
-      timeout: 5000
-    }
-  ],
-  production: [
-    {
-      id: 'auth',
-      name: 'Auth Service',
-      baseUrl: 'https://api.dynamoforms.app/auth',
-      healthEndpoint: '/health',
-      timeout: 5000
-    },
-    {
-      id: 'projects',
-      name: 'Projects Service',
-      baseUrl: 'https://api.dynamoforms.app/projects',
-      healthEndpoint: '/health',
-      timeout: 5000
-    },
-    {
-      id: 'forms',
-      name: 'Forms Service',
-      baseUrl: 'https://api.dynamoforms.app/forms',
-      healthEndpoint: '/health',
-      timeout: 5000
-    },
-    {
-      id: 'tasks',
-      name: 'Tasks Service',
-      baseUrl: 'https://api.dynamoforms.app/tasks',
-      healthEndpoint: '/health',
-      timeout: 5000
-    },
-    {
-      id: 'notifications',
-      name: 'Notifications Service',
-      baseUrl: 'https://api.dynamoforms.app/notifications',
-      healthEndpoint: '/health',
-      timeout: 5000
-    },
-    {
-      id: 'gateway',
-      name: 'API Gateway',
-      baseUrl: 'https://api.dynamoforms.app',
-      healthEndpoint: '/health',
-      timeout: 5000
-    }
-  ]
-}
+// Real production service endpoints
+const serviceConfigs: ServiceConfig[] = [
+  {
+    id: 'auth',
+    name: 'Auth Service',
+    baseUrl: 'https://api.dynamoforms.app/auth',
+    healthEndpoint: '/health',
+    timeout: 5000
+  },
+  {
+    id: 'projects',
+    name: 'Projects Service',
+    baseUrl: 'https://api.dynamoforms.app/projects',
+    healthEndpoint: '/health',
+    timeout: 5000
+  },
+  {
+    id: 'forms',
+    name: 'Forms Service',
+    baseUrl: 'https://api.dynamoforms.app/forms',
+    healthEndpoint: '/health',
+    timeout: 5000
+  },
+  {
+    id: 'tasks',
+    name: 'Tasks Service',
+    baseUrl: 'https://api.dynamoforms.app/tasks',
+    healthEndpoint: '/health',
+    timeout: 5000
+  },
+  {
+    id: 'notifications',
+    name: 'Notifications Service',
+    baseUrl: 'https://api.dynamoforms.app/notifications',
+    healthEndpoint: '/health',
+    timeout: 5000
+  },
+  {
+    id: 'gateway',
+    name: 'API Gateway',
+    baseUrl: 'https://api.dynamoforms.app',
+    healthEndpoint: '/health',
+    timeout: 5000
+  }
+];
 
 // Define a standard health response structure
 interface ServiceHealthResponse {
@@ -187,9 +137,21 @@ async function checkServiceHealth(serviceConfig: ServiceConfig): Promise<any> {
       healthData = await response.json();
     } catch (error) {
       console.error(`Failed to parse JSON from ${id} health check:`, error);
-      healthData = {
+      return {
+        service_id: id,
         status: 'degraded',
-        message: 'Invalid health check response format'
+        response_time: responseTime,
+        error_rate: 100,
+        cpu_usage: 0,
+        memory_usage: 0,
+        request_count: 0,
+        checked_at: new Date().toISOString(),
+        message: 'Invalid health check response format',
+        metrics_data: {
+          responseTime: [{ timestamp: Date.now(), value: responseTime }],
+          errorRate: [{ timestamp: Date.now(), value: 100 }],
+          requestCount: [{ timestamp: Date.now(), value: 0 }]
+        }
       };
     }
     
@@ -199,13 +161,13 @@ async function checkServiceHealth(serviceConfig: ServiceConfig): Promise<any> {
         ? healthData.status 
         : 'degraded';
     
-    // Extract metrics or set defaults
-    const cpuUsage = healthData.metrics?.cpu || Math.round(20 + Math.random() * 60);
-    const memoryUsage = healthData.metrics?.memory || Math.round(30 + Math.random() * 40);
+    // Extract metrics or use sensible defaults
+    const cpuUsage = healthData.metrics?.cpu || 0;
+    const memoryUsage = healthData.metrics?.memory || 0;
     const reportedErrorRate = healthData.metrics?.errorRate !== undefined 
       ? healthData.metrics.errorRate 
-      : (normalizedStatus === 'healthy' ? Math.random() * 1 : Math.random() * 5 + 2);
-    const requestCount = healthData.metrics?.requestCount || Math.round(100 + Math.random() * 400);
+      : 0;
+    const requestCount = healthData.metrics?.requestCount || 0;
     
     return {
       service_id: id,
@@ -237,6 +199,7 @@ async function checkServiceHealth(serviceConfig: ServiceConfig): Promise<any> {
       memory_usage: 0,
       request_count: 0,
       checked_at: new Date().toISOString(),
+      message: isTimeout ? 'Connection timeout' : `Connection error: ${error.message}`,
       metrics_data: {
         responseTime: [{ timestamp: Date.now(), value: timeout }],
         errorRate: [{ timestamp: Date.now(), value: 100 }],
@@ -253,7 +216,7 @@ async function clearMetricsData() {
     const { error } = await supabase
       .from('service_metrics')
       .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all records
+      .neq('id', '00000000-0000-0000-0000-000000000000') 
 
     if (error) {
       console.error('Error clearing metrics data:', error);
@@ -319,56 +282,6 @@ function calculateTrends(currentMetric: any, historicalMetrics: any[]) {
   };
 }
 
-// Generate fallback metrics when actual API calls fail or are mocked
-function generateFallbackMetrics() {
-  const activeServiceConfigs = serviceConfigs[CURRENT_ENV];
-  const now = new Date().toISOString();
-  
-  return activeServiceConfigs.map(service => {
-    // Randomize status with more weight to healthy
-    const statuses: Array<"healthy" | "degraded" | "down"> = ["healthy", "healthy", "healthy", "degraded", "down"];
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    
-    // Generate response time based on status
-    let responseTime = 0;
-    if (status === "healthy") {
-      responseTime = Math.floor(Math.random() * 200) + 50; // 50-250ms
-    } else if (status === "degraded") {
-      responseTime = Math.floor(Math.random() * 500) + 250; // 250-750ms
-    } else {
-      responseTime = Math.floor(Math.random() * 1000) + 1000; // 1000-2000ms
-    }
-    
-    // Generate error rate based on status
-    let errorRate = 0;
-    if (status === "healthy") {
-      errorRate = Math.random() * 0.5; // 0-0.5%
-    } else if (status === "degraded") {
-      errorRate = Math.random() * 5 + 1; // 1-6%
-    } else {
-      errorRate = Math.random() * 20 + 10; // 10-30%
-    }
-    
-    const metrics = {
-      service_id: service.id,
-      status: status,
-      response_time: responseTime,
-      error_rate: errorRate,
-      cpu_usage: Math.floor(Math.random() * 60) + 10,
-      memory_usage: Math.floor(Math.random() * 40) + 20,
-      request_count: Math.floor(Math.random() * 500) + 100,
-      checked_at: now,
-      metrics_data: {
-        responseTime: [{ timestamp: Date.now(), value: responseTime }],
-        errorRate: [{ timestamp: Date.now(), value: errorRate }],
-        requestCount: [{ timestamp: Date.now(), value: Math.floor(Math.random() * 500) + 100 }]
-      }
-    };
-    
-    return metrics;
-  });
-}
-
 // Modified function to properly store metrics without the trends column
 async function storeMetrics(metricsArray: any[]) {
   try {
@@ -407,9 +320,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Use the configuration for the current environment
-    const activeServiceConfigs = serviceConfigs[CURRENT_ENV];
-    console.log(`Using ${CURRENT_ENV} environment configuration with ${activeServiceConfigs.length} services`);
+    // Use the real production configuration
+    console.log(`Using production microservice configuration with ${serviceConfigs.length} services`);
 
     if (req.method === 'GET') {
       // Fetch the latest metrics for all services
@@ -417,57 +329,37 @@ Deno.serve(async (req) => {
         .from('service_metrics')
         .select('*')
         .order('checked_at', { ascending: false })
-        .limit(activeServiceConfigs.length * 3); // Get more for historical context
+        .limit(serviceConfigs.length * 3); // Get more for historical context
 
       if (error) {
-        console.error('Error fetching metrics:', error);
-        
-        // Fall back to generating mock data if DB query fails
-        const fallbackMetrics = generateFallbackMetrics();
-        console.log(`Generated ${fallbackMetrics.length} fallback metrics due to database error`);
-        
-        return new Response(JSON.stringify({ 
-          metrics: fallbackMetrics,
-          success: true,
-          endpoints: activeServiceConfigs.map(config => ({
-            id: config.id,
-            url: `${config.baseUrl}${config.healthEndpoint}`
-          })),
-          note: "Using fallback metrics due to database error"
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        });
+        console.error('Error fetching metrics from database:', error);
+        throw error;
       }
 
+      // If no metrics found, inform the user but don't generate fake data
       if (!latestMetrics || latestMetrics.length === 0) {
-        console.log("No metrics found in database, generating fallback data");
-        
-        // Generate fallback metrics if none exist in the database
-        const fallbackMetrics = generateFallbackMetrics();
-        console.log(`Generated ${fallbackMetrics.length} fallback metrics`);
+        console.log("No metrics found in database. User should trigger a metrics collection.");
         
         return new Response(JSON.stringify({ 
-          metrics: fallbackMetrics,
-          success: true,
-          endpoints: activeServiceConfigs.map(config => ({
+          metrics: [],
+          success: false,
+          error: "No metrics data available. Please click 'Refresh' to collect current metrics.",
+          endpoints: serviceConfigs.map(config => ({
             id: config.id,
             url: `${config.baseUrl}${config.healthEndpoint}`
-          })),
-          note: "Using generated metrics as no data found in database"
+          }))
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200,
         });
       }
 
-      // Log what we're returning to help with debugging
       console.log(`Returning ${latestMetrics?.length || 0} metrics records`);
       
       return new Response(JSON.stringify({ 
         metrics: latestMetrics || [],
         success: true,
-        endpoints: activeServiceConfigs.map(config => ({
+        endpoints: serviceConfigs.map(config => ({
           id: config.id,
           url: `${config.baseUrl}${config.healthEndpoint}`
         }))
@@ -478,12 +370,12 @@ Deno.serve(async (req) => {
     } else if (req.method === 'POST') {
       // Parse the request body
       let clearBeforeInsert = false;
-      let forceFetch = false;
+      let forceFetch = true; // Always force fetch when POST is called
       
       try {
         const body = await req.json();
         clearBeforeInsert = body?.clearBeforeInsert === true;
-        forceFetch = body?.forceFetch === true;
+        forceFetch = body?.forceFetch !== false; // Default to true
         console.log('Request body:', body);
         console.log('Clear before insert:', clearBeforeInsert);
         console.log('Force fetch:', forceFetch);
@@ -496,12 +388,12 @@ Deno.serve(async (req) => {
         await clearMetricsData();
       }
       
-      // Always fetch new metrics for POST request or use fallback
+      // Always collect fresh metrics for POST request - no fallback to fake data
       let metricsArray;
       try {
         // Collect fresh metrics from all services in parallel
-        console.log(`Collecting fresh metrics for ${activeServiceConfigs.length} services`);
-        const metricsPromises = activeServiceConfigs.map(serviceConfig => 
+        console.log(`Collecting fresh metrics for ${serviceConfigs.length} services`);
+        const metricsPromises = serviceConfigs.map(serviceConfig => 
           checkServiceHealth(serviceConfig)
             .then(async (currentMetric) => {
               // Fetch historical metrics for this service
@@ -520,16 +412,24 @@ Deno.serve(async (req) => {
         
         metricsArray = await Promise.all(metricsPromises);
       } catch (error) {
-        console.error('Error collecting metrics:', error);
-        
-        // Fall back to generating mock data if real API calls fail
-        metricsArray = generateFallbackMetrics();
-        console.log(`Generated ${metricsArray.length} fallback metrics due to API error`);
+        console.error('Critical error collecting metrics:', error);
+        return new Response(JSON.stringify({ 
+          metrics: [],
+          success: false,
+          error: `Failed to collect metrics: ${error.message}`,
+          endpoints: serviceConfigs.map(config => ({
+            id: config.id,
+            url: `${config.baseUrl}${config.healthEndpoint}`
+          }))
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        });
       }
       
-      console.log(`Generated ${metricsArray.length} metrics records`);
+      console.log(`Generated ${metricsArray.length} metrics records from real services`);
       
-      // Use the modified function to store metrics without trends column
+      // Store metrics without trends column
       try {
         const storedData = await storeMetrics(metricsArray);
         
@@ -545,7 +445,8 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ 
           metrics: responseData,
           success: true,
-          endpoints: activeServiceConfigs.map(config => ({
+          message: "Successfully collected real-time metrics from all microservices",
+          endpoints: serviceConfigs.map(config => ({
             id: config.id,
             url: `${config.baseUrl}${config.healthEndpoint}`
           }))
@@ -554,17 +455,16 @@ Deno.serve(async (req) => {
           status: 200,
         });
       } catch (storeError) {
-        // If we can't store in the database, just return the generated metrics
         console.error('Failed to store metrics in database:', storeError);
         
         return new Response(JSON.stringify({ 
           metrics: metricsArray,
           success: false,
-          error: storeError.message,
-          note: "Generated metrics could not be stored in database"
+          error: `Generated metrics could not be stored in database: ${storeError.message}`,
+          message: "Retrieved metrics but failed to store them in the database"
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
+          status: 500,
         });
       }
     } else {

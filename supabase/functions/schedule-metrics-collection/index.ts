@@ -12,8 +12,8 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 /**
- * This function is now only used for manual triggering of metrics collection.
- * It has been simplified to work reliably.
+ * This function is used only for manual triggering of metrics collection.
+ * It has no scheduling capabilities and will only run when explicitly called.
  */
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -22,10 +22,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log('Schedule-metrics-collection function triggered')
+    console.log('Manual metrics collection triggered by user action')
 
     // Call the collect-metrics function directly using fetch with auth
-    // This is more reliable than using supabase.functions.invoke
     const url = `${supabaseUrl}/functions/v1/collect-metrics`;
     console.log(`Calling collect-metrics at: ${url}`);
 
@@ -38,7 +37,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({ 
         forceFetch: true,
-        clearBeforeInsert: false // Don't clear data, just add new metrics
+        clearBeforeInsert: false // Don't clear existing data, just add new metrics
       })
     });
 
@@ -62,7 +61,7 @@ Deno.serve(async (req) => {
       status: 200,
     })
   } catch (error) {
-    console.error('Error in schedule-metrics-collection function:', error)
+    console.error('Error in manual metrics collection function:', error)
     
     return new Response(JSON.stringify({ 
       success: false, 
