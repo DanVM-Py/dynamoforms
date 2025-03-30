@@ -9,11 +9,11 @@ export interface ProjectUser {
   id: string;
   user_id: string;
   project_id: string;
-  is_admin: boolean;
+  is_admin: boolean | null;
   status: ProjectUserStatus;
   created_at: string | null;
   invited_by: string;
-  created_by: string;
+  created_by: string | null;
   activated_at: string | null;
   access_level?: string;
   full_name?: string;

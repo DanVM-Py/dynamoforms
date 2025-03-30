@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Separator } from "@/components/ui/separator";
@@ -139,19 +138,17 @@ const Projects = () => {
       if (projectData && projectData.length > 0) {
         const newProject = projectData[0];
         
-        // Create project admin in the project_users table with is_admin=true
-        const newProjectUser: Partial<ProjectUser> = {
-          project_id: newProject.id, 
-          user_id: projectAdminId,
-          is_admin: true,
-          status: 'active',
-          invited_by: user?.id || '',
-          created_by: user?.id || ''
-        };
-        
+        // Create project admin directly with the expected object structure
         const { error: adminError } = await supabase
           .from('project_users')
-          .insert(newProjectUser);
+          .insert({
+            project_id: newProject.id,
+            user_id: projectAdminId,
+            is_admin: true,
+            status: 'active',
+            invited_by: user?.id || '',
+            created_by: user?.id || null
+          });
           
         if (adminError) throw adminError;
         

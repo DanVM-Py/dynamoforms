@@ -210,36 +210,32 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
               
             if (promoteError) throw promoteError;
           } else {
-            // Create new admin
-            const newProjectUser: Partial<ProjectUser> = {
+            // Create new admin - using direct object instead of Partial<ProjectUser>
+            const { error: insertError } = await supabase
+              .from('project_users')
+              .insert({
+                project_id: project.id,
+                user_id: adminId,
+                is_admin: true,
+                status: 'active',
+                invited_by: user?.id || '',
+                created_by: user?.id || null
+              });
+              
+            if (insertError) throw insertError;
+          }
+        } else if (!existingAdmin) {
+          // No admin exists, insert a new one - using direct object instead of Partial<ProjectUser>
+          const { error: insertError } = await supabase
+            .from('project_users')
+            .insert({
               project_id: project.id,
               user_id: adminId,
               is_admin: true,
               status: 'active',
               invited_by: user?.id || '',
-              created_by: user?.id || ''
-            };
-            
-            const { error: insertError } = await supabase
-              .from('project_users')
-              .insert(newProjectUser);
-              
-            if (insertError) throw insertError;
-          }
-        } else if (!existingAdmin) {
-          // No admin exists, insert a new one
-          const newProjectUser: Partial<ProjectUser> = {
-            project_id: project.id,
-            user_id: adminId,
-            is_admin: true,
-            status: 'active',
-            invited_by: user?.id || '',
-            created_by: user?.id || ''
-          };
-          
-          const { error: insertError } = await supabase
-            .from('project_users')
-            .insert(newProjectUser);
+              created_by: user?.id || null
+            });
             
           if (insertError) throw insertError;
         }
@@ -334,14 +330,11 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
                 <SelectValue placeholder="Selecciona un administrador" />
               </SelectTrigger>
               <SelectContent>
-                {users
-                  .filter(u => u.role !== 'global_admin')
-                  .map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name} ({user.email})
-                    </SelectItem>
-                  ))
-                }
+                {users.map(user => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.name} ({user.email})
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             {errors.adminId && (
