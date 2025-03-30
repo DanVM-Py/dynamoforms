@@ -121,6 +121,7 @@ export const cleanupAuthState = () => {
   supabaseKeys.forEach(key => {
     console.log("Clearing supabase storage key:", key);
     localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
   });
 };
 
