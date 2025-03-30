@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { AlertTriangle, CheckCircle2, Clock, RefreshCw } from "lucide-react";
 import { config } from "@/config/environment";
@@ -63,7 +62,8 @@ const mapStatusToServiceStatus = (
 
 // This component shows the current microservice architecture status
 export const MicroserviceStatus = () => {
-  // Prepare services with status information
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [services, setServices] = useState<ServiceStatus[]>([
     { name: "API Gateway", status: "completed" },
     { name: "Auth Service", status: "completed" },
@@ -73,10 +73,7 @@ export const MicroserviceStatus = () => {
     { name: "Notifications Service", status: "completed" }
   ]);
   
-  const [isLoading, setIsLoading] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  
-  // Function to fetch current metrics - using functions.invoke instead of direct table query
+  // Function to fetch current metrics - using customSupabase instance for edge function invocation
   const fetchCurrentMetrics = async () => {
     try {
       setIsLoading(true);
@@ -143,7 +140,7 @@ export const MicroserviceStatus = () => {
     }
   };
   
-  // Function to trigger metrics collection via edge function
+  // Function to trigger metrics collection via edge function - using customSupabase to avoid auth issues
   const triggerMetricsCollection = async () => {
     try {
       setIsLoading(true);
