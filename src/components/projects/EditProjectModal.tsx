@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { 
   Dialog, 
@@ -23,7 +22,8 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Profile, ProjectUser } from "@/types/supabase";
+import { Profile } from "@/types/supabase";
+import { ProjectUser } from "@/types/custom";
 
 export interface EditProjectModalProps {
   open: boolean;
@@ -220,7 +220,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
                 status: 'active',
                 invited_by: user?.id,
                 created_by: user?.id
-              });
+              } as ProjectUser);
               
             if (insertError) throw insertError;
           }
@@ -235,7 +235,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
               status: 'active',
               invited_by: user?.id,
               created_by: user?.id
-            });
+            } as ProjectUser);
             
           if (insertError) throw insertError;
         }

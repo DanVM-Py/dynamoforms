@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Separator } from "@/components/ui/separator";
@@ -14,13 +13,14 @@ import { Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Project } from "@/types/supabase";
+import { Project } from "@/types/custom";
 import { EditProjectModal } from "@/components/projects/EditProjectModal";
 import ProjectCard from "@/components/projects/ProjectCard";
 
 // Define extended project type that includes adminId
 interface ExtendedProject extends Project {
   adminId?: string;
+  updated_at?: string;
 }
 
 const Projects = () => {
