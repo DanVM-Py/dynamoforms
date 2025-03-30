@@ -17,7 +17,7 @@ const Auth = () => {
   const forceSignOut = searchParams.get('signout') === 'true' || searchParams.get('signout') === 'forced';
   const [authInit, setAuthInit] = useState(true);
   const [authStage, setAuthStage] = useState("starting_auth_check");
-  const { user, isGlobalAdmin, signOut, loading: authContextLoading } = useAuth();
+  const { user, isGlobalAdmin, signOut, loading: authContextLoading, verifyAuthentication } = useAuth();
   const navigate = useNavigate();
   
   // Debug logging
@@ -29,52 +29,59 @@ const Auth = () => {
       redirect,
       forceSignOut,
       authInit,
-      authStage
+      authStage,
+      timestamp: new Date().toISOString()
     });
   }, [user, isGlobalAdmin, authContextLoading, redirect, forceSignOut, authInit, authStage]);
   
   // Handle initial authentication state and redirect logic
   useEffect(() => {
-    const storedIsGlobalAdmin = localStorage.getItem('isGlobalAdmin') === 'true';
+    const storedIsGlobalAdmin = localStorage.getItem('isGlobalAdmin') === 'true' || 
+                                sessionStorage.getItem('isGlobalAdmin') === 'true';
     
     console.log("Auth page checking user status:", { 
       user: !!user, 
       isGlobalAdmin, 
       storedIsGlobalAdmin, 
       authContextLoading, 
-      forceSignOut 
+      forceSignOut,
+      timestamp: new Date().toISOString()
     });
+    
+    // If explicitly asked to sign out, always clear storage and sign out
+    if (forceSignOut || searchParams.has('signout')) {
+      setAuthStage("explicit_signout_requested");
+      console.log("Auth page: Explicit signout requested via URL parameter");
+      
+      // Execute a more aggressive cleanup first
+      cleanupAuthState();
+      
+      // Then sign out properly
+      if (user) {
+        signOut().catch(e => {
+          console.error("Error during explicit signout:", e);
+        });
+      }
+      
+      setAuthStage("ready_for_auth");
+      setAuthInit(false);
+      return;
+    }
     
     // First check if we're dealing with a global admin who's already authenticated
     // We want to skip all storage clearing for them unless explicitly forced to sign out
     if (user && (isGlobalAdmin || storedIsGlobalAdmin) && !forceSignOut) {
       console.log("Auth page: Detected authenticated global admin, redirecting to home");
-      navigate("/", { replace: true });
+      
+      // Add a small delay to ensure auth state is fully processed
+      setTimeout(() => {
+        navigate("/", { replace: true });
+      }, 50);
       return;
     }
     
-    // Only clear storage if we're not a global admin and not performing a specific auth action
-    if (!user || !isGlobalAdmin || forceSignOut) {
-      console.log("Auth page: Clearing storage as first step");
-      cleanupAuthState();
-    }
-    
-    // If we have a forced sign-out parameter, ensure we're truly signed out
-    if (forceSignOut || searchParams.has('signout')) {
-      // Execute an explicit sign-out to ensure we're fully logged out
-      const forceExplicitSignOut = async () => {
-        try {
-          console.log("Auth page: Forced signout triggered from URL parameter");
-          await supabase.auth.signOut();
-          localStorage.removeItem('isGlobalAdmin');
-          console.log("Auth page: Explicit Supabase signOut completed");
-        } catch (e) {
-          console.error("Auth page: Error during explicit signout:", e);
-        }
-      };
-      
-      forceExplicitSignOut();
-    }
+    // Ensure that we have a valid auth state by forcing a verification
+    verifyAuthentication();
     
     const performInitialCheck = async () => {
       try {
@@ -82,29 +89,12 @@ const Auth = () => {
         console.log("Auth page params - forceSignOut:", forceSignOut, "redirect:", redirect);
         console.log("Auth page - isGlobalAdmin:", isGlobalAdmin);
         console.log("Auth page - localStorage isGlobalAdmin:", localStorage.getItem('isGlobalAdmin'));
+        console.log("Auth page - Session storage isGlobalAdmin:", sessionStorage.getItem('isGlobalAdmin'));
         
-        // If explicitly asked to sign out or coming from no-project-access
-        if (forceSignOut || searchParams.has('signout')) {
-          setAuthStage("explicit_signout_requested");
-          console.log("Auth page: Explicit signout requested via URL parameter");
-          
-          if (user) {
-            try {
-              await signOut();
-              localStorage.removeItem('isGlobalAdmin');
-              console.log("Auth page: Session cleared successfully after explicit request");
-            } catch (e) {
-              console.error("Auth page: Error during explicit signout:", e);
-            }
-          }
-          
-          setAuthStage("ready_for_auth");
-          setAuthInit(false);
-          return;
-        }
-        
-        // Check for global admin status from both context and localStorage
-        const isUserGlobalAdmin = isGlobalAdmin || localStorage.getItem('isGlobalAdmin') === 'true';
+        // Check for global admin status from both context and localStorage/sessionStorage
+        const isUserGlobalAdmin = isGlobalAdmin || 
+                                 localStorage.getItem('isGlobalAdmin') === 'true' || 
+                                 sessionStorage.getItem('isGlobalAdmin') === 'true';
         
         // If user exists and is a global admin, always navigate directly to home without checks
         if (user && isUserGlobalAdmin) {
@@ -140,18 +130,23 @@ const Auth = () => {
     if (!authContextLoading) {
       performInitialCheck();
     }
-  }, [signOut, user, navigate, searchParams, forceSignOut, redirect, authContextLoading, isGlobalAdmin]);
+  }, [signOut, user, navigate, searchParams, forceSignOut, redirect, authContextLoading, isGlobalAdmin, verifyAuthentication]);
 
   // Function to handle successful login with project access check
   const handleSuccessfulLogin = (hasNoProjectAccess: boolean) => {
     console.log("Login callback executed. No project access:", hasNoProjectAccess);
     
-    // Check if the user is a global admin from localStorage
-    const isUserGlobalAdmin = localStorage.getItem('isGlobalAdmin') === 'true';
+    // Check if the user is a global admin from localStorage/sessionStorage
+    const isUserGlobalAdmin = localStorage.getItem('isGlobalAdmin') === 'true' || 
+                           sessionStorage.getItem('isGlobalAdmin') === 'true';
     
     if (isUserGlobalAdmin) {
       console.log("Login successful and user is global admin, redirecting to home");
-      navigate('/', { replace: true });
+      
+      // Add a small delay to ensure auth state is fully processed
+      setTimeout(() => {
+        navigate('/', { replace: true });
+      }, 50);
       return;
     }
     

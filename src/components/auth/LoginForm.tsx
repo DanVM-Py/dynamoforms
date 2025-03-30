@@ -62,6 +62,7 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
       
       // Clear any previous global admin flag to prevent stale state
       localStorage.removeItem('isGlobalAdmin');
+      sessionStorage.removeItem('isGlobalAdmin');
       
       // First check if the user is a global admin - they don't need project access
       const { data: globalAdminData, error: isGlobalAdminError } = await supabase
@@ -74,23 +75,35 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
       const isGlobalAdmin = globalAdminData === true;
       console.log("Global admin check:", isGlobalAdmin);
       
-      // Store the result in localStorage to ensure it persists through redirects
+      // Store the global admin status in both localStorage and sessionStorage
       if (isGlobalAdmin) {
         localStorage.setItem('isGlobalAdmin', 'true');
-        sessionStorage.setItem('isGlobalAdmin', 'true'); 
+        sessionStorage.setItem('isGlobalAdmin', 'true');
+        
+        // Store the user's authenticated state explicitly
+        localStorage.setItem('authState', JSON.stringify({
+          isAuthenticated: true,
+          userId: data.user.id,
+          isGlobalAdmin: true,
+          timestamp: Date.now()
+        }));
       }
       
       // If user is global admin, they don't need project access validation
       if (isGlobalAdmin) {
         console.log("User is global admin, bypassing project access check");
         
-        if (onSuccessfulLogin) {
-          // Use the callback if provided, with hasNoProjectAccess=false since global admins have access
-          onSuccessfulLogin(false);
-        } else {
-          // Navigate directly to the redirectTo page
-          navigate(redirectTo, { replace: true });
-        }
+        // Add a small delay to ensure auth state is fully processed
+        setTimeout(() => {
+          if (onSuccessfulLogin) {
+            // Use the callback if provided, with hasNoProjectAccess=false since global admins have access
+            onSuccessfulLogin(false);
+          } else {
+            // Navigate directly to the redirectTo page
+            navigate(redirectTo, { replace: true });
+          }
+        }, 100);
+        
         return;
       }
       
@@ -117,20 +130,23 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
         sessionStorage.setItem('currentProjectId', projectId);
       }
       
-      if (onSuccessfulLogin) {
-        // Use the callback if provided
-        console.log("Using provided login callback with hasNoProjectAccess:", hasNoProjectAccess);
-        onSuccessfulLogin(hasNoProjectAccess);
-      } else {
-        // Navigate directly based on project access
-        if (hasNoProjectAccess) {
-          console.log("No callback provided, redirecting to no-project-access");
-          navigate('/no-project-access', { replace: true });
+      // Add a small delay to ensure auth state is fully processed
+      setTimeout(() => {
+        if (onSuccessfulLogin) {
+          // Use the callback if provided
+          console.log("Using provided login callback with hasNoProjectAccess:", hasNoProjectAccess);
+          onSuccessfulLogin(hasNoProjectAccess);
         } else {
-          console.log("No callback provided, redirecting to:", redirectTo);
-          navigate(redirectTo, { replace: true });
+          // Navigate directly based on project access
+          if (hasNoProjectAccess) {
+            console.log("No callback provided, redirecting to no-project-access");
+            navigate('/no-project-access', { replace: true });
+          } else {
+            console.log("No callback provided, redirecting to:", redirectTo);
+            navigate(redirectTo, { replace: true });
+          }
         }
-      }
+      }, 100);
       
     } catch (error: any) {
       console.error("Login error:", error.message);

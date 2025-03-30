@@ -38,10 +38,18 @@ class AuthService {
       const isAdmin = data === true;
       console.log("User global admin status:", isAdmin);
       
-      // Store the result in localStorage to ensure it persists
+      // Store the result in localStorage and sessionStorage to ensure it persists
       if (isAdmin) {
         localStorage.setItem('isGlobalAdmin', 'true');
         sessionStorage.setItem('isGlobalAdmin', 'true');
+        
+        // Also store in the enhanced auth state object
+        localStorage.setItem('authState', JSON.stringify({
+          isAuthenticated: true,
+          userId: userId,
+          isGlobalAdmin: true,
+          timestamp: Date.now()
+        }));
       }
       
       return isAdmin;
@@ -69,6 +77,14 @@ class AuthService {
       if (data && data.role === 'global_admin') {
         localStorage.setItem('isGlobalAdmin', 'true');
         sessionStorage.setItem('isGlobalAdmin', 'true');
+        
+        // Also store in the enhanced auth state object
+        localStorage.setItem('authState', JSON.stringify({
+          isAuthenticated: true,
+          userId: userId,
+          isGlobalAdmin: true,
+          timestamp: Date.now()
+        }));
       }
       
       return data;
@@ -138,6 +154,13 @@ class AuthService {
         };
       }
       
+      // Store basic auth state in localStorage for resilience 
+      localStorage.setItem('authState', JSON.stringify({
+        isAuthenticated: true,
+        userId: user.id,
+        timestamp: Date.now()
+      }));
+      
       // Get user profile and admin status in parallel
       const [profile, isGlobalAdmin] = await Promise.all([
         this.getUserProfile(user.id),
@@ -149,6 +172,16 @@ class AuthService {
         hasProfile: !!profile,
         isGlobalAdmin
       });
+      
+      // Update the auth state with admin status if needed
+      if (isGlobalAdmin) {
+        localStorage.setItem('authState', JSON.stringify({
+          isAuthenticated: true,
+          userId: user.id,
+          isGlobalAdmin: true,
+          timestamp: Date.now()
+        }));
+      }
       
       return {
         session,

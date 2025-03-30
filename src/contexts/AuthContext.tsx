@@ -1,5 +1,5 @@
 
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode, useEffect } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth as useAuthHook } from "@/hooks/useAuth";
@@ -16,6 +16,7 @@ interface AuthContextType {
   currentProjectId: string | null;
   signOut: () => Promise<boolean>;
   refreshUserProfile: () => Promise<void>;
+  verifyAuthentication: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,11 +33,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: loading,
     currentProjectId,
     signOut,
-    refreshAuthState
+    refreshAuthState,
+    verifyAuthentication
   } = useAuthHook();
 
   // Add isApprover state (defaulting to false)
   const isApprover = userProfile?.role === 'approver' || false;
+  
+  // Setup a verification heartbeat to ensure auth state stays valid
+  useEffect(() => {
+    // Verify authentication at key moments (first load, window focus)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log("Window became visible, verifying auth state");
+        verifyAuthentication();
+      }
+    };
+    
+    // Setup verification on window focus
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Do an initial verification
+    verifyAuthentication();
+    
+    // Cleanup
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [verifyAuthentication]);
 
   const refreshUserProfile = async () => {
     try {
@@ -65,7 +89,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isApprover,
     currentProjectId,
     signOut,
-    refreshUserProfile
+    refreshUserProfile,
+    verifyAuthentication
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

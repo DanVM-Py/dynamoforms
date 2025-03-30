@@ -13,6 +13,7 @@ export function useAuth() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [isProjectAdmin, setIsProjectAdmin] = useState(false);
+  const [authVerifications, setAuthVerifications] = useState(0);
   
   // Use a ref to track the subscription to avoid multiple listeners
   const authListenerRef = useRef<{ data?: { subscription?: { unsubscribe?: () => void } } }>(null);
@@ -23,6 +24,12 @@ export function useAuth() {
                                sessionStorage.getItem('isGlobalAdmin') === 'true';
     if (storedIsGlobalAdmin) {
       setIsGlobalAdmin(true);
+      
+      // If admin status is found in storage but no user is set, 
+      // trigger an immediate auth check
+      if (!user) {
+        setAuthVerifications(prev => prev + 1);
+      }
     }
     
     // Update project ID from storage if available
@@ -31,7 +38,7 @@ export function useAuth() {
     if (storedProjectId) {
       setCurrentProjectId(storedProjectId);
     }
-  }, []);
+  }, [user]);
 
   // Function to refresh auth state from the service
   const refreshAuthState = useCallback(async () => {
@@ -52,6 +59,15 @@ export function useAuth() {
       if (isAdmin) {
         localStorage.setItem('isGlobalAdmin', 'true');
         sessionStorage.setItem('isGlobalAdmin', 'true');
+        
+        // Also store enhanced auth state
+        localStorage.setItem('authState', JSON.stringify({
+          isAuthenticated: true,
+          userId: authStatus.user?.id,
+          isGlobalAdmin: true,
+          timestamp: Date.now()
+        }));
+        
         console.log("Setting global admin flag to true in storage");
       } else {
         // Only clear if we're sure user is not admin
@@ -79,6 +95,34 @@ export function useAuth() {
     }
   }, [currentProjectId]);
 
+  // Verify authentication when requested or on critical moments
+  useEffect(() => {
+    if (authVerifications > 0) {
+      console.log("Running auth verification #", authVerifications);
+      const verifyAuth = async () => {
+        try {
+          // Check session directly
+          const { data } = await supabase.auth.getSession();
+          
+          if (data?.session?.user) {
+            console.log("Auth verification found valid session");
+            setSession(data.session);
+            setUser(data.session.user);
+            
+            // If we have a session but no profile, get it
+            if (!userProfile) {
+              refreshAuthState();
+            }
+          }
+        } catch (error) {
+          console.error("Auth verification error:", error);
+        }
+      };
+      
+      verifyAuth();
+    }
+  }, [authVerifications, refreshAuthState, userProfile]);
+
   // Set up auth listener and get initial state
   useEffect(() => {
     if (isInitialized) return;
@@ -105,6 +149,26 @@ export function useAuth() {
         setIsGlobalAdmin(false);
         localStorage.removeItem('isGlobalAdmin');
         sessionStorage.removeItem('isGlobalAdmin');
+        localStorage.removeItem('authState');
+      }
+      
+      // For sign-in events, store basic auth state immediately
+      if (event === 'SIGNED_IN' && newSession?.user) {
+        localStorage.setItem('authState', JSON.stringify({
+          isAuthenticated: true,
+          userId: newSession.user.id,
+          timestamp: Date.now()
+        }));
+        
+        // If the user already has global admin flag in storage, preserve it
+        if (localStorage.getItem('isGlobalAdmin') === 'true') {
+          localStorage.setItem('authState', JSON.stringify({
+            isAuthenticated: true,
+            userId: newSession.user.id,
+            isGlobalAdmin: true,
+            timestamp: Date.now()
+          }));
+        }
       }
       
       // Then refresh full auth state for other events
@@ -136,6 +200,7 @@ export function useAuth() {
       setIsGlobalAdmin(false);
       localStorage.removeItem('isGlobalAdmin');
       sessionStorage.removeItem('isGlobalAdmin');
+      localStorage.removeItem('authState');
       
       const { success, error } = await authService.signOut();
       if (!success && error) {
@@ -164,6 +229,11 @@ export function useAuth() {
     setCurrentProjectId(projectId);
   }, []);
 
+  // Function to trigger a manual auth verification
+  const verifyAuthentication = useCallback(() => {
+    setAuthVerifications(prev => prev + 1);
+  }, []);
+
   return {
     session,
     user,
@@ -175,6 +245,7 @@ export function useAuth() {
     currentProjectId,
     signOut,
     refreshAuthState,
-    updateCurrentProject
+    updateCurrentProject,
+    verifyAuthentication
   };
 }
