@@ -4,8 +4,6 @@ import { AlertTriangle, CheckCircle2, Clock, RefreshCw, Loader2, Server } from "
 import { customSupabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ServiceMetric {
@@ -77,7 +75,6 @@ export const MicroserviceStatus = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [useMockData, setUseMockData] = useState(false);
   const [services, setServices] = useState<ServiceStatus[]>([
     { name: "API Gateway", status: "unknown" },
     { name: "Auth Service", status: "unknown" },
@@ -192,13 +189,11 @@ export const MicroserviceStatus = () => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log("Triggering metrics collection with mock data:", useMockData);
+      console.log("Triggering metrics collection");
       
       toast({
-        title: useMockData ? "Generating mock metrics" : "Refreshing metrics",
-        description: useMockData 
-          ? "Generating simulated data for development..." 
-          : "Collecting real-time data from microservices...",
+        title: "Refreshing metrics",
+        description: "Collecting real-time data from microservices...",
       });
       
       const { data, error } = await customSupabase.functions.invoke('collect-metrics', {
@@ -206,7 +201,7 @@ export const MicroserviceStatus = () => {
         body: { 
           forceFetch: true,
           clearBeforeInsert: false,
-          useMockData: useMockData
+          useMockData: false
         }
       });
       
@@ -278,10 +273,8 @@ export const MicroserviceStatus = () => {
         
         const healthyCount = metricsArray.filter((m: any) => m.status === 'healthy').length;
         toast({
-          title: useMockData ? "Mock metrics generated" : "Metrics updated",
-          description: useMockData 
-            ? `Successfully generated mock data for ${metricsArray.length} services.`
-            : `Successfully collected metrics from ${healthyCount} healthy services.`,
+          title: "Metrics updated",
+          description: `Successfully collected metrics from ${healthyCount} healthy services.`,
         });
       } else {
         // Fall back to fetching stored metrics if collection doesn't return data
@@ -375,15 +368,6 @@ export const MicroserviceStatus = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center space-x-2">
-              <Switch 
-                id="mock-mode" 
-                checked={useMockData}
-                onCheckedChange={setUseMockData}
-              />
-              <Label htmlFor="mock-mode" className="text-xs">Modo Simulación</Label>
-            </div>
-          
             <Button 
               variant="outline" 
               size="sm" 
@@ -412,8 +396,7 @@ export const MicroserviceStatus = () => {
         {developmentMode && (
           <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-md p-3 mb-3 text-xs">
             <p className="font-medium">Modo de Desarrollo Activo</p>
-            <p>Los datos mostrados pueden ser simulados para propósitos de desarrollo. 
-            Active "Modo Simulación" si los microservicios reales no están desplegados o accesibles.</p>
+            <p>Los datos mostrados son del entorno de desarrollo.</p>
           </div>
         )}
         
