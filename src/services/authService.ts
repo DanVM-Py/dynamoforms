@@ -166,13 +166,6 @@ class AuthService {
       };
     }
   }
-  
-  // Subscribe to auth state changes
-  onAuthStateChange(callback: (session: Session | null) => void) {
-    return supabase.auth.onAuthStateChange((_, session) => {
-      callback(session);
-    });
-  }
 }
 
 // Export a singleton instance
