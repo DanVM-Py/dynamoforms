@@ -11,58 +11,115 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-// Actual service endpoints configuration - PRODUCTION ENDPOINTS
+// Environment modes
+const ENV_MODE = Deno.env.get('MONITORING_ENV') || 'development';
+const USE_MOCK_DATA = (ENV_MODE === 'development');
+
+// Actual service endpoints configuration
 interface ServiceConfig {
   id: string;
   name: string;
   baseUrl: string;
   healthEndpoint: string;
   timeout: number; // milliseconds
+  testEndpoint?: string; // Optional endpoint for testing connectivity
 }
 
-// Real production service endpoints
+// Production service endpoints with improved configuration
 const serviceConfigs: ServiceConfig[] = [
   {
     id: 'auth',
     name: 'Auth Service',
     baseUrl: 'https://api.dynamoforms.lovable.app/auth',
     healthEndpoint: '/health',
-    timeout: 5000
+    timeout: 5000,
+    testEndpoint: '/ping'
   },
   {
     id: 'projects',
     name: 'Projects Service',
     baseUrl: 'https://api.dynamoforms.lovable.app/projects',
     healthEndpoint: '/health',
-    timeout: 5000
+    timeout: 5000,
+    testEndpoint: '/ping'
   },
   {
     id: 'forms',
     name: 'Forms Service',
     baseUrl: 'https://api.dynamoforms.lovable.app/forms',
     healthEndpoint: '/health',
-    timeout: 5000
+    timeout: 5000,
+    testEndpoint: '/ping'
   },
   {
     id: 'tasks',
     name: 'Tasks Service',
     baseUrl: 'https://api.dynamoforms.lovable.app/tasks',
     healthEndpoint: '/health',
-    timeout: 5000
+    timeout: 5000,
+    testEndpoint: '/ping'
   },
   {
     id: 'notifications',
     name: 'Notifications Service',
     baseUrl: 'https://api.dynamoforms.lovable.app/notifications',
     healthEndpoint: '/health',
-    timeout: 5000
+    timeout: 5000,
+    testEndpoint: '/ping'
   },
   {
     id: 'gateway',
     name: 'API Gateway',
     baseUrl: 'https://api.dynamoforms.lovable.app',
     healthEndpoint: '/health',
-    timeout: 5000
+    timeout: 5000,
+    testEndpoint: '/ping'
+  }
+];
+
+// Local development service endpoints (optional fallback for testing)
+const localServiceConfigs: ServiceConfig[] = [
+  {
+    id: 'auth',
+    name: 'Auth Service (Local)',
+    baseUrl: 'http://localhost:3001/auth',
+    healthEndpoint: '/health',
+    timeout: 2000
+  },
+  {
+    id: 'projects',
+    name: 'Projects Service (Local)',
+    baseUrl: 'http://localhost:3002/projects',
+    healthEndpoint: '/health',
+    timeout: 2000
+  },
+  {
+    id: 'forms',
+    name: 'Forms Service (Local)',
+    baseUrl: 'http://localhost:3003/forms',
+    healthEndpoint: '/health',
+    timeout: 2000
+  },
+  {
+    id: 'tasks',
+    name: 'Tasks Service (Local)',
+    baseUrl: 'http://localhost:3004/tasks',
+    healthEndpoint: '/health',
+    timeout: 2000
+  },
+  {
+    id: 'notifications',
+    name: 'Notifications Service (Local)',
+    baseUrl: 'http://localhost:3005/notifications',
+    healthEndpoint: '/health',
+    timeout: 2000
+  },
+  {
+    id: 'gateway',
+    name: 'API Gateway (Local)',
+    baseUrl: 'http://localhost:3000',
+    healthEndpoint: '/health',
+    timeout: 2000
   }
 ];
 
@@ -103,15 +160,129 @@ function createServiceDownMetric(serviceId: string, errorMessage: string): any {
   };
 }
 
-// Function to check health of a microservice with real HTTP request
-async function checkServiceHealth(serviceConfig: ServiceConfig): Promise<any> {
+// Function to check network connectivity to a service without validating health data
+async function checkServiceConnectivity(serviceConfig: ServiceConfig): Promise<boolean> {
+  try {
+    // Use either the test endpoint or the health endpoint
+    const endpoint = serviceConfig.testEndpoint || serviceConfig.healthEndpoint;
+    const testUrl = `${serviceConfig.baseUrl}${endpoint}`;
+    
+    console.log(`Checking basic connectivity to ${serviceConfig.id} at ${testUrl}`);
+    
+    // Create a controller with a short timeout just to check connectivity
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // Short timeout for basic connectivity check
+    
+    // Simple HEAD request to check if endpoint is reachable
+    const response = await fetch(testUrl, {
+      method: 'HEAD',
+      headers: {
+        'Accept': 'application/json',
+        'X-Monitor-Source': 'dynamo-monitoring-system'
+      },
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    return true; // If we get here, there's basic connectivity
+  } catch (error) {
+    console.warn(`Basic connectivity check failed for ${serviceConfig.id}:`, error.message);
+    return false;
+  }
+}
+
+// Function to generate realistic mock data for a service
+function generateMockHealthData(serviceId: string): any {
+  const now = Date.now();
+  const isHealthy = Math.random() > 0.2; // 80% chance of being healthy
+  const isDegraded = !isHealthy && Math.random() > 0.5; // If not healthy, 50% chance of being degraded vs down
+  
+  const status = isHealthy ? 'healthy' : (isDegraded ? 'degraded' : 'down');
+  
+  // Generate realistic looking metrics
+  const responseTime = isHealthy ? 
+    Math.floor(Math.random() * 200) + 50 : // 50-250ms when healthy
+    Math.floor(Math.random() * 500) + 250; // 250-750ms when degraded
+  
+  const errorRate = isHealthy ? 
+    Math.random() * 2 : // 0-2% when healthy
+    (isDegraded ? Math.random() * 15 + 5 : 100); // 5-20% when degraded, 100% when down
+  
+  const cpuUsage = isHealthy ? 
+    Math.random() * 30 + 10 : // 10-40% when healthy
+    Math.random() * 40 + 40; // 40-80% when degraded/down
+  
+  const memoryUsage = isHealthy ? 
+    Math.random() * 40 + 20 : // 20-60% when healthy
+    Math.random() * 30 + 60; // 60-90% when degraded/down
+  
+  const requestCount = isHealthy ? 
+    Math.floor(Math.random() * 100) + 50 : // 50-150 when healthy
+    Math.floor(Math.random() * 50) + 10; // 10-60 when degraded/down
+  
+  let message = "";
+  if (status === 'healthy') {
+    message = "Servicio operando correctamente";
+  } else if (status === 'degraded') {
+    const reasons = [
+      "Alta latencia detectada",
+      "Tasa de errores elevada",
+      "Uso de CPU por encima del umbral",
+      "Memoria en niveles críticos",
+      "Problemas de conectividad intermitentes"
+    ];
+    message = reasons[Math.floor(Math.random() * reasons.length)];
+  } else {
+    const reasons = [
+      "Servicio no responde",
+      "Error de conexión a base de datos",
+      "Error de autenticación",
+      "Timeout excedido",
+      "Error interno del servidor"
+    ];
+    message = reasons[Math.floor(Math.random() * reasons.length)];
+  }
+  
+  return {
+    service_id: serviceId,
+    status: status,
+    response_time: status === 'down' ? 0 : responseTime,
+    error_rate: errorRate,
+    cpu_usage: cpuUsage,
+    memory_usage: memoryUsage,
+    request_count: requestCount,
+    checked_at: new Date().toISOString(),
+    message: message,
+    metrics_data: {
+      responseTime: [{ timestamp: now, value: responseTime }],
+      errorRate: [{ timestamp: now, value: errorRate }],
+      requestCount: [{ timestamp: now, value: requestCount }]
+    }
+  };
+}
+
+// Enhanced function to check health of a microservice with better error handling
+async function checkServiceHealth(serviceConfig: ServiceConfig, useMockData: boolean = false): Promise<any> {
   const { id, baseUrl, healthEndpoint, timeout } = serviceConfig;
+  
+  // If in development mode and mock data is enabled, generate mock health data
+  if (useMockData) {
+    console.log(`Generating mock health data for ${id} in development mode`);
+    return generateMockHealthData(id);
+  }
   
   const healthUrl = `${baseUrl}${healthEndpoint}`;
   const startTime = Date.now();
   
   try {
     console.log(`Checking health of ${id} at ${healthUrl}`);
+    
+    // Check basic connectivity first
+    const hasConnectivity = await checkServiceConnectivity(serviceConfig);
+    if (!hasConnectivity) {
+      console.warn(`No connectivity to ${id}. The service might be unreachable.`);
+      return createServiceDownMetric(id, `No se pudo establecer conexión con ${id}. El servicio podría no estar desplegado o no ser accesible desde este entorno.`);
+    }
     
     // Create an AbortController for timeout
     const controller = new AbortController();
@@ -144,7 +315,7 @@ async function checkServiceHealth(serviceConfig: ServiceConfig): Promise<any> {
         memory_usage: 0,
         request_count: 0,
         checked_at: new Date().toISOString(),
-        message: `HTTP status: ${response.status}`,
+        message: `HTTP status: ${response.status} - El servicio respondió con un código de error`,
         metrics_data: {
           responseTime: [{ timestamp: Date.now(), value: responseTime }],
           errorRate: [{ timestamp: Date.now(), value: 100 }],
@@ -168,7 +339,7 @@ async function checkServiceHealth(serviceConfig: ServiceConfig): Promise<any> {
         memory_usage: 0,
         request_count: 0,
         checked_at: new Date().toISOString(),
-        message: 'Invalid health check response format',
+        message: 'Formato de respuesta inválido, el punto de salud no devolvió JSON válido',
         metrics_data: {
           responseTime: [{ timestamp: Date.now(), value: responseTime }],
           errorRate: [{ timestamp: Date.now(), value: 100 }],
@@ -200,7 +371,7 @@ async function checkServiceHealth(serviceConfig: ServiceConfig): Promise<any> {
       memory_usage: memoryUsage,
       request_count: requestCount,
       checked_at: new Date().toISOString(),
-      message: healthData.message || `Service is ${normalizedStatus}`,
+      message: healthData.message || `Servicio está ${normalizedStatus === 'healthy' ? 'operativo' : normalizedStatus === 'degraded' ? 'degradado' : 'caído'}`,
       metrics_data: {
         responseTime: [{ timestamp: Date.now(), value: responseTime }],
         errorRate: [{ timestamp: Date.now(), value: reportedErrorRate }],
@@ -212,9 +383,18 @@ async function checkServiceHealth(serviceConfig: ServiceConfig): Promise<any> {
     
     // Handle timeout or other network errors
     const isTimeout = error instanceof DOMException && error.name === 'AbortError';
-    const errorMessage = isTimeout 
-      ? 'Tiempo de conexión agotado' 
+    let errorMessage = isTimeout 
+      ? `Tiempo de conexión agotado (${timeout}ms)` 
       : `Error de conexión: ${error.message}`;
+      
+    // Enhanced error messages for common issues
+    if (error.message?.includes('ssl')) {
+      errorMessage += ' - Posible problema con certificados SSL/TLS';
+    } else if (error.message?.includes('ENOTFOUND') || error.message?.includes('DNS')) {
+      errorMessage += ' - No se pudo resolver el nombre de dominio, verifique DNS';
+    } else if (error.message?.includes('ECONNREFUSED')) {
+      errorMessage += ' - Conexión rechazada, el servicio podría no estar en ejecución';
+    }
     
     return createServiceDownMetric(id, errorMessage);
   }
@@ -324,7 +504,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log(`Using microservice configuration with ${serviceConfigs.length} services`);
+    console.log(`Using microservice configuration with ${serviceConfigs.length} services (Mode: ${ENV_MODE})`);
 
     if (req.method === 'GET') {
       // Fetch the latest metrics for all services
@@ -342,9 +522,35 @@ Deno.serve(async (req) => {
       // Return the metrics from database
       console.log(`Returning ${latestMetrics?.length || 0} metrics records`);
       
+      // Check if we have any metrics or if they're too old
+      const needsFreshData = !latestMetrics || latestMetrics.length === 0 || 
+                            (latestMetrics.length > 0 && 
+                            Date.now() - new Date(latestMetrics[0].checked_at).getTime() > 15 * 60 * 1000); // older than 15 minutes
+      
+      if (needsFreshData) {
+        console.log('Metrics are missing or too old, collecting fresh data automatically');
+        // No metrics found or they're too old, collect fresh ones
+        const freshMetrics = await collectFreshMetrics(USE_MOCK_DATA);
+        
+        return new Response(JSON.stringify({ 
+          metrics: freshMetrics,
+          success: true,
+          message: "Se generaron métricas frescas automáticamente - servicios podrían no estar disponibles aún",
+          developmentMode: USE_MOCK_DATA,
+          endpoints: serviceConfigs.map(config => ({
+            id: config.id,
+            url: `${config.baseUrl}${config.healthEndpoint}`
+          }))
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        });
+      }
+      
       return new Response(JSON.stringify({ 
         metrics: latestMetrics || [],
         success: true,
+        developmentMode: USE_MOCK_DATA,
         endpoints: serviceConfigs.map(config => ({
           id: config.id,
           url: `${config.baseUrl}${config.healthEndpoint}`
@@ -357,14 +563,20 @@ Deno.serve(async (req) => {
       // Parse the request body
       let clearBeforeInsert = false;
       let forceFetch = true; // Always force fetch when POST is called
+      let useMockData = USE_MOCK_DATA;
       
       try {
         const body = await req.json();
         clearBeforeInsert = body?.clearBeforeInsert === true;
         forceFetch = body?.forceFetch !== false; // Default to true
+        // Allow overriding the mock setting from request
+        if (body?.useMockData !== undefined) {
+          useMockData = !!body.useMockData;
+        }
         console.log('Request body:', body);
         console.log('Clear before insert:', clearBeforeInsert);
         console.log('Force fetch:', forceFetch);
+        console.log('Use mock data:', useMockData);
       } catch (e) {
         console.log('No request body or invalid JSON', e);
       }
@@ -374,26 +586,8 @@ Deno.serve(async (req) => {
         await clearMetricsData();
       }
       
-      // Collect fresh metrics from all services in parallel
-      console.log(`Collecting fresh metrics for ${serviceConfigs.length} services`);
-      const servicePromises = serviceConfigs.map(async (serviceConfig) => {
-        try {
-          const metric = await checkServiceHealth(serviceConfig);
-          // Fetch historical metrics for this service
-          const historicalMetrics = await fetchHistoricalMetrics(serviceConfig.id);
-          // Calculate trends based on historical data
-          const trends = calculateTrends(metric, historicalMetrics);
-          // Return metric with trends
-          return { ...metric, trends };
-        } catch (serviceError) {
-          console.error(`Error processing ${serviceConfig.id}:`, serviceError);
-          // Return a down service metric when the service check fails
-          return createServiceDownMetric(serviceConfig.id, `Error: ${serviceError.message}`);
-        }
-      });
-      
-      const metricsArray = await Promise.all(servicePromises);
-      console.log(`Generated ${metricsArray.length} metrics records from real services`);
+      // Collect fresh metrics
+      const metricsArray = await collectFreshMetrics(useMockData);
       
       // Store metrics
       try {
@@ -402,7 +596,10 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ 
           metrics: storedData,
           success: true,
-          message: "Successfully collected metrics from all services",
+          message: useMockData 
+            ? "Se generaron métricas simuladas para desarrollo/pruebas" 
+            : "Se recolectaron métricas de todos los servicios",
+          developmentMode: useMockData,
           endpoints: serviceConfigs.map(config => ({
             id: config.id,
             url: `${config.baseUrl}${config.healthEndpoint}`
@@ -418,7 +615,8 @@ Deno.serve(async (req) => {
           metrics: metricsArray,
           success: false,
           error: `Generated metrics could not be stored in database: ${storeError.message}`,
-          message: "Retrieved metrics but failed to store them in the database"
+          message: "Se recuperaron métricas pero no se pudieron almacenar en la base de datos",
+          developmentMode: useMockData
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 500,
@@ -441,3 +639,33 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+// Helper function to collect fresh metrics
+async function collectFreshMetrics(useMockData: boolean = false) {
+  console.log(`Collecting fresh metrics for ${serviceConfigs.length} services (Mock: ${useMockData})`);
+  
+  // Collect fresh metrics from all services in parallel
+  const servicePromises = serviceConfigs.map(async (serviceConfig) => {
+    try {
+      const metric = await checkServiceHealth(serviceConfig, useMockData);
+      // Fetch historical metrics for this service
+      const historicalMetrics = await fetchHistoricalMetrics(serviceConfig.id);
+      // Calculate trends based on historical data
+      const trends = calculateTrends(metric, historicalMetrics);
+      // Return metric with trends
+      return { ...metric, trends };
+    } catch (serviceError) {
+      console.error(`Error processing ${serviceConfig.id}:`, serviceError);
+      // Return a down service metric when the service check fails
+      return createServiceDownMetric(
+        serviceConfig.id, 
+        useMockData ? "Error simulado para desarrollo" : `Error: ${serviceError.message}`
+      );
+    }
+  });
+  
+  const metricsArray = await Promise.all(servicePromises);
+  console.log(`Generated ${metricsArray.length} metrics records from ${useMockData ? 'mock' : 'real'} services`);
+  
+  return metricsArray;
+}

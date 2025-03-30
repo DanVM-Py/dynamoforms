@@ -1,9 +1,12 @@
 
 import React, { useState, useEffect } from "react";
-import { AlertTriangle, CheckCircle2, Clock, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, RefreshCw, Loader2, Server } from "lucide-react";
 import { customSupabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ServiceMetric {
   service_id: string;
@@ -47,12 +50,12 @@ const SERVICE_NAMES = {
 };
 
 const SERVICE_URLS = {
-  'gateway': 'https://api.dynamoforms.app/health',
-  'auth': 'https://api.dynamoforms.app/auth/health',
-  'projects': 'https://api.dynamoforms.app/projects/health',
-  'forms': 'https://api.dynamoforms.app/forms/health',
-  'tasks': 'https://api.dynamoforms.app/tasks/health',
-  'notifications': 'https://api.dynamoforms.app/notifications/health'
+  'gateway': 'https://api.dynamoforms.lovable.app/health',
+  'auth': 'https://api.dynamoforms.lovable.app/auth/health',
+  'projects': 'https://api.dynamoforms.lovable.app/projects/health',
+  'forms': 'https://api.dynamoforms.lovable.app/forms/health',
+  'tasks': 'https://api.dynamoforms.lovable.app/tasks/health',
+  'notifications': 'https://api.dynamoforms.lovable.app/notifications/health'
 };
 
 const mapStatusToServiceStatus = (
@@ -74,6 +77,7 @@ export const MicroserviceStatus = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [useMockData, setUseMockData] = useState(false);
   const [services, setServices] = useState<ServiceStatus[]>([
     { name: "API Gateway", status: "unknown" },
     { name: "Auth Service", status: "unknown" },
@@ -83,6 +87,7 @@ export const MicroserviceStatus = () => {
     { name: "Notifications Service", status: "unknown" }
   ]);
   const [error, setError] = useState<string | null>(null);
+  const [developmentMode, setDevelopmentMode] = useState(false);
   
   const fetchCurrentMetrics = async () => {
     try {
@@ -130,6 +135,11 @@ export const MicroserviceStatus = () => {
         });
         setIsLoading(false);
         return;
+      }
+      
+      // Check if in development mode
+      if (data.developmentMode !== undefined) {
+        setDevelopmentMode(data.developmentMode);
       }
       
       const metricsArray = data.metrics;
@@ -182,18 +192,21 @@ export const MicroserviceStatus = () => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log("Triggering metrics collection...");
+      console.log("Triggering metrics collection with mock data:", useMockData);
       
       toast({
-        title: "Refreshing metrics",
-        description: "Collecting real-time data from microservices...",
+        title: useMockData ? "Generating mock metrics" : "Refreshing metrics",
+        description: useMockData 
+          ? "Generating simulated data for development..." 
+          : "Collecting real-time data from microservices...",
       });
       
       const { data, error } = await customSupabase.functions.invoke('collect-metrics', {
         method: 'POST',
         body: { 
           forceFetch: true,
-          clearBeforeInsert: false
+          clearBeforeInsert: false,
+          useMockData: useMockData
         }
       });
       
@@ -222,6 +235,10 @@ export const MicroserviceStatus = () => {
       }
       
       console.log("Metrics collection triggered successfully:", data);
+      
+      if (data?.developmentMode !== undefined) {
+        setDevelopmentMode(data.developmentMode);
+      }
       
       if (data && data.metrics && data.metrics.length > 0) {
         const metricsArray = data.metrics;
@@ -261,8 +278,10 @@ export const MicroserviceStatus = () => {
         
         const healthyCount = metricsArray.filter((m: any) => m.status === 'healthy').length;
         toast({
-          title: "Metrics updated",
-          description: `Successfully collected metrics from ${healthyCount} healthy services.`,
+          title: useMockData ? "Mock metrics generated" : "Metrics updated",
+          description: useMockData 
+            ? `Successfully generated mock data for ${metricsArray.length} services.`
+            : `Successfully collected metrics from ${healthyCount} healthy services.`,
         });
       } else {
         // Fall back to fetching stored metrics if collection doesn't return data
@@ -345,97 +364,131 @@ export const MicroserviceStatus = () => {
   const overallHealthPercentage = Math.round((healthyCount / Math.max(1, totalServices)) * 100);
 
   return (
-    <div className="bg-background border rounded-md p-4 mt-4">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h3 className="text-sm font-medium">Estado de Microservicios</h3>
-          <p className="text-xs text-muted-foreground">
-            Última actualización: {lastUpdated ? lastUpdated.toLocaleString() : 'Nunca'}
-          </p>
-        </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={triggerMetricsCollection}
-          disabled={isLoading}
-          className="flex items-center gap-1"
-        >
-          {isLoading ? (
-            <RefreshCw className="h-3 w-3 animate-spin" />
-          ) : (
-            <RefreshCw className="h-3 w-3" />
-          )}
-          Actualizar Datos
-        </Button>
-      </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-3 mb-3 text-xs">
-          {error}
-        </div>
-      )}
-      
-      <div className="mb-4">
-        <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-          <span>Saludables: {healthyCount}</span>
-          <span>Degradados: {degradedCount}</span>
-          <span>Caídos: {outageCount}</span>
-        </div>
-        <div className="h-2 w-full rounded-full overflow-hidden bg-gray-200 flex">
-          {healthyPercentage > 0 && (
-            <div 
-              className="bg-green-500 h-full" 
-              style={{ width: `${healthyPercentage}%` }}
-              title={`${healthyCount} servicios operativos`}
-            />
-          )}
-          {degradedPercentage > 0 && (
-            <div 
-              className="bg-amber-500 h-full" 
-              style={{ width: `${degradedPercentage}%` }}
-              title={`${degradedCount} servicios degradados`}
-            />
-          )}
-          {outagePercentage > 0 && (
-            <div 
-              className="bg-red-500 h-full" 
-              style={{ width: `${outagePercentage}%` }}
-              title={`${outageCount} servicios caídos`}
-            />
-          )}
-        </div>
-        <p className="text-xs mt-1 text-muted-foreground">{overallHealthPercentage}% del sistema operativo</p>
-      </div>
-      
-      <div className="space-y-2">
-        {services.map((service) => (
-          <div key={service.name} className="flex items-center justify-between text-xs">
-            <div>
-              <span className="font-medium">{service.name}</span>
-              {service.message && (
-                <p className="text-xs text-muted-foreground">{service.message}</p>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              {getStatusIcon(service.status)}
-              <span title={getStatusDescription(service.status)}>{getStatusText(service.status)}</span>
-              {service.latency !== undefined && <span className="text-muted-foreground ml-1">({service.latency}ms)</span>}
-            </div>
+    <Card className="mt-4">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-sm">Estado de Microservicios</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Última actualización: {lastUpdated ? lastUpdated.toLocaleString() : 'Nunca'}
+              {developmentMode && " (Modo Desarrollo)"}
+            </p>
           </div>
-        ))}
-      </div>
-      
-      <div className="mt-3 text-xs text-muted-foreground">
-        <p>Monitoreo conectado a servicios en producción.</p>
-        <p className="font-medium">URLs de monitoreo:</p>
-        <ul className="mt-1 space-y-1">
-          {Object.entries(SERVICE_URLS).map(([serviceId, url]) => (
-            <li key={serviceId}>
-              <span className="font-medium">{SERVICE_NAMES[serviceId as keyof typeof SERVICE_NAMES]}:</span> {url}
-            </li>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center space-x-2">
+              <Switch 
+                id="mock-mode" 
+                checked={useMockData}
+                onCheckedChange={setUseMockData}
+              />
+              <Label htmlFor="mock-mode" className="text-xs">Modo Simulación</Label>
+            </div>
+          
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={triggerMetricsCollection}
+              disabled={isLoading}
+              className="flex items-center gap-1"
+            >
+              {isLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+              Actualizar
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent>
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-3 mb-3 text-xs">
+            {error}
+          </div>
+        )}
+        
+        {developmentMode && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-md p-3 mb-3 text-xs">
+            <p className="font-medium">Modo de Desarrollo Activo</p>
+            <p>Los datos mostrados pueden ser simulados para propósitos de desarrollo. 
+            Active "Modo Simulación" si los microservicios reales no están desplegados o accesibles.</p>
+          </div>
+        )}
+        
+        <div className="mb-4">
+          <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+            <span>Saludables: {healthyCount}</span>
+            <span>Degradados: {degradedCount}</span>
+            <span>Caídos: {outageCount}</span>
+          </div>
+          <div className="h-2 w-full rounded-full overflow-hidden bg-gray-200 flex">
+            {healthyPercentage > 0 && (
+              <div 
+                className="bg-green-500 h-full" 
+                style={{ width: `${healthyPercentage}%` }}
+                title={`${healthyCount} servicios operativos`}
+              />
+            )}
+            {degradedPercentage > 0 && (
+              <div 
+                className="bg-amber-500 h-full" 
+                style={{ width: `${degradedPercentage}%` }}
+                title={`${degradedCount} servicios degradados`}
+              />
+            )}
+            {outagePercentage > 0 && (
+              <div 
+                className="bg-red-500 h-full" 
+                style={{ width: `${outagePercentage}%` }}
+                title={`${outageCount} servicios caídos`}
+              />
+            )}
+          </div>
+          <p className="text-xs mt-1 text-muted-foreground">{overallHealthPercentage}% del sistema operativo</p>
+        </div>
+        
+        <div className="space-y-2">
+          {services.map((service) => (
+            <div key={service.name} className="flex items-center justify-between text-xs p-2 bg-muted/10 rounded-md">
+              <div>
+                <div className="font-medium flex items-center">
+                  <Server className="h-3 w-3 mr-1" />
+                  {service.name}
+                </div>
+                {service.message && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{service.message}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                {getStatusIcon(service.status)}
+                <span title={getStatusDescription(service.status)}>{getStatusText(service.status)}</span>
+                {service.latency !== undefined && (
+                  <span className={`text-muted-foreground ml-1 ${
+                    service.status === "operational" ? "text-green-600" : 
+                    service.status === "degraded" ? "text-amber-600" : ""
+                  }`}>
+                    ({service.latency}ms)
+                  </span>
+                )}
+              </div>
+            </div>
           ))}
-        </ul>
-      </div>
-    </div>
+        </div>
+        
+        <div className="mt-4 text-xs text-muted-foreground">
+          <p className="font-medium mb-1">URLs de monitoreo:</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+            {Object.entries(SERVICE_URLS).map(([serviceId, url]) => (
+              <div key={serviceId} className="truncate">
+                <span className="font-medium">{SERVICE_NAMES[serviceId as keyof typeof SERVICE_NAMES]}:</span>
+                <span className="ml-1 text-xs">{url}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
