@@ -13,10 +13,14 @@ export enum SERVICES {
   NOTIFICATIONS = 'notifications_service'
 }
 
+// Storage keys for consistent auth state
+const AUTH_STORAGE_KEY = 'dynamo-auth-token';
+const PUBLIC_STORAGE_KEY = 'dynamo-public-token';
+
 // Define standard client options
-const getClientOptions = (customHeaders = {}): SupabaseClientOptions<"public"> => ({
+const getClientOptions = (customHeaders = {}, storageKey = AUTH_STORAGE_KEY): SupabaseClientOptions<"public"> => ({
   auth: {
-    storageKey: config.storage.authTokenKey,
+    storageKey: storageKey,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
@@ -59,7 +63,7 @@ export const customSupabase = createClient<Database>(
   config.supabaseAnonKey,
   getClientOptions({
     'X-Client-Info': 'dynamo-system'
-  })
+  }, PUBLIC_STORAGE_KEY)
 );
 
 // Export the Supabase URL for reference in other modules
@@ -98,7 +102,15 @@ export const cleanupAuthState = () => {
   sessionStorage.removeItem('currentProjectId');
   localStorage.removeItem('isGlobalAdmin');
   
-  // Clear Supabase-specific tokens
+  // Clear main Supabase auth token
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+  sessionStorage.removeItem(AUTH_STORAGE_KEY);
+  
+  // Clear public Supabase auth token if exists
+  localStorage.removeItem(PUBLIC_STORAGE_KEY);
+  sessionStorage.removeItem(PUBLIC_STORAGE_KEY);
+  
+  // Legacy cleanup for Supabase-specific tokens
   const supabaseKey = 'sb-' + new URL(supabaseApiUrl).hostname.split('.')[0] + '-auth-token';
   localStorage.removeItem(supabaseKey);
   sessionStorage.removeItem(supabaseKey);

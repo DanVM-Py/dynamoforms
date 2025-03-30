@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { authService, UserProfile } from '@/services/authService';
+import { supabase } from '@/integrations/supabase/client';
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
@@ -46,10 +47,21 @@ export function useAuth() {
   useEffect(() => {
     if (isInitialized) return;
     
-    // Set up the auth state change listener
-    const { data: authListener } = authService.onAuthStateChange((session) => {
-      console.log("Auth state changed, session:", !!session);
-      refreshAuthState();
+    // Avoid creating multiple listeners
+    console.log("Setting up auth listener");
+    
+    // Set up the auth state change listener - IMPORTANT: Use the primary client
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      console.log("Auth state changed, event:", event, "session:", !!newSession);
+      
+      // For immediate UI updates
+      setSession(newSession);
+      setUser(newSession?.user || null);
+      
+      // Then refresh full auth state
+      if (event !== 'INITIAL_SESSION') {
+        refreshAuthState();
+      }
     });
     
     // Get initial auth state
@@ -64,7 +76,10 @@ export function useAuth() {
     
     // Clean up the listener on unmount
     return () => {
-      authListener?.subscription?.unsubscribe();
+      console.log("Cleaning up auth listener");
+      if (authListener?.subscription?.unsubscribe) {
+        authListener.subscription.unsubscribe();
+      }
     };
   }, [isInitialized, refreshAuthState]);
 
