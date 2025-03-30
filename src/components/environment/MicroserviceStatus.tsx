@@ -328,6 +328,20 @@ export const MicroserviceStatus = () => {
     }
   };
 
+  // Calcular porcentajes para la barra de progreso
+  const healthyCount = services.filter(s => s.status === "operational").length;
+  const degradedCount = services.filter(s => s.status === "degraded").length;
+  const outageCount = services.filter(s => s.status === "outage").length;
+  const totalServices = services.length;
+  
+  // Calcular porcentajes para la visualización de la barra
+  const healthyPercentage = (healthyCount / totalServices) * 100;
+  const degradedPercentage = (degradedCount / totalServices) * 100;
+  const outagePercentage = (outageCount / totalServices) * 100;
+  
+  // Porcentaje general de salud del sistema
+  const overallHealthPercentage = Math.round((healthyCount / Math.max(1, totalServices)) * 100);
+
   return (
     <div className="bg-background border rounded-md p-4 mt-4">
       <div className="flex items-center justify-between mb-3">
@@ -358,6 +372,38 @@ export const MicroserviceStatus = () => {
           {error}
         </div>
       )}
+      
+      <div className="mb-4">
+        <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+          <span>Saludables: {healthyCount}</span>
+          <span>Degradados: {degradedCount}</span>
+          <span>Caídos: {outageCount}</span>
+        </div>
+        <div className="h-2 w-full rounded-full overflow-hidden bg-gray-200 flex">
+          {healthyPercentage > 0 && (
+            <div 
+              className="bg-green-500 h-full" 
+              style={{ width: `${healthyPercentage}%` }}
+              title={`${healthyCount} servicios operativos`}
+            />
+          )}
+          {degradedPercentage > 0 && (
+            <div 
+              className="bg-amber-500 h-full" 
+              style={{ width: `${degradedPercentage}%` }}
+              title={`${degradedCount} servicios degradados`}
+            />
+          )}
+          {outagePercentage > 0 && (
+            <div 
+              className="bg-red-500 h-full" 
+              style={{ width: `${outagePercentage}%` }}
+              title={`${outageCount} servicios caídos`}
+            />
+          )}
+        </div>
+        <p className="text-xs mt-1 text-muted-foreground">{overallHealthPercentage}% del sistema operativo</p>
+      </div>
       
       <div className="space-y-2">
         {services.map((service) => (

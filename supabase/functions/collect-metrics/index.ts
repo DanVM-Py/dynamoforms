@@ -83,6 +83,26 @@ interface ServiceHealthResponse {
   message?: string;
 }
 
+// Function to create a mock service response when the real service is down
+function createServiceDownMetric(serviceId: string, errorMessage: string): any {
+  return {
+    service_id: serviceId,
+    status: 'down',
+    response_time: 0,
+    error_rate: 100,
+    cpu_usage: 0,
+    memory_usage: 0,
+    request_count: 0,
+    checked_at: new Date().toISOString(),
+    message: errorMessage || "Conexión fallida - Servicio no disponible",
+    metrics_data: {
+      responseTime: [{ timestamp: Date.now(), value: 0 }],
+      errorRate: [{ timestamp: Date.now(), value: 100 }],
+      requestCount: [{ timestamp: Date.now(), value: 0 }]
+    }
+  };
+}
+
 // Function to check health of a microservice with real HTTP request
 async function checkServiceHealth(serviceConfig: ServiceConfig): Promise<any> {
   const { id, baseUrl, healthEndpoint, timeout } = serviceConfig;
@@ -191,23 +211,11 @@ async function checkServiceHealth(serviceConfig: ServiceConfig): Promise<any> {
     
     // Handle timeout or other network errors
     const isTimeout = error instanceof DOMException && error.name === 'AbortError';
+    const errorMessage = isTimeout 
+      ? 'Tiempo de conexión agotado' 
+      : `Error de conexión: ${error.message}`;
     
-    return {
-      service_id: id,
-      status: 'down',
-      response_time: timeout,
-      error_rate: 100,
-      cpu_usage: 0,
-      memory_usage: 0,
-      request_count: 0,
-      checked_at: new Date().toISOString(),
-      message: isTimeout ? 'Connection timeout' : `Connection error: ${error.message}`,
-      metrics_data: {
-        responseTime: [{ timestamp: Date.now(), value: timeout }],
-        errorRate: [{ timestamp: Date.now(), value: 100 }],
-        requestCount: [{ timestamp: Date.now(), value: 0 }]
-      }
-    };
+    return createServiceDownMetric(id, errorMessage);
   }
 }
 
@@ -218,7 +226,7 @@ async function clearMetricsData() {
     const { error } = await supabase
       .from('service_metrics')
       .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000') 
+      .neq('id', '00000000-0000-0000-0000-000000000000');
 
     if (error) {
       console.error('Error clearing metrics data:', error);
@@ -384,28 +392,31 @@ Deno.serve(async (req) => {
       }
       
       // Always collect fresh metrics for POST request - no fallback to fake data
-      let metricsArray;
+      let metricsArray = [];
       try {
         // Collect fresh metrics from all services in parallel
         console.log(`Collecting fresh metrics for ${serviceConfigs.length} services`);
-        const metricsPromises = serviceConfigs.map(serviceConfig => 
-          checkServiceHealth(serviceConfig)
-            .then(async (currentMetric) => {
-              // Fetch historical metrics for this service
-              const historicalMetrics = await fetchHistoricalMetrics(serviceConfig.id);
-              
-              // Calculate trends based on historical data
-              const trends = calculateTrends(currentMetric, historicalMetrics);
-              
-              // Add trends to the metric data
-              return {
-                ...currentMetric,
-                trends
-              };
-            })
-        );
+        const servicePromises = serviceConfigs.map(async (serviceConfig) => {
+          try {
+            const metric = await checkServiceHealth(serviceConfig);
+            // Fetch historical metrics for this service
+            const historicalMetrics = await fetchHistoricalMetrics(serviceConfig.id);
+            // Calculate trends based on historical data
+            const trends = calculateTrends(metric, historicalMetrics);
+            // Return metric with trends
+            return { ...metric, trends };
+          } catch (serviceError) {
+            console.error(`Error processing ${serviceConfig.id}:`, serviceError);
+            // Return a "down" metric when the service check fails
+            return createServiceDownMetric(
+              serviceConfig.id, 
+              `Error al conectar con el servicio: ${serviceError.message}`
+            );
+          }
+        });
         
-        metricsArray = await Promise.all(metricsPromises);
+        metricsArray = await Promise.all(servicePromises);
+        
       } catch (error) {
         console.error('Critical error collecting metrics:', error);
         return new Response(JSON.stringify({ 
