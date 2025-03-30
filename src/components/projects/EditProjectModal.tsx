@@ -22,8 +22,8 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Profile } from "@/types/supabase";
 import { ProjectUser } from "@/types/custom";
+import type { Profile } from "@/types/supabase";
 
 export interface EditProjectModalProps {
   open: boolean;
@@ -218,9 +218,9 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
                 user_id: adminId,
                 is_admin: true,
                 status: 'active',
-                invited_by: user?.id,
-                created_by: user?.id
-              } as ProjectUser);
+                invited_by: user?.id || '',
+                created_by: user?.id || ''
+              });
               
             if (insertError) throw insertError;
           }
@@ -233,9 +233,9 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
               user_id: adminId,
               is_admin: true,
               status: 'active',
-              invited_by: user?.id,
-              created_by: user?.id
-            } as ProjectUser);
+              invited_by: user?.id || '',
+              created_by: user?.id || ''
+            });
             
           if (insertError) throw insertError;
         }

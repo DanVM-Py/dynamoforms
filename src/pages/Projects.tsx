@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Project } from "@/types/custom";
 import { EditProjectModal } from "@/components/projects/EditProjectModal";
 import ProjectCard from "@/components/projects/ProjectCard";
@@ -20,7 +20,6 @@ import ProjectCard from "@/components/projects/ProjectCard";
 // Define extended project type that includes adminId
 interface ExtendedProject extends Project {
   adminId?: string;
-  updated_at?: string;
 }
 
 const Projects = () => {
@@ -41,7 +40,6 @@ const Projects = () => {
     admin?: string;
   }>({});
   const [isDeleting, setIsDeleting] = useState(false);
-  const queryClient = useQueryClient();
 
   const { data: projects, refetch } = useQuery({
     queryKey: ['projects'],
@@ -148,8 +146,8 @@ const Projects = () => {
             user_id: projectAdminId,
             is_admin: true,
             status: 'active',
-            invited_by: user?.id,
-            created_by: user?.id
+            invited_by: user?.id || '',
+            created_by: user?.id || ''
           });
           
         if (adminError) throw adminError;
