@@ -112,5 +112,5 @@ export const cleanupAuthState = () => {
   });
 };
 
-// Export main clients
-export { supabase, customSupabase };
+// Export main client
+export { supabase };
