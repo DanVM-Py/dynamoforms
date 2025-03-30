@@ -12,9 +12,8 @@ export interface ProjectUser {
   is_admin: boolean;
   status: ProjectUserStatus;
   created_at: string | null;
-  invited_at: string;
   invited_by: string;
-  created_by: string; // Making this required to match Supabase's expectation
+  created_by: string;
   activated_at: string | null;
   access_level?: string;
   full_name?: string;

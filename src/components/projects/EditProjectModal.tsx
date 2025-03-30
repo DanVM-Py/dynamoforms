@@ -24,7 +24,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProjectUser } from "@/types/custom";
-import type { Profile } from "@/integrations/supabase/types";
 
 export interface EditProjectModalProps {
   open: boolean;
@@ -45,7 +44,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
   const [description, setDescription] = useState(project?.description || "");
   const [adminId, setAdminId] = useState(project?.adminId || "");
   const [loading, setLoading] = useState(false);
-  const [users, setUsers] = useState<Profile[]>([]);
+  const [users, setUsers] = useState<Array<{id: string, name: string, email: string}>>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [errors, setErrors] = useState<{
     name?: string;
@@ -212,31 +211,35 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             if (promoteError) throw promoteError;
           } else {
             // Create new admin
-            const { error: insertError } = await supabase
-              .from('project_users')
-              .insert({
-                project_id: project.id,
-                user_id: adminId,
-                is_admin: true,
-                status: 'active',
-                invited_by: user?.id || '',
-                created_by: user?.id || ''
-              });
-              
-            if (insertError) throw insertError;
-          }
-        } else if (!existingAdmin) {
-          // No admin exists, insert a new one
-          const { error: insertError } = await supabase
-            .from('project_users')
-            .insert({
+            const newProjectUser: Partial<ProjectUser> = {
               project_id: project.id,
               user_id: adminId,
               is_admin: true,
               status: 'active',
               invited_by: user?.id || '',
               created_by: user?.id || ''
-            });
+            };
+            
+            const { error: insertError } = await supabase
+              .from('project_users')
+              .insert(newProjectUser);
+              
+            if (insertError) throw insertError;
+          }
+        } else if (!existingAdmin) {
+          // No admin exists, insert a new one
+          const newProjectUser: Partial<ProjectUser> = {
+            project_id: project.id,
+            user_id: adminId,
+            is_admin: true,
+            status: 'active',
+            invited_by: user?.id || '',
+            created_by: user?.id || ''
+          };
+          
+          const { error: insertError } = await supabase
+            .from('project_users')
+            .insert(newProjectUser);
             
           if (insertError) throw insertError;
         }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Separator } from "@/components/ui/separator";
@@ -13,7 +14,7 @@ import { Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { Project } from "@/types/custom";
+import { Project, ProjectUser } from "@/types/custom";
 import { EditProjectModal } from "@/components/projects/EditProjectModal";
 import ProjectCard from "@/components/projects/ProjectCard";
 
@@ -139,16 +140,18 @@ const Projects = () => {
         const newProject = projectData[0];
         
         // Create project admin in the project_users table with is_admin=true
+        const newProjectUser: Partial<ProjectUser> = {
+          project_id: newProject.id, 
+          user_id: projectAdminId,
+          is_admin: true,
+          status: 'active',
+          invited_by: user?.id || '',
+          created_by: user?.id || ''
+        };
+        
         const { error: adminError } = await supabase
           .from('project_users')
-          .insert({
-            project_id: newProject.id, 
-            user_id: projectAdminId,
-            is_admin: true,
-            status: 'active',
-            invited_by: user?.id || '',
-            created_by: user?.id || ''
-          });
+          .insert(newProjectUser);
           
         if (adminError) throw adminError;
         
