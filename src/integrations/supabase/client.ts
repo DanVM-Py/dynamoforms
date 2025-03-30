@@ -13,9 +13,14 @@ export enum SERVICES {
   NOTIFICATIONS = 'notifications_service'
 }
 
-// Storage keys for consistent auth state
-const AUTH_STORAGE_KEY = 'dynamo-auth-token';
-const PUBLIC_STORAGE_KEY = 'dynamo-public-token';
+// Storage keys for consistent auth state - use unique keys to avoid conflicts
+export const AUTH_STORAGE_KEY = 'dynamo-auth-token';
+export const PUBLIC_STORAGE_KEY = 'dynamo-public-token';
+
+// Create a singleton instance of the Supabase client
+let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
+let supabaseAdminInstance: ReturnType<typeof createClient<Database>> | null = null;
+let customSupabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
 
 // Define standard client options
 const getClientOptions = (customHeaders = {}, storageKey = AUTH_STORAGE_KEY): SupabaseClientOptions<"public"> => ({
@@ -39,32 +44,54 @@ const getClientOptions = (customHeaders = {}, storageKey = AUTH_STORAGE_KEY): Su
   }
 });
 
-// Primary Supabase client for authenticated operations
-const supabase = createClient<Database>(
-  config.supabaseUrl,
-  config.supabaseAnonKey,
-  getClientOptions()
-);
+// Singleton getter for primary Supabase client
+export const getSupabase = () => {
+  if (!supabaseInstance) {
+    console.log("Creating new primary Supabase client");
+    supabaseInstance = createClient<Database>(
+      config.supabaseUrl,
+      config.supabaseAnonKey,
+      getClientOptions()
+    );
+  }
+  return supabaseInstance;
+};
 
-// Admin client for operations requiring admin privileges
-export const supabaseAdmin = createClient<Database>(
-  config.supabaseUrl,
-  config.supabaseAnonKey,
-  getClientOptions({
-    'X-Client-Info': 'admin-client',
-    'X-Admin-Access': 'true'
-  })
-);
+// Singleton getter for admin client
+export const getSupabaseAdmin = () => {
+  if (!supabaseAdminInstance) {
+    console.log("Creating new admin Supabase client");
+    supabaseAdminInstance = createClient<Database>(
+      config.supabaseUrl,
+      config.supabaseAnonKey,
+      getClientOptions({
+        'X-Client-Info': 'admin-client',
+        'X-Admin-Access': 'true'
+      })
+    );
+  }
+  return supabaseAdminInstance;
+};
 
-// Custom client for anonymous operations (used for public forms, metrics, etc.)
-// This uses separate storage keys to avoid authentication conflicts
-export const customSupabase = createClient<Database>(
-  config.supabaseUrl,
-  config.supabaseAnonKey,
-  getClientOptions({
-    'X-Client-Info': 'dynamo-system'
-  }, PUBLIC_STORAGE_KEY)
-);
+// Singleton getter for public/anonymous client
+export const getCustomSupabase = () => {
+  if (!customSupabaseInstance) {
+    console.log("Creating new custom Supabase client");
+    customSupabaseInstance = createClient<Database>(
+      config.supabaseUrl,
+      config.supabaseAnonKey,
+      getClientOptions({
+        'X-Client-Info': 'dynamo-system'
+      }, PUBLIC_STORAGE_KEY)
+    );
+  }
+  return customSupabaseInstance;
+};
+
+// Create primary client instance
+const supabase = getSupabase();
+const supabaseAdmin = getSupabaseAdmin();
+const customSupabase = getCustomSupabase();
 
 // Export the Supabase URL for reference in other modules
 export const supabaseApiUrl = config.supabaseUrl;
@@ -125,5 +152,5 @@ export const cleanupAuthState = () => {
   });
 };
 
-// Export main client
-export { supabase };
+// Export instances
+export { supabase, supabaseAdmin, customSupabase };
