@@ -27,6 +27,7 @@ class AuthService {
   // Check if user is a global admin
   private async isGlobalAdmin(userId: string): Promise<boolean> {
     try {
+      console.log("Checking global admin status for user:", userId);
       const { data, error } = await supabase.rpc('is_global_admin', { user_uuid: userId });
       
       if (error) {
@@ -34,7 +35,16 @@ class AuthService {
         return false;
       }
       
-      return data === true;
+      const isAdmin = data === true;
+      console.log("User global admin status:", isAdmin);
+      
+      // Store the result in localStorage to ensure it persists
+      if (isAdmin) {
+        localStorage.setItem('isGlobalAdmin', 'true');
+        sessionStorage.setItem('isGlobalAdmin', 'true');
+      }
+      
+      return isAdmin;
     } catch (error) {
       console.error("Exception checking global admin status:", error);
       return false;
@@ -55,6 +65,12 @@ class AuthService {
         return null;
       }
       
+      // If profile indicates user is global admin, set storage flag
+      if (data && data.role === 'global_admin') {
+        localStorage.setItem('isGlobalAdmin', 'true');
+        sessionStorage.setItem('isGlobalAdmin', 'true');
+      }
+      
       return data;
     } catch (error) {
       console.error("Exception fetching profile:", error);
@@ -65,6 +81,12 @@ class AuthService {
   // Check if user is a project admin
   async isProjectAdmin(userId: string, projectId: string): Promise<boolean> {
     try {
+      // Check global admin first - global admins are always project admins
+      const isAdmin = await this.isGlobalAdmin(userId);
+      if (isAdmin) {
+        return true;
+      }
+      
       const { data, error } = await supabase
         .rpc('is_project_admin', { 
           user_uuid: userId,
@@ -86,9 +108,11 @@ class AuthService {
   // Get current authentication status
   async getAuthStatus(): Promise<AuthStatus> {
     try {
+      console.log("Getting auth status");
       const { data, error } = await supabase.auth.getSession();
       
       if (error) {
+        console.error("Error getting session:", error);
         return {
           session: null,
           user: null,
@@ -103,6 +127,7 @@ class AuthService {
       const user = session?.user || null;
       
       if (!user) {
+        console.log("No authenticated user found");
         return {
           session: null,
           user: null,
@@ -118,6 +143,12 @@ class AuthService {
         this.getUserProfile(user.id),
         this.isGlobalAdmin(user.id)
       ]);
+      
+      console.log("Auth status retrieved:", {
+        hasUser: !!user,
+        hasProfile: !!profile,
+        isGlobalAdmin
+      });
       
       return {
         session,

@@ -40,8 +40,9 @@ const ProtectedRoute = ({
     return () => clearTimeout(timer);
   }, [loading]);
   
-  // Check the localStorage for global admin status as a fallback
-  const storedIsGlobalAdmin = localStorage.getItem('isGlobalAdmin') === 'true';
+  // Check the localStorage and sessionStorage for global admin status as a fallback
+  const storedIsGlobalAdmin = localStorage.getItem('isGlobalAdmin') === 'true' || 
+                              sessionStorage.getItem('isGlobalAdmin') === 'true';
   const isUserGlobalAdmin = isGlobalAdmin || storedIsGlobalAdmin;
   
   // Debug logging
@@ -85,7 +86,7 @@ const ProtectedRoute = ({
     return <Navigate to={`/auth${currentPath !== "/" ? `?redirect=${currentPath}` : ""}`} replace />;
   }
 
-  // Check global admin access - use both context and localStorage
+  // Check global admin access - use both context and localStorage/sessionStorage
   if (requireGlobalAdmin && !isUserGlobalAdmin) {
     console.log("Global admin access required but user is not a global admin");
     return <Navigate to="/" replace />;

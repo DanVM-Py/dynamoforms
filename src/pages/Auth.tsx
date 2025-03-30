@@ -20,11 +20,34 @@ const Auth = () => {
   const { user, isGlobalAdmin, signOut, loading: authContextLoading } = useAuth();
   const navigate = useNavigate();
   
+  // Debug logging
+  useEffect(() => {
+    console.log("Auth page mount status:", {
+      user: !!user,
+      isGlobalAdmin,
+      loading: authContextLoading,
+      redirect,
+      forceSignOut,
+      authInit,
+      authStage
+    });
+  }, [user, isGlobalAdmin, authContextLoading, redirect, forceSignOut, authInit, authStage]);
+  
   // Handle initial authentication state and redirect logic
   useEffect(() => {
+    const storedIsGlobalAdmin = localStorage.getItem('isGlobalAdmin') === 'true';
+    
+    console.log("Auth page checking user status:", { 
+      user: !!user, 
+      isGlobalAdmin, 
+      storedIsGlobalAdmin, 
+      authContextLoading, 
+      forceSignOut 
+    });
+    
     // First check if we're dealing with a global admin who's already authenticated
     // We want to skip all storage clearing for them unless explicitly forced to sign out
-    if (user && (isGlobalAdmin || localStorage.getItem('isGlobalAdmin') === 'true') && !forceSignOut) {
+    if (user && (isGlobalAdmin || storedIsGlobalAdmin) && !forceSignOut) {
       console.log("Auth page: Detected authenticated global admin, redirecting to home");
       navigate("/", { replace: true });
       return;

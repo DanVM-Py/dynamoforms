@@ -60,6 +60,9 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
         description: "Has iniciado sesión correctamente."
       });
       
+      // Clear any previous global admin flag to prevent stale state
+      localStorage.removeItem('isGlobalAdmin');
+      
       // First check if the user is a global admin - they don't need project access
       const { data: globalAdminData, error: isGlobalAdminError } = await supabase
         .rpc('is_global_admin', { user_uuid: data.user.id });
@@ -74,6 +77,7 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
       // Store the result in localStorage to ensure it persists through redirects
       if (isGlobalAdmin) {
         localStorage.setItem('isGlobalAdmin', 'true');
+        sessionStorage.setItem('isGlobalAdmin', 'true'); 
       }
       
       // If user is global admin, they don't need project access validation
@@ -110,6 +114,7 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
         const projectId = projectUserData[0].project_id;
         console.log("Setting current project ID:", projectId);
         localStorage.setItem('currentProjectId', projectId);
+        sessionStorage.setItem('currentProjectId', projectId);
       }
       
       if (onSuccessfulLogin) {
