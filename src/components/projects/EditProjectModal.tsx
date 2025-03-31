@@ -46,6 +46,8 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<Array<{id: string, name: string, email: string}>>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  
+  // Define errors with explicit types
   const [errors, setErrors] = useState({
     name: "",
     description: "",
@@ -214,36 +216,32 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
               
             if (promoteError) throw promoteError;
           } else {
-            // Create new admin
-            const newProjectUser: Partial<ProjectUser> = {
+            // Create new admin - use direct object with required properties
+            const { error: insertError } = await supabase
+              .from('project_users')
+              .insert({
+                project_id: project.id,
+                user_id: adminId,
+                is_admin: true,
+                status: 'active' as ProjectUserStatus,
+                invited_by: user?.id || '',
+                created_by: user?.id || null
+              });
+              
+            if (insertError) throw insertError;
+          }
+        } else if (!existingAdmin) {
+          // No admin exists, insert a new one - use direct object with required properties
+          const { error: insertError } = await supabase
+            .from('project_users')
+            .insert({
               project_id: project.id,
               user_id: adminId,
               is_admin: true,
               status: 'active' as ProjectUserStatus,
               invited_by: user?.id || '',
               created_by: user?.id || null
-            };
-            
-            const { error: insertError } = await supabase
-              .from('project_users')
-              .insert(newProjectUser);
-              
-            if (insertError) throw insertError;
-          }
-        } else if (!existingAdmin) {
-          // No admin exists, insert a new one
-          const newProjectUser: Partial<ProjectUser> = {
-            project_id: project.id,
-            user_id: adminId,
-            is_admin: true,
-            status: 'active' as ProjectUserStatus,
-            invited_by: user?.id || '',
-            created_by: user?.id || null
-          };
-          
-          const { error: insertError } = await supabase
-            .from('project_users')
-            .insert(newProjectUser);
+            });
             
           if (insertError) throw insertError;
         }
