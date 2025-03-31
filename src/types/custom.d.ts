@@ -1,4 +1,5 @@
 
+
 // This file contains custom type definitions for our application
 
 export type UserRole = 'user' | 'global_admin' | 'project_admin' | 'approver';
@@ -38,3 +39,4 @@ export interface Project {
   created_by: string;
   updated_at?: string;
 }
+
