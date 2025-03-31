@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ProjectUser, ProjectUserStatus } from "@/types/custom";
+import { ProjectUserStatus } from "@/types/custom";
 
 export interface EditProjectModalProps {
   open: boolean;
@@ -47,7 +47,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
   const [users, setUsers] = useState<Array<{id: string, name: string, email: string}>>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   
-  // Define errors with explicit types
+  // Define simple error state objects to avoid deep instantiation
   const [errors, setErrors] = useState({
     name: "",
     description: "",
