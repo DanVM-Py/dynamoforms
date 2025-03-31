@@ -18,6 +18,7 @@ export interface ProjectUser {
   access_level?: string;
   full_name?: string;
   email?: string;
+  invited_at?: string;
 }
 
 export interface User {

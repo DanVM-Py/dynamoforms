@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ProjectUser } from "@/types/custom";
+import { ProjectUser, ProjectUserStatus } from "@/types/custom";
 
 export interface EditProjectModalProps {
   open: boolean;
@@ -46,11 +46,11 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<Array<{id: string, name: string, email: string}>>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [errors, setErrors] = useState<{
-    name?: string;
-    description?: string;
-    adminId?: string;
-  }>({});
+  const [errors, setErrors] = useState({
+    name: "",
+    description: "",
+    adminId: ""
+  });
 
   useEffect(() => {
     if (open) {
@@ -58,7 +58,11 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
       setName(project?.name || "");
       setDescription(project?.description || "");
       setAdminId(project?.adminId || "");
-      setErrors({});
+      setErrors({
+        name: "",
+        description: "",
+        adminId: ""
+      });
       fetchUsers();
       
       // Fetch current admin if not provided
@@ -120,11 +124,11 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
   };
 
   const validateForm = (): boolean => {
-    const newErrors: {
-      name?: string;
-      description?: string;
-      adminId?: string;
-    } = {};
+    const newErrors = {
+      name: "",
+      description: "",
+      adminId: ""
+    };
     
     if (!name.trim()) {
       newErrors.name = "El nombre del proyecto es obligatorio";
@@ -139,7 +143,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
     }
     
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return !newErrors.name && !newErrors.description && !newErrors.adminId;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -211,7 +215,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             if (promoteError) throw promoteError;
           } else {
             // Create new admin
-            const newProjectUser = {
+            const newProjectUser: Partial<ProjectUser> = {
               project_id: project.id,
               user_id: adminId,
               is_admin: true,
@@ -228,7 +232,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
           }
         } else if (!existingAdmin) {
           // No admin exists, insert a new one
-          const newProjectUser = {
+          const newProjectUser: Partial<ProjectUser> = {
             project_id: project.id,
             user_id: adminId,
             is_admin: true,
