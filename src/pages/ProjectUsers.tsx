@@ -13,7 +13,6 @@ import { AlertCircle, FileSpreadsheet, UsersRound, UserPlus } from "lucide-react
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ProjectUserStatus } from "@/types/custom";
 
-// Import our components
 import { UserStatusBadge } from "@/components/project-users/UserStatusBadge";
 import { UserActionButtons } from "@/components/project-users/UserActionButtons";
 import { UserFilters } from "@/components/project-users/UserFilters";
@@ -283,12 +282,48 @@ const ProjectUsers = () => {
     },
   });
 
+  const toggleAdminStatusMutation = useMutation({
+    mutationFn: async ({ userId, isAdmin }: { userId: string; isAdmin: boolean }) => {
+      const { error } = await supabase
+        .from("project_users")
+        .update({ 
+          is_admin: isAdmin,
+          ...(isAdmin ? { status: 'active' as ProjectUserStatus } : {})
+        })
+        .eq("user_id", userId)
+        .eq("project_id", projectId);
+
+      if (error) throw error;
+      return { userId, isAdmin };
+    },
+    onSuccess: (data) => {
+      toast({
+        title: data.isAdmin ? "Administrador asignado" : "Administrador removido",
+        description: data.isAdmin 
+          ? "El usuario ha sido promovido a administrador del proyecto"
+          : "El usuario ya no es administrador del proyecto",
+      });
+      queryClient.invalidateQueries({ queryKey: ["projectUsers", projectId] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error al actualizar el rol de administrador",
+        description: error instanceof Error ? error.message : "Error desconocido",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleInviteUser = (values: InviteFormValues) => {
     inviteUserMutation.mutate(values);
   };
 
   const handleStatusChange = (userId: string, status: ProjectUserStatus) => {
     updateUserStatusMutation.mutate({ userId, status });
+  };
+
+  const handleAdminToggle = (userId: string, isAdmin: boolean) => {
+    toggleAdminStatusMutation.mutate({ userId, isAdmin });
   };
 
   return (
@@ -359,6 +394,7 @@ const ProjectUsers = () => {
                 <UsersList 
                   users={projectUsers} 
                   onStatusChange={handleStatusChange} 
+                  onAdminToggle={handleAdminToggle} 
                 />
               ) : (
                 <EmptyUsersList onInviteClick={() => setInviteModalOpen(true)} />

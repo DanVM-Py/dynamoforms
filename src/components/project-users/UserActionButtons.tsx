@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { CheckCircle, AlertCircle, UserCheck, XCircle } from "lucide-react";
-import { ProjectUserStatus } from "@/types/supabase";
+import { ProjectUserStatus } from "@/types/custom";
 
 type UserActionButtonsProps = {
   status: ProjectUserStatus;

@@ -1,10 +1,9 @@
 
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ProjectUser } from "@/types/custom";
+import { ProjectUser, ProjectUserStatus } from "@/types/custom";
 import { UserStatusBadge } from "./UserStatusBadge";
 import { UserActionButtons } from "./UserActionButtons";
-import { ProjectUserStatus } from "@/types/custom";
 import { useAuth } from '@/contexts/AuthContext';
 
 type UsersListProps = {
@@ -14,7 +13,8 @@ type UsersListProps = {
 };
 
 export const UsersList = ({ users, onStatusChange, onAdminToggle }: UsersListProps) => {
-  const { isGlobalAdmin } = useAuth();
+  const { isGlobalAdmin, isProjectAdmin } = useAuth();
+  const canToggleAdmin = isGlobalAdmin || isProjectAdmin;
   
   return (
     <Table>
@@ -41,7 +41,7 @@ export const UsersList = ({ users, onStatusChange, onAdminToggle }: UsersListPro
                 status={user.status} 
                 onStatusChange={(status) => onStatusChange(user.user_id, status)}
                 isAdmin={!!user.is_admin}
-                onAdminToggle={isGlobalAdmin && onAdminToggle ? 
+                onAdminToggle={canToggleAdmin && onAdminToggle ? 
                   (isAdmin) => onAdminToggle(user.user_id, isAdmin) : 
                   undefined}
               />
