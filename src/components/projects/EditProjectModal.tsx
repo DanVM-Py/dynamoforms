@@ -223,7 +223,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
               
             if (promoteError) throw promoteError;
           } else {
-            // Create new admin with explicit object
+            // Create new admin
             const projectUserObj = {
               project_id: project.id,
               user_id: adminId,
@@ -240,7 +240,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             if (insertError) throw insertError;
           }
         } else if (!existingAdmin) {
-          // No admin exists, insert a new one with explicit object
+          // No admin exists, insert a new one
           const projectUserObj = {
             project_id: project.id,
             user_id: adminId,
