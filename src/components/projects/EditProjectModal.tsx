@@ -217,31 +217,35 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             if (promoteError) throw promoteError;
           } else {
             // Create new admin with explicit object
-            const { error: insertError } = await supabase
-              .from('project_users')
-              .insert({
-                project_id: project.id,
-                user_id: adminId,
-                is_admin: true,
-                status: 'active' as ProjectUserStatus,
-                invited_by: user?.id || '',
-                created_by: user?.id || null
-              });
-              
-            if (insertError) throw insertError;
-          }
-        } else if (!existingAdmin) {
-          // No admin exists, insert a new one with explicit object
-          const { error: insertError } = await supabase
-            .from('project_users')
-            .insert({
+            const projectUserObj = {
               project_id: project.id,
               user_id: adminId,
               is_admin: true,
               status: 'active' as ProjectUserStatus,
               invited_by: user?.id || '',
               created_by: user?.id || null
-            });
+            };
+
+            const { error: insertError } = await supabase
+              .from('project_users')
+              .insert(projectUserObj);
+              
+            if (insertError) throw insertError;
+          }
+        } else if (!existingAdmin) {
+          // No admin exists, insert a new one with explicit object
+          const projectUserObj = {
+            project_id: project.id,
+            user_id: adminId,
+            is_admin: true,
+            status: 'active' as ProjectUserStatus,
+            invited_by: user?.id || '',
+            created_by: user?.id || null
+          };
+
+          const { error: insertError } = await supabase
+            .from('project_users')
+            .insert(projectUserObj);
             
           if (insertError) throw insertError;
         }
