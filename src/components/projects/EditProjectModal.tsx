@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { 
   Dialog, 
@@ -23,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ProjectUserStatus } from "@/types/custom";
+import { ProjectUserStatus, ProjectErrors } from "@/types/custom";
 
 export interface EditProjectModalProps {
   open: boolean;
@@ -37,13 +36,6 @@ export interface EditProjectModalProps {
   onProjectUpdated: () => void;
 }
 
-// Define a simple error state type to avoid recursive type issues
-interface ProjectErrors {
-  name: string;
-  description: string;
-  adminId: string;
-}
-
 export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated }: EditProjectModalProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -54,27 +46,24 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
   const [users, setUsers] = useState<Array<{id: string, name: string, email: string}>>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   
-  // Use the explicit error state type
   const [errors, setErrors] = useState<ProjectErrors>({
     name: "",
     description: "",
-    adminId: ""
+    admin: ""
   });
 
   useEffect(() => {
     if (open) {
-      // Reset form when modal opens
       setName(project?.name || "");
       setDescription(project?.description || "");
       setAdminId(project?.adminId || "");
       setErrors({
         name: "",
         description: "",
-        adminId: ""
+        admin: ""
       });
       fetchUsers();
       
-      // Fetch current admin if not provided
       if (!project?.adminId) {
         fetchCurrentAdmin();
       }
@@ -83,7 +72,6 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
 
   const fetchCurrentAdmin = async () => {
     try {
-      // Check for existing project admin in project_users table
       const { data, error } = await supabase
         .from('project_users')
         .select('user_id')
@@ -136,7 +124,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
     const newErrors: ProjectErrors = {
       name: "",
       description: "",
-      adminId: ""
+      admin: ""
     };
     
     if (!name.trim()) {
@@ -148,11 +136,11 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
     }
     
     if (adminId === "") {
-      newErrors.adminId = "Debes seleccionar un administrador para el proyecto";
+      newErrors.admin = "Debes seleccionar un administrador para el proyecto";
     }
     
     setErrors(newErrors);
-    return !newErrors.name && !newErrors.description && !newErrors.adminId;
+    return !newErrors.name && !newErrors.description && !newErrors.admin;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -164,7 +152,6 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
     
     setLoading(true);
     try {
-      // Update project details
       const { error } = await supabase
         .from('projects')
         .update({ 
@@ -175,9 +162,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
       
       if (error) throw error;
       
-      // If adminId has changed and is not empty, update project admin
       if (adminId) {
-        // First check if there's an existing admin
         const { data: existingAdmin, error: fetchError } = await supabase
           .from('project_users')
           .select('*')
@@ -189,9 +174,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
           throw fetchError;
         }
         
-        // If there's an existing admin that is different from new one, update their status
         if (existingAdmin && existingAdmin.user_id !== adminId) {
-          // Deactivate the current admin
           const { error: updateError } = await supabase
             .from('project_users')
             .update({ is_admin: false })
@@ -199,7 +182,6 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             
           if (updateError) throw updateError;
           
-          // Check if new admin is already a project user
           const { data: existingUser, error: userError } = await supabase
             .from('project_users')
             .select('*')
@@ -212,7 +194,6 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
           }
           
           if (existingUser) {
-            // Update existing user to be admin
             const { error: promoteError } = await supabase
               .from('project_users')
               .update({
@@ -223,7 +204,6 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
               
             if (promoteError) throw promoteError;
           } else {
-            // Create new admin
             const projectUserObj = {
               project_id: project.id,
               user_id: adminId,
@@ -240,7 +220,6 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             if (insertError) throw insertError;
           }
         } else if (!existingAdmin) {
-          // No admin exists, insert a new one
           const projectUserObj = {
             project_id: project.id,
             user_id: adminId,
@@ -256,10 +235,8 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             
           if (insertError) throw insertError;
         }
-        // If admin is the same, no changes needed
       }
       
-      // Complete the update process
       await onProjectUpdated();
       
       toast({
@@ -267,7 +244,6 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
         description: "El proyecto ha sido actualizado exitosamente.",
       });
       
-      // Safely close the modal after everything is done
       onOpenChange(false);
     } catch (error: any) {
       console.error("Error updating project:", error);
@@ -281,7 +257,6 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
     }
   };
 
-  // Safe close handler to ensure we're not in loading state when closing
   const handleClose = () => {
     if (!loading) {
       onOpenChange(false);
@@ -342,7 +317,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             >
               <SelectTrigger 
                 id="project-admin" 
-                className={`${loadingUsers ? "opacity-70" : ""} ${errors.adminId ? "border-red-500" : ""}`}
+                className={`${loadingUsers ? "opacity-70" : ""} ${errors.admin ? "border-red-500" : ""}`}
               >
                 <SelectValue placeholder="Selecciona un administrador" />
               </SelectTrigger>
@@ -354,8 +329,8 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
                 ))}
               </SelectContent>
             </Select>
-            {errors.adminId && (
-              <p className="text-sm text-red-500">{errors.adminId}</p>
+            {errors.admin && (
+              <p className="text-sm text-red-500">{errors.admin}</p>
             )}
             {loadingUsers && (
               <div className="text-sm text-muted-foreground flex items-center">
