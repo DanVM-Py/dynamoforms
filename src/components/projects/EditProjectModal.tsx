@@ -47,7 +47,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
   const [users, setUsers] = useState<Array<{id: string, name: string, email: string}>>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   
-  // Define simple error state objects to avoid deep instantiation
+  // Use a simple error state object to avoid deep instantiation
   const [errors, setErrors] = useState({
     name: "",
     description: "",
@@ -210,13 +210,13 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
               .from('project_users')
               .update({
                 is_admin: true,
-                status: 'active'
+                status: 'active' as ProjectUserStatus
               })
               .eq('id', existingUser.id);
               
             if (promoteError) throw promoteError;
           } else {
-            // Create new admin - use direct object with required properties
+            // Create new admin with explicit object
             const { error: insertError } = await supabase
               .from('project_users')
               .insert({
@@ -231,7 +231,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             if (insertError) throw insertError;
           }
         } else if (!existingAdmin) {
-          // No admin exists, insert a new one - use direct object with required properties
+          // No admin exists, insert a new one with explicit object
           const { error: insertError } = await supabase
             .from('project_users')
             .insert({
