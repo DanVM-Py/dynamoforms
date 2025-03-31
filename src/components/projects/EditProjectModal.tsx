@@ -37,6 +37,13 @@ export interface EditProjectModalProps {
   onProjectUpdated: () => void;
 }
 
+// Define a simple error state type to avoid recursive type issues
+interface ProjectErrors {
+  name: string;
+  description: string;
+  adminId: string;
+}
+
 export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated }: EditProjectModalProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -47,8 +54,8 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
   const [users, setUsers] = useState<Array<{id: string, name: string, email: string}>>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   
-  // Define a simple error state object to avoid recursive type issues
-  const [errors, setErrors] = useState({
+  // Use the explicit error state type
+  const [errors, setErrors] = useState<ProjectErrors>({
     name: "",
     description: "",
     adminId: ""
@@ -126,7 +133,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
   };
 
   const validateForm = (): boolean => {
-    const newErrors = {
+    const newErrors: ProjectErrors = {
       name: "",
       description: "",
       adminId: ""
