@@ -47,7 +47,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
   const [users, setUsers] = useState<Array<{id: string, name: string, email: string}>>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   
-  // Use a simple error state object to avoid deep instantiation
+  // Define a simple error state object to avoid recursive type issues
   const [errors, setErrors] = useState({
     name: "",
     description: "",
