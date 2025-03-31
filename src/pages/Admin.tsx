@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -47,7 +46,6 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
-// Password reset form schema
 const passwordResetSchema = z.object({
   password: z.string()
     .min(8, { message: "La contraseña debe tener al menos 8 caracteres" })
@@ -69,7 +67,6 @@ const Admin = () => {
   const { refreshUserProfile } = useAuth();
   const { isLoading: actionLoading, promoteToGlobalAdmin, removeUserFromProject, setUserPassword } = useAdminOperations();
   
-  // Form for password reset
   const resetPasswordForm = useForm<z.infer<typeof passwordResetSchema>>({
     resolver: zodResolver(passwordResetSchema),
     defaultValues: {
@@ -77,13 +74,11 @@ const Admin = () => {
     },
   });
 
-  // Fetch users data with more comprehensive joins
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setLoading(true);
         
-        // Fetch profiles with auth data
         const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
           .select('*');
@@ -92,7 +87,6 @@ const Admin = () => {
           throw profilesError;
         }
         
-        // Get user-project relationships
         const { data: projectUsers, error: projectUsersError } = await supabase
           .from('project_users')
           .select('*, projects(name)');
@@ -101,7 +95,6 @@ const Admin = () => {
           throw projectUsersError;
         }
         
-        // Get project admin assignments
         const { data: projectAdmins, error: projectAdminsError } = await supabase
           .from('project_admins')
           .select('*, projects(name)');
@@ -110,7 +103,6 @@ const Admin = () => {
           throw projectAdminsError;
         }
         
-        // Combine data with enriched project information
         const enrichedUsers = profiles.map((profile: any) => {
           const userProjects = projectUsers.filter((pu: any) => pu.user_id === profile.id)
             .map((pu: any) => ({
@@ -128,7 +120,6 @@ const Admin = () => {
               relationId: pa.id
             }));
           
-          // Combine both types of projects
           const allProjects = [...userProjects, ...adminProjects];
           
           return {
@@ -192,7 +183,6 @@ const Admin = () => {
       setResetPasswordDialogOpen(false);
     } catch (error) {
       console.error("Error in password reset:", error);
-      // Error handling is done in the hook
     }
   };
 
@@ -373,7 +363,6 @@ const Admin = () => {
         )}
       </Tabs>
 
-      {/* Reset Password Dialog */}
       <Dialog open={resetPasswordDialogOpen} onOpenChange={setResetPasswordDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -426,7 +415,6 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Confirm Remove User From Project Dialog */}
       <AlertDialog open={removeUserDialogOpen} onOpenChange={setRemoveUserDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -446,17 +434,10 @@ const Admin = () => {
             <AlertDialogAction
               onClick={() => {
                 if (removeUserData) {
-                  const project = users
-                    .find(u => u.id === removeUserData.userId)?.projects
-                    .find((p: any) => p.id === removeUserData.projectId);
-                  
-                  if (project) {
-                    removeUserFromProject(
-                      removeUserData.userId,
-                      removeUserData.projectId,
-                      project.role === 'project_admin'
-                    );
-                  }
+                  removeUserFromProject(
+                    removeUserData.userId,
+                    removeUserData.projectId
+                  );
                 }
               }}
               disabled={actionLoading}

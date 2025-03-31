@@ -210,32 +210,36 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
               
             if (promoteError) throw promoteError;
           } else {
-            // Create new admin - using direct object instead of Partial<ProjectUser>
+            // Create new admin
+            const newProjectUser = {
+              project_id: project.id,
+              user_id: adminId,
+              is_admin: true,
+              status: 'active' as ProjectUserStatus,
+              invited_by: user?.id || '',
+              created_by: user?.id || null
+            };
+            
             const { error: insertError } = await supabase
               .from('project_users')
-              .insert({
-                project_id: project.id,
-                user_id: adminId,
-                is_admin: true,
-                status: 'active',
-                invited_by: user?.id || '',
-                created_by: user?.id || null
-              });
+              .insert(newProjectUser);
               
             if (insertError) throw insertError;
           }
         } else if (!existingAdmin) {
-          // No admin exists, insert a new one - using direct object instead of Partial<ProjectUser>
+          // No admin exists, insert a new one
+          const newProjectUser = {
+            project_id: project.id,
+            user_id: adminId,
+            is_admin: true,
+            status: 'active' as ProjectUserStatus,
+            invited_by: user?.id || '',
+            created_by: user?.id || null
+          };
+          
           const { error: insertError } = await supabase
             .from('project_users')
-            .insert({
-              project_id: project.id,
-              user_id: adminId,
-              is_admin: true,
-              status: 'active',
-              invited_by: user?.id || '',
-              created_by: user?.id || null
-            });
+            .insert(newProjectUser);
             
           if (insertError) throw insertError;
         }
