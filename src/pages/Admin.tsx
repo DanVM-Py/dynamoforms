@@ -95,16 +95,10 @@ const Admin = () => {
           throw projectUsersError;
         }
         
-        const { data: projectAdmins, error: projectAdminsError } = await supabase
-          .from('project_admins')
-          .select('*, projects(name)');
-          
-        if (projectAdminsError) {
-          throw projectAdminsError;
-        }
+        const projectAdmins = projectUsers.filter((pu: any) => pu.is_admin === true);
         
         const enrichedUsers = profiles.map((profile: any) => {
-          const userProjects = projectUsers.filter((pu: any) => pu.user_id === profile.id)
+          const userProjects = projectUsers.filter((pu: any) => pu.user_id === profile.id && !pu.is_admin)
             .map((pu: any) => ({
               id: pu.project_id,
               name: pu.projects?.name || 'Unknown Project',
@@ -112,12 +106,12 @@ const Admin = () => {
               relationId: pu.id
             }));
             
-          const adminProjects = projectAdmins.filter((pa: any) => pa.user_id === profile.id)
-            .map((pa: any) => ({
-              id: pa.project_id,
-              name: pa.projects?.name || 'Unknown Project',
+          const adminProjects = projectUsers.filter((pu: any) => pu.user_id === profile.id && pu.is_admin === true)
+            .map((pu: any) => ({
+              id: pu.project_id,
+              name: pu.projects?.name || 'Unknown Project',
               role: 'project_admin',
-              relationId: pa.id
+              relationId: pu.id
             }));
           
           const allProjects = [...userProjects, ...adminProjects];

@@ -103,9 +103,10 @@ const Forms = () => {
         // For project admins, show all forms from their projects
         if (isProjectAdmin && !isGlobalAdmin) {
           const { data: projectAdminData } = await client
-            .from(Tables.project_admins)
+            .from('project_users')
             .select('project_id')
-            .eq('user_id', session.user.id);
+            .eq('user_id', session.user.id)
+            .eq('is_admin', true);
             
           if (projectAdminData && projectAdminData.length > 0) {
             const projectIds = projectAdminData.map(item => item.project_id);

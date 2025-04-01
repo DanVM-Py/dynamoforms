@@ -113,7 +113,6 @@ export type TableName =
   | 'form_roles'
   | 'roles'
   | 'notifications'
-  | 'project_admins'
   | 'project_users'
   | 'tasks'
   | 'task_templates'
@@ -129,7 +128,6 @@ export const Tables = {
   form_roles: `${config.tablePrefix}form_roles` as 'form_roles',
   roles: `${config.tablePrefix}roles` as 'roles',
   notifications: `${config.tablePrefix}notifications` as 'notifications',
-  project_admins: `${config.tablePrefix}project_admins` as 'project_admins',
   project_users: `${config.tablePrefix}project_users` as 'project_users',
   tasks: `${config.tablePrefix}tasks` as 'tasks',
   task_templates: `${config.tablePrefix}task_templates` as 'task_templates',

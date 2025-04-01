@@ -57,7 +57,7 @@ export function PrivateFormView() {
         // Check if user has access to the form's project
         const { data: projectUserData, error: projectUserError } = await supabase
           .from(Tables.project_users)
-          .select('*')
+          .select('1')
           .eq('project_id', formData.project_id)
           .eq('user_id', user.id)
           .eq('status', 'active')
@@ -69,16 +69,16 @@ export function PrivateFormView() {
 
         // Check if user is a project admin
         const { data: projectAdminData, error: projectAdminError } = await supabase
-          .from(Tables.project_admins)
-          .select('*')
+          .from('project_users')
+          .select('id')
           .eq('project_id', formData.project_id)
           .eq('user_id', user.id)
+          .eq('is_admin', true)
           .maybeSingle();
 
         if (projectAdminError) {
           console.error("[PrivateFormView] Error checking admin access:", projectAdminError);
         }
-
         // Check if user has specific role access to this form
         const { data: formRoleData, error: formRoleError } = await supabase
           .from(Tables.form_roles)
