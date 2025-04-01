@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, ShieldAlert } from 'lucide-react';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { Tables } from '@/config/environment';
 
 export function PrivateFormView() {
   const { formId } = useParams();
@@ -35,7 +35,7 @@ export function PrivateFormView() {
         
         // First, try to fetch the form
         const { data: formData, error: formError } = await supabase
-          .from('forms')
+          .from(Tables.forms)
           .select('*, project_id')
           .eq('id', formId)
           .single();
@@ -56,7 +56,7 @@ export function PrivateFormView() {
 
         // Check if user has access to the form's project
         const { data: projectUserData, error: projectUserError } = await supabase
-          .from('project_users')
+          .from(Tables.project_users)
           .select('*')
           .eq('project_id', formData.project_id)
           .eq('user_id', user.id)
@@ -69,7 +69,7 @@ export function PrivateFormView() {
 
         // Check if user is a project admin
         const { data: projectAdminData, error: projectAdminError } = await supabase
-          .from('project_admins')
+          .from(Tables.project_admins)
           .select('*')
           .eq('project_id', formData.project_id)
           .eq('user_id', user.id)
@@ -81,7 +81,7 @@ export function PrivateFormView() {
 
         // Check if user has specific role access to this form
         const { data: formRoleData, error: formRoleError } = await supabase
-          .from('form_roles')
+          .from(Tables.form_roles)
           .select('*')
           .eq('form_id', formId)
           .maybeSingle();
@@ -94,7 +94,7 @@ export function PrivateFormView() {
         let hasRoleAccess = true;
         if (formRoleData && formRoleData.role_id) {
           const { data: userRoleData, error: userRoleError } = await supabase
-            .from('user_roles')
+            .from(Tables.user_roles)
             .select('*')
             .eq('user_id', user.id)
             .eq('role_id', formRoleData.role_id)
@@ -110,7 +110,7 @@ export function PrivateFormView() {
 
         // If user is a global admin, they always have access
         const { data: userProfile, error: profileError } = await supabase
-          .from('profiles')
+          .from(Tables.profiles)
           .select('role')
           .eq('id', user.id)
           .single();
@@ -180,7 +180,7 @@ export function PrivateFormView() {
       
       // Submit the form response
       const { data, error } = await supabase
-        .from('form_responses')
+        .from(Tables.form_responses)
         .insert(submissionData)
         .select('id')
         .single();

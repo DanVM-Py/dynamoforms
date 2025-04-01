@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -12,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { CloneFormModal } from "@/components/forms/CloneFormModal";
 import { useSidebarProjects } from "@/hooks/use-sidebar-projects";
 import { Input } from "@/components/ui/input";
+import { Tables } from '@/config/environment';
 
 interface Form {
   id: string;
@@ -89,7 +89,7 @@ const Forms = () => {
       console.log("User roles:", { isGlobalAdmin, isProjectAdmin });
 
       const client = isGlobalAdmin ? supabaseAdmin : supabase;
-      let query = client.from('forms').select(`
+      let query = client.from(Tables.forms).select(`
         *,
         projects:project_id (name)
       `);
@@ -103,7 +103,7 @@ const Forms = () => {
         // For project admins, show all forms from their projects
         if (isProjectAdmin && !isGlobalAdmin) {
           const { data: projectAdminData } = await client
-            .from('project_admins')
+            .from(Tables.project_admins)
             .select('project_id')
             .eq('user_id', session.user.id);
             
@@ -126,7 +126,7 @@ const Forms = () => {
           
           // Regular users should still have role-based access
           const { data: userRolesData } = await client
-            .from('user_roles')
+            .from(Tables.user_roles)
             .select(`
               role_id,
               project_id
@@ -173,7 +173,7 @@ const Forms = () => {
             data.map(async (form) => {
               try {
                 const { count, error: countError } = await client
-                  .from('form_responses')
+                  .from(Tables.form_responses)
                   .select('*', { count: 'exact', head: true })
                   .eq('form_id', form.id);
                   
@@ -242,7 +242,7 @@ const Forms = () => {
       // Use a default project for new forms in editor mode
       // This can be enhanced to show project selection at form creation if needed
       const { data: projectsData, error: projectsError } = await supabaseAdmin
-        .from('projects')
+        .from(Tables.projects)
         .select('id')
         .limit(1)
         .order('created_at', { ascending: false });
@@ -263,7 +263,7 @@ const Forms = () => {
       const defaultProjectId = projectsData[0].id;
       
       const { data, error } = await supabaseAdmin
-        .from('forms')
+        .from(Tables.forms)
         .insert([
           { 
             title: 'Nuevo formulario', 
@@ -441,7 +441,7 @@ const Forms = () => {
       const client = supabaseAdmin;
       
       const { count, error: countError } = await client
-        .from('form_responses')
+        .from(Tables.form_responses)
         .select('*', { count: 'exact', head: true })
         .eq('form_id', formToDelete.id);
       
@@ -449,7 +449,7 @@ const Forms = () => {
       
       if (count && count > 0) {
         const { error: responsesDeleteError } = await client
-          .from('form_responses')
+          .from(Tables.form_responses)
           .delete()
           .eq('form_id', formToDelete.id);
         
@@ -457,7 +457,7 @@ const Forms = () => {
       }
       
       const { error: formDeleteError } = await client
-        .from('forms')
+        .from(Tables.forms)
         .delete()
         .eq('id', formToDelete.id);
       

@@ -104,7 +104,34 @@ export const getEnvironmentName = (): string => {
   return environment === 'development' ? 'Desarrollo' : 'Producción';
 };
 
-// Helper to get the full table name with prefix
-export const getTableName = (tableName: string): string => {
-  return `${config.tablePrefix}${tableName}`;
+// Tipo para las tablas permitidas en Supabase
+export type TableName = 
+  | 'form_responses'
+  | 'forms'
+  | 'profiles'
+  | 'projects'
+  | 'form_roles'
+  | 'roles'
+  | 'notifications'
+  | 'project_admins'
+  | 'project_users'
+  | 'tasks'
+  | 'task_templates'
+  | 'user_roles';
+
+
+// Objeto con nombres de tabla tipados - usar esto para conservar el tipado estricto
+export const Tables = {
+  form_responses: `${config.tablePrefix}form_responses` as 'form_responses',
+  forms: `${config.tablePrefix}forms` as 'forms',
+  profiles: `${config.tablePrefix}profiles` as 'profiles',
+  projects: `${config.tablePrefix}projects` as 'projects',
+  form_roles: `${config.tablePrefix}form_roles` as 'form_roles',
+  roles: `${config.tablePrefix}roles` as 'roles',
+  notifications: `${config.tablePrefix}notifications` as 'notifications',
+  project_admins: `${config.tablePrefix}project_admins` as 'project_admins',
+  project_users: `${config.tablePrefix}project_users` as 'project_users',
+  tasks: `${config.tablePrefix}tasks` as 'tasks',
+  task_templates: `${config.tablePrefix}task_templates` as 'task_templates',
+  user_roles: `${config.tablePrefix}user_roles` as 'user_roles',
 };
