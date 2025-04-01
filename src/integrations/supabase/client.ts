@@ -1,4 +1,3 @@
-
 // This file provides a single source of truth for Supabase clients
 import { createClient, SupabaseClientOptions } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
