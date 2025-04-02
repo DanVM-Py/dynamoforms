@@ -1,4 +1,3 @@
-
 import { createBrowserRouter } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout";
 import Auth from "./pages/Auth";
@@ -6,6 +5,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Projects from "./pages/Projects";
 import Forms from "./pages/Forms";
+import FormsManagement from "./pages/FormsManagement";
 import PrivateFormView from "./pages/PrivateFormView";
 import PublicFormView from "./pages/PublicFormView";
 import PublicFormSuccess from "./pages/PublicFormSuccess";
@@ -50,6 +50,14 @@ export const routes = createBrowserRouter([
             <Forms />
           </ProtectedRoute>
         ),
+      },
+      {
+        path: "/forms-management",
+        element: <FormsManagement />,
+      },
+      {
+        path: "/forms-management/:id",
+        element: <FormEdit />,
       },
       {
         path: "/forms/:formId",
