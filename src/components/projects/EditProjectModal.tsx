@@ -23,7 +23,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProjectUserStatus, ProjectErrors } from "@/types/custom";
-
+import { Tables } from "@/config/environment";
 export interface EditProjectModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -73,7 +73,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
   const fetchCurrentAdmin = async () => {
     try {
       const { data, error } = await supabase
-        .from('project_users')
+        .from(Tables.project_users)
         .select('user_id')
         .eq('project_id', project.id)
         .eq('is_admin', true)
@@ -99,7 +99,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
     try {
       setLoadingUsers(true);
       const { data, error } = await supabase
-        .from('profiles')
+        .from(Tables.profiles)
         .select('*')
         .not('role', 'eq', 'global_admin');
         
@@ -153,7 +153,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
     setLoading(true);
     try {
       const { error } = await supabase
-        .from('projects')
+        .from(Tables.projects)
         .update({ 
           name, 
           description 
@@ -164,7 +164,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
       
       if (adminId) {
         const { data: existingAdmin, error: fetchError } = await supabase
-          .from('project_users')
+          .from(Tables.project_users)
           .select('*')
           .eq('project_id', project.id)
           .eq('is_admin', true)
@@ -176,14 +176,14 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
         
         if (existingAdmin && existingAdmin.user_id !== adminId) {
           const { error: updateError } = await supabase
-            .from('project_users')
+            .from(Tables.project_users)
             .update({ is_admin: false })
             .eq('id', existingAdmin.id);
             
           if (updateError) throw updateError;
           
           const { data: existingUser, error: userError } = await supabase
-            .from('project_users')
+            .from(Tables.project_users)
             .select('*')
             .eq('project_id', project.id)
             .eq('user_id', adminId)
@@ -195,7 +195,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
           
           if (existingUser) {
             const { error: promoteError } = await supabase
-              .from('project_users')
+              .from(Tables.project_users)
               .update({
                 is_admin: true,
                 status: 'active' as ProjectUserStatus
@@ -214,7 +214,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             };
 
             const { error: insertError } = await supabase
-              .from('project_users')
+              .from(Tables.project_users)
               .insert(projectUserObj);
               
             if (insertError) throw insertError;
@@ -230,7 +230,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
           };
 
           const { error: insertError } = await supabase
-            .from('project_users')
+            .from(Tables.project_users)
             .insert(projectUserObj);
             
           if (insertError) throw insertError;

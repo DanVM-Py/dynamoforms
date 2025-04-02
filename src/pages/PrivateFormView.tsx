@@ -69,7 +69,7 @@ export function PrivateFormView() {
 
         // Check if user is a project admin
         const { data: projectAdminData, error: projectAdminError } = await supabase
-          .from('project_users')
+          .from(Tables.project_users)
           .select('id')
           .eq('project_id', formData.project_id)
           .eq('user_id', user.id)

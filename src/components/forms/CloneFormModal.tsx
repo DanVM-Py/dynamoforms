@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast";
 import { supabase, supabaseAdmin } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { Tables } from "@/config/environment";
 
 interface CloneFormModalProps {
   open: boolean;
@@ -59,7 +60,7 @@ export function CloneFormModal({
       const client = isGlobalAdmin ? supabaseAdmin : supabase;
       
       // Get forms from the selected project
-      let query = client.from('forms').select('id, title, project_id, projects:project_id(name)');
+      let query = client.from(Tables.forms).select('id, title, project_id, projects:project_id(name)');
       
       if (selectedProjectId) {
         query = query.eq('project_id', selectedProjectId);
@@ -94,7 +95,7 @@ export function CloneFormModal({
       const client = isGlobalAdmin ? supabaseAdmin : supabase;
       
       const { data, error } = await client
-        .from('projects')
+        .from(Tables.projects)
         .select('id, name')
         .order('name');
         

@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Project, ProjectUser } from "@/types/custom";
 import { EditProjectModal } from "@/components/projects/EditProjectModal";
 import ProjectCard from "@/components/projects/ProjectCard";
+import { Tables } from "@/config/environment";
 
 // Define extended project type that includes adminId
 interface ExtendedProject extends Project {
@@ -45,7 +46,7 @@ const Projects = () => {
     queryKey: ['projects'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('projects')
+        .from(Tables.projects)
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -66,7 +67,7 @@ const Projects = () => {
       const fetchUsers = async () => {
         try {
           const { data, error } = await supabase
-            .from('profiles')
+            .from(Tables.profiles)
             .select('id, name, email')
             .not('role', 'eq', 'global_admin');
             
@@ -123,7 +124,7 @@ const Projects = () => {
     
     try {
       const { data: projectData, error: projectError } = await supabase
-        .from('projects')
+        .from(Tables.projects)
         .insert([
           { 
             name: projectName, 
@@ -140,7 +141,7 @@ const Projects = () => {
         
         // Create project admin directly with the expected object structure
         const { error: adminError } = await supabase
-          .from('project_users')
+          .from(Tables.project_users)
           .insert({
             project_id: newProject.id,
             user_id: projectAdminId,
@@ -176,7 +177,7 @@ const Projects = () => {
     try {
       // Get the current admin for this project
       const { data: adminData, error: adminError } = await supabase
-        .from('project_users')
+        .from(Tables.project_users)
         .select('user_id')
         .eq('project_id', project.id)
         .eq('is_admin', true)
@@ -215,7 +216,7 @@ const Projects = () => {
       setIsDeleting(true);
       try {
         const { error } = await supabase
-          .from('projects')
+          .from(Tables.projects)
           .delete()
           .eq('id', projectToDelete.id);
 

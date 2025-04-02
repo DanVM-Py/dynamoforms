@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ClipboardList, Loader2 } from "lucide-react";
-
+import { Tables } from "@/config/environment";
 interface TaskFormsHandlerProps {
   formId: string;
   taskId: string | null;
@@ -41,7 +41,7 @@ export const TaskFormsHandler = ({ formId, taskId, responseId }: TaskFormsHandle
     try {
       // Update the task status to completed
       const { error } = await supabase
-        .from('tasks')
+        .from(Tables.tasks)
         .update({ 
           status: 'completed',
           updated_at: new Date().toISOString()

@@ -24,6 +24,7 @@ import { v4 as uuidv4 } from "uuid";
 import { FileUploader } from "../FileUploader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { isComponentRequired, isAboveMinValue } from "@/utils/formValidationUtils";
+import { Tables } from "@/config/environment";
 
 export interface FormRendererProps {
   formId: string;
@@ -157,7 +158,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
       }
 
       const { data, error } = await supabase
-        .from('form_responses')
+        .from(Tables.form_responses)
         .insert([submissionData])
         .select();
 
