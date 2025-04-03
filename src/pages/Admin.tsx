@@ -3,7 +3,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EnvironmentBadge } from '@/components/environment/EnvironmentBadge';
-import { isDevelopment } from '@/config/environment';
+import { isDevelopment, Tables } from '@/config/environment';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { 
@@ -80,7 +80,7 @@ const Admin = () => {
         setLoading(true);
         
         const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
+          .from(Tables.profiles)
           .select('*');
           
         if (profilesError) {
@@ -88,23 +88,16 @@ const Admin = () => {
         }
         
         const { data: projectUsers, error: projectUsersError } = await supabase
-          .from('project_users')
-          .select('*, projects(name)');
-          
+          .from(Tables.project_users)
+          .select(`*, ${Tables.projects}(name)`);
         if (projectUsersError) {
           throw projectUsersError;
         }
         
-        const { data: projectAdmins, error: projectAdminsError } = await supabase
-          .from('project_admins')
-          .select('*, projects(name)');
-          
-        if (projectAdminsError) {
-          throw projectAdminsError;
-        }
+        const projectAdmins = projectUsers.filter((pu: any) => pu.is_admin === true);
         
         const enrichedUsers = profiles.map((profile: any) => {
-          const userProjects = projectUsers.filter((pu: any) => pu.user_id === profile.id)
+          const userProjects = projectUsers.filter((pu: any) => pu.user_id === profile.id && !pu.is_admin)
             .map((pu: any) => ({
               id: pu.project_id,
               name: pu.projects?.name || 'Unknown Project',
@@ -112,12 +105,12 @@ const Admin = () => {
               relationId: pu.id
             }));
             
-          const adminProjects = projectAdmins.filter((pa: any) => pa.user_id === profile.id)
-            .map((pa: any) => ({
-              id: pa.project_id,
-              name: pa.projects?.name || 'Unknown Project',
+          const adminProjects = projectUsers.filter((pu: any) => pu.user_id === profile.id && pu.is_admin === true)
+            .map((pu: any) => ({
+              id: pu.project_id,
+              name: pu.projects?.name || 'Unknown Project',
               role: 'project_admin',
-              relationId: pa.id
+              relationId: pu.id
             }));
           
           const allProjects = [...userProjects, ...adminProjects];
@@ -142,7 +135,7 @@ const Admin = () => {
     const fetchProjects = async () => {
       try {
         setProjectsLoading(true);
-        const { data, error } = await supabase.from('projects').select('*');
+        const { data, error } = await supabase.from(Tables.projects).select('*');
         
         if (error) {
           throw error;

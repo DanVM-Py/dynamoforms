@@ -1,7 +1,7 @@
-
 import { Json } from "@/types/supabase";
 import { supabase } from "@/integrations/supabase/client";
 import { getValidFormSchema, safelyAccessFormSchema } from "@/utils/formSchemaUtils";
+import { Tables } from '@/config/environment';
 
 export type TaskTemplate = {
   id: string;
@@ -70,7 +70,7 @@ export const transformTaskTemplates = (taskTemplatesData: any[], formsMap: Map<s
 
 export const getProjectUsers = async (projectId: string): Promise<User[]> => {
   const { data: projectUsers, error: projectUsersError } = await supabase
-    .from('project_users')
+    .from(Tables.project_users)
     .select('user_id')
     .eq('project_id', projectId);
 
@@ -82,7 +82,7 @@ export const getProjectUsers = async (projectId: string): Promise<User[]> => {
   const userIds = projectUsers.map(pu => pu.user_id);
 
   const { data: users, error: usersError } = await supabase
-    .from('profiles')
+    .from(Tables.profiles)
     .select('id, name, email')
     .in('id', userIds);
 

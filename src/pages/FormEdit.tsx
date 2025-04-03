@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase, supabaseAdmin } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { ArrowLeft, Save, Share2, Copy, Check, ExternalLink, Shield } from "lucide-react";
+import { ArrowLeft, Save, Share2, Copy, Check, ExternalLink, Shield, Table } from "lucide-react";
 import { FormBuilder, FormSchema } from "@/components/form-builder/FormBuilder";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,7 +26,7 @@ import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSidebarProjects } from "@/hooks/use-sidebar-projects";
 import { useAuth } from "@/contexts/AuthContext";
-
+import { Tables } from "@/config/environment";
 const FormEdit = () => {
   const { formId } = useParams();
   const navigate = useNavigate();
@@ -75,7 +75,7 @@ const FormEdit = () => {
     try {
       setLoading(true);
       const { data, error } = await supabaseAdmin
-        .from('projects')
+        .from(Tables.projects)
         .select('id, name')
         .order('name');
         
@@ -104,7 +104,7 @@ const FormEdit = () => {
       const client = isGlobalAdmin ? supabaseAdmin : supabase;
       
       const { data, error } = await client
-        .from('forms')
+        .from(Tables.forms)
         .select('*')
         .eq('id', id)
         .single();
@@ -171,7 +171,7 @@ const FormEdit = () => {
       const client = isGlobalAdmin ? supabaseAdmin : supabase;
       
       const { data, error } = await client
-        .from('roles')
+        .from(Tables.roles)
         .select('*')
         .eq('project_id', form.project_id)
         .order('name', { ascending: true });
@@ -190,7 +190,7 @@ const FormEdit = () => {
       const client = isGlobalAdmin ? supabaseAdmin : supabase;
       
       const { data, error } = await client
-        .from('form_roles')
+        .from(Tables.form_roles)
         .select(`
           *,
           roles:role_id (name)
@@ -218,7 +218,7 @@ const FormEdit = () => {
       const client = isGlobalAdmin ? supabaseAdmin : supabase;
       
       const { error } = await client
-        .from('forms')
+        .from(Tables.forms)
         .update({
           title: form.title,
           description: form.description,
@@ -257,7 +257,7 @@ const FormEdit = () => {
       const newStatus = form.status === 'draft' ? 'active' : 'draft';
       
       const { error } = await client
-        .from('forms')
+        .from(Tables.forms)
         .update({ 
           status: newStatus,
           updated_at: new Date().toISOString()
@@ -356,7 +356,7 @@ const FormEdit = () => {
       const userId = userData.user?.id;
       
       const { data, error } = await client
-        .from('form_roles')
+        .from(Tables.form_roles)
         .insert({
           form_id: formId!,
           role_id: selectedRole,
@@ -409,7 +409,7 @@ const FormEdit = () => {
       const client = isGlobalAdmin ? supabaseAdmin : supabase;
       
       const { error } = await client
-        .from('form_roles')
+        .from(Tables.form_roles)
         .delete()
         .eq('id', formRoleId);
         

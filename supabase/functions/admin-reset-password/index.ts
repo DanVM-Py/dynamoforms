@@ -1,4 +1,4 @@
-
+import { Tables } from '@/config/environment'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
 
 // CORS headers for browser requests
@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
 
     // First verify the requester is a global_admin
     const { data: requesterData, error: requesterError } = await supabaseAdmin
-      .from('profiles')
+      .from(Tables.profiles)
       .select('role')
       .eq('id', requesterId)
       .single()

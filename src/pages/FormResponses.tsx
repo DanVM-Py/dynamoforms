@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft, Download } from "lucide-react";
-
+import { Tables } from "@/config/environment";
 interface FormResponse {
   id: string;
   form_id: string;
@@ -37,7 +37,7 @@ const FormResponses = () => {
       
       // Obtener formulario
       const { data: formData, error: formError } = await supabase
-        .from('forms')
+        .from(Tables.forms)
         .select('*')
         .eq('id', id)
         .single();
@@ -48,7 +48,7 @@ const FormResponses = () => {
       
       // Obtener respuestas
       const { data: responsesData, error: responsesError } = await supabase
-        .from('form_responses')
+        .from(Tables.form_responses)
         .select('*')
         .eq('form_id', id)
         .order('submitted_at', { ascending: false });

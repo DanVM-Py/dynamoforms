@@ -1,4 +1,4 @@
-
+import { Tables } from '@/config/environment' 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 
@@ -59,7 +59,7 @@ serve(async (req) => {
     
     // Check if user is a global admin
     const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
+      .from(Tables.profiles)
       .select('role')
       .eq('id', user.id)
       .single();
@@ -73,7 +73,7 @@ serve(async (req) => {
     
     // Get source form
     const { data: sourceForm, error: sourceFormError } = await supabase
-      .from('forms')
+      .from(Tables.forms)
       .select('*')
       .eq('id', sourceFormId)
       .single();
@@ -87,7 +87,7 @@ serve(async (req) => {
     
     // Check if target project exists
     const { data: targetProject, error: targetProjectError } = await supabase
-      .from('projects')
+      .from(Tables.projects)
       .select('id')
       .eq('id', targetProjectId)
       .single();
@@ -101,7 +101,7 @@ serve(async (req) => {
     
     // Create cloned form
     const { data: newForm, error: newFormError } = await supabase
-      .from('forms')
+      .from(Tables.forms)
       .insert({
         title: newTitle,
         description: newDescription || sourceForm.description,
@@ -124,7 +124,7 @@ serve(async (req) => {
     // Clone form roles if requested
     if (cloneRoles) {
       const { data: sourceRoles, error: rolesError } = await supabase
-        .from('form_roles')
+        .from(Tables.form_roles)
         .select('role_id')
         .eq('form_id', sourceFormId);
         
@@ -137,7 +137,7 @@ serve(async (req) => {
         }));
         
         const { error: insertRolesError } = await supabase
-          .from('form_roles')
+          .from(Tables.form_roles)
           .insert(roleInserts);
           
         if (insertRolesError) {

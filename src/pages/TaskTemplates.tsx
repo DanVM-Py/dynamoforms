@@ -23,6 +23,7 @@ import {
   getProjectUsers, 
   AssignmentType
 } from "@/utils/taskTemplateUtils";
+import { Tables } from '@/config/environment';
 
 const TaskTemplates = () => {
   const [editOpen, setEditOpen] = useState(false);
@@ -73,7 +74,7 @@ const TaskTemplates = () => {
     queryKey: ['taskTemplates', filter, projectId],
     queryFn: async () => {
       let query = supabase
-        .from('task_templates')
+        .from(Tables.task_templates)
         .select(`
           id,
           title,
@@ -125,7 +126,7 @@ const TaskTemplates = () => {
       
       console.log(`[TaskTemplates] Fetching forms for project: ${projectId}`);
       const { data, error } = await supabase
-        .from('forms')
+        .from(Tables.forms)
         .select('id, title, schema')
         .eq('project_id', projectId)
         .order('created_at', { ascending: false });
@@ -150,7 +151,7 @@ const TaskTemplates = () => {
     queryFn: async () => {
       console.log("[TaskTemplates] Fetching all projects");
       const { data, error } = await supabase
-        .from('projects')
+        .from(Tables.projects)
         .select('id, name')
         .order('created_at', { ascending: false });
 
@@ -189,7 +190,7 @@ const TaskTemplates = () => {
       
       console.log(`[TaskTemplates] Fetching schema for source form: ${sourceFormId}`);
       const { data, error } = await supabase
-        .from('forms')
+        .from(Tables.forms)
         .select('schema')
         .eq('id', sourceFormId)
         .maybeSingle();
@@ -239,7 +240,7 @@ const TaskTemplates = () => {
       
       console.log(`[TaskTemplates] Fetching schema for target form: ${targetFormId}`);
       const { data, error } = await supabase
-        .from('forms')
+        .from(Tables.forms)
         .select('schema')
         .eq('id', targetFormId)
         .maybeSingle();
@@ -302,7 +303,7 @@ const TaskTemplates = () => {
       }
 
       const { data, error } = await supabase
-        .from('task_templates')
+        .from(Tables.task_templates)
         .update({
           title,
           description,
@@ -354,7 +355,7 @@ const TaskTemplates = () => {
       setIsDeleting(true);
 
       const { data, error } = await supabase
-        .from('task_templates')
+        .from(Tables.task_templates)
         .delete()
         .eq('id', selectedTemplate?.id);
 

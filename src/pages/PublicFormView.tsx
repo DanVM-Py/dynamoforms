@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +7,7 @@ import { processUploadFields } from '@/utils/fileUploadUtils';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FormResponseHandler } from '@/components/form-renderer/FormResponseHandler';
+import { Tables } from '@/config/environment';
 
 export function PublicFormView() {
   const { formId } = useParams();
@@ -24,7 +24,7 @@ export function PublicFormView() {
       try {
         console.log("[PublicFormView] Fetching public form with ID:", formId);
         const { data, error } = await supabase
-          .from('forms')
+          .from(Tables.forms)
           .select('*')
           .eq('id', formId)
           .eq('is_public', true)
@@ -81,7 +81,7 @@ export function PublicFormView() {
       
       // Submit the form response
       const { data, error } = await supabase
-        .from('form_responses')
+        .from(Tables.form_responses)
         .insert(submissionData)
         .select('id')
         .single();
