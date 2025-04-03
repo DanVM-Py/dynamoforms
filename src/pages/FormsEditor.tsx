@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -77,7 +76,7 @@ const FormsEditorContent: React.FC = () => {
   }, [forms, searchTerm, statusFilter, sortBy]);
 
   const handleEditForm = (formId: string) => {
-    navigate(`/forms-management/${formId}`);
+    navigate(`/forms/${formId}/edit`);
   };
 
   const handleCreateForm = () => {
