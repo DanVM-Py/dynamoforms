@@ -1,3 +1,4 @@
+
 import { createBrowserRouter } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout";
 import Auth from "./pages/Auth";
@@ -6,6 +7,7 @@ import NotFound from "./pages/NotFound";
 import Projects from "./pages/Projects";
 import Forms from "./pages/Forms";
 import FormsManagement from "./pages/FormsManagement";
+import FormsEditor from "./pages/FormsEditor";
 import PrivateFormView from "./pages/PrivateFormView";
 import PublicFormView from "./pages/PublicFormView";
 import PublicFormSuccess from "./pages/PublicFormSuccess";
@@ -142,8 +144,8 @@ export const routes = createBrowserRouter([
       {
         path: "/forms-editor",
         element: (
-          <ProtectedRoute requireGlobalAdmin={true}>
-            <FormEdit />
+          <ProtectedRoute requireProjectAdmin={true}>
+            <FormsEditor />
           </ProtectedRoute>
         ),
       },
