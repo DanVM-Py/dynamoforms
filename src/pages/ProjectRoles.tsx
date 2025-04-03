@@ -52,6 +52,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Tables } from "@/config/environment";
 
 const ProjectRoles = () => {
   const { projectId } = useParams();
@@ -91,7 +92,7 @@ const ProjectRoles = () => {
   const fetchProject = async () => {
     try {
       const { data, error } = await supabase
-        .from('projects')
+        .from(Tables.projects)
         .select('id, name')
         .eq('id', projectId)
         .single();
@@ -118,7 +119,7 @@ const ProjectRoles = () => {
       setLoading(true);
       
       const { data, error } = await supabase
-        .from('roles')
+        .from(Tables.roles)
         .select('*')
         .eq('project_id', projectId)
         .order('name', { ascending: true });
@@ -141,7 +142,7 @@ const ProjectRoles = () => {
   const fetchUserRoles = async () => {
     try {
       const { data, error } = await supabase
-        .from('user_roles')
+        .from(Tables.user_roles)
         .select(`
           *,
           profiles!user_id(name, email),
@@ -167,7 +168,7 @@ const ProjectRoles = () => {
   const fetchUsers = async () => {
     try {
       const { data: projectUsers, error: projectUsersError } = await supabase
-        .from('project_users')
+        .from(Tables.project_users)
         .select('user_id')
         .eq('project_id', projectId)
         .eq('status', 'active');
@@ -182,7 +183,7 @@ const ProjectRoles = () => {
       const userIds = projectUsers.map(pu => pu.user_id);
       
       const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
+        .from(Tables.profiles)
         .select('id, name, email')
         .in('id', userIds)
         .order('name', { ascending: true });
@@ -214,7 +215,7 @@ const ProjectRoles = () => {
       setSubmitting(true);
       
       const { data, error } = await supabase
-        .from('roles')
+        .from(Tables.roles)
         .insert({
           name: newRoleName.trim(),
           project_id: projectId,
@@ -263,7 +264,7 @@ const ProjectRoles = () => {
   const handleDeleteRole = async (roleId: string) => {
     try {
       const { error } = await supabase
-        .from('roles')
+        .from(Tables.roles)
         .delete()
         .eq('id', roleId);
         
@@ -299,7 +300,7 @@ const ProjectRoles = () => {
     
     try {
       const { data, error } = await supabase
-        .from('user_roles')
+        .from(Tables.user_roles)
         .insert({
           user_id: selectedUser,
           role_id: selectedRole,
@@ -345,7 +346,7 @@ const ProjectRoles = () => {
   const handleRemoveUserRole = async (userRoleId: string) => {
     try {
       const { error } = await supabase
-        .from('user_roles')
+        .from(Tables.user_roles)
         .delete()
         .eq('id', userRoleId);
         

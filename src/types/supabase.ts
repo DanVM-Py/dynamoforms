@@ -234,52 +234,6 @@ export interface Database {
           }
         ]
       }
-      project_admins: {
-        Row: {
-          id: string
-          project_id: string
-          user_id: string
-          created_at: string
-          assigned_by: string
-        }
-        Insert: {
-          id?: string
-          project_id: string
-          user_id: string
-          created_at?: string
-          assigned_by: string
-        }
-        Update: {
-          id?: string
-          project_id?: string
-          user_id?: string
-          created_at?: string
-          assigned_by?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_admins_assigned_by_fkey"
-            columns: ["assigned_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_admins_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_admins_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       project_users: {
         Row: {
           id: string
@@ -291,6 +245,7 @@ export interface Database {
           invited_at: string
           invited_by: string
           activated_at: string | null
+          is_admin: boolean | null
         }
         Insert: {
           id?: string
@@ -302,6 +257,7 @@ export interface Database {
           invited_at?: string
           invited_by: string
           activated_at?: string | null
+          is_admin?: boolean | null
         }
         Update: {
           id?: string
@@ -313,6 +269,7 @@ export interface Database {
           invited_at?: string
           invited_by?: string
           activated_at?: string | null
+          is_admin?: boolean | null
         }
         Relationships: [
           {
@@ -611,6 +568,53 @@ export interface Database {
           },
           {
             foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      // DEPRECATED: Esta tabla ha sido eliminada. Usar project_users con is_admin = true en su lugar
+      project_admins: {
+        Row: {
+          id: string
+          project_id: string
+          user_id: string
+          created_at: string
+          assigned_by: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          user_id: string
+          created_at?: string
+          assigned_by: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          user_id?: string
+          created_at?: string
+          assigned_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_admins_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_admins_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_admins_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"

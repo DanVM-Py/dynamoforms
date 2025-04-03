@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { Tables } from '@/config/environment';
 
 export function useSidebarProjects() {
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
@@ -45,13 +45,13 @@ export function useSidebarProjects() {
         if (isGlobalAdmin) {
           // Global admins can see all projects
           query = supabase
-            .from('projects')
+            .from(Tables.projects)
             .select('id, name')
             .order('name', { ascending: true });
         } else {
           // Regular users and project admins see projects they belong to
           query = supabase
-            .from('project_users')
+            .from(Tables.project_users)
             .select('project_id, projects(id, name)')
             .eq('user_id', user.id)
             .eq('status', 'active')

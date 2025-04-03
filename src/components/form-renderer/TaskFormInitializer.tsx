@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, Table } from "lucide-react";
+import { Tables } from "@/config/environment";
 
 interface TaskFormInitializerProps {
   formId: string;
@@ -24,7 +25,7 @@ export const TaskFormInitializer = ({ formId, taskId, onInitialData }: TaskFormI
         
         // Get the task
         const { data: task, error: taskError } = await supabase
-          .from('tasks')
+          .from(Tables.tasks)
           .select(`
             *,
             source_form_id,
@@ -45,7 +46,7 @@ export const TaskFormInitializer = ({ formId, taskId, onInitialData }: TaskFormI
         
         // Get the source form response
         const { data: formResponse, error: responseError } = await supabase
-          .from('form_responses')
+          .from(Tables.form_responses)
           .select('response_data')
           .eq('id', task.form_response_id)
           .single();
@@ -57,7 +58,7 @@ export const TaskFormInitializer = ({ formId, taskId, onInitialData }: TaskFormI
         
         // Get the task template to check field mappings
         const { data: template, error: templateError } = await supabase
-          .from('task_templates')
+          .from(Tables.task_templates)
           .select('inheritance_mapping')
           .eq('source_form_id', task.source_form_id)
           .eq('target_form_id', formId)

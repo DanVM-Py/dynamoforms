@@ -4,6 +4,27 @@
 
 **URL**: https://lovable.dev/projects/2c621e60-3d6c-41ae-a1f4-bd6467587ec7
 
+## Entornos y Tablas de Supabase
+
+Este proyecto utiliza dos entornos diferentes, cada uno con sus propias tablas en Supabase:
+
+- **Desarrollo**: Utiliza tablas con prefijo `dev_` (ej: `dev_forms`, `dev_projects`)
+- **Producción**: Utiliza tablas sin prefijo (ej: `forms`, `projects`)
+
+Para compilar la aplicación para diferentes entornos, utiliza los siguientes comandos:
+
+```bash
+# Entorno de desarrollo
+npm run build:dev
+
+# Entorno de producción
+npm run build:prod
+```
+
+La aplicación detectará automáticamente el entorno actual basándose en:
+1. El valor de `window.ENV` establecido durante la compilación
+2. La URL del sitio (localhost = desarrollo, otros = producción)
+
 ## How can I edit this code?
 
 There are several ways of editing your application.

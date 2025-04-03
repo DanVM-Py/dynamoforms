@@ -1,9 +1,9 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { ProjectUserStatus } from '@/types/custom';
+import { Tables } from '@/config/environment';
 
 export function useAdminOperations() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -26,7 +26,7 @@ export function useAdminOperations() {
       checkGlobalAdminAccess();
       
       const { data, error } = await supabase
-        .from('profiles')
+        .from(Tables.profiles)
         .update({ role: 'global_admin' })
         .eq('id', userId)
         .select();
@@ -61,7 +61,7 @@ export function useAdminOperations() {
       
       // Check if user exists in project
       const { data: existingUser, error: fetchError } = await supabase
-        .from('project_users')
+        .from(Tables.project_users)
         .select('*')
         .eq('project_id', projectId)
         .eq('user_id', userId)
@@ -72,7 +72,7 @@ export function useAdminOperations() {
       if (existingUser) {
         // Update existing project user
         const { error: updateError } = await supabase
-          .from('project_users')
+          .from(Tables.project_users)
           .update({ 
             is_admin: makeAdmin,
             status: 'active' 
@@ -83,7 +83,7 @@ export function useAdminOperations() {
       } else {
         // Create new project user as admin
         const { error: insertError } = await supabase
-          .from('project_users')
+          .from(Tables.project_users)
           .insert({
             project_id: projectId,
             user_id: userId,
@@ -122,7 +122,7 @@ export function useAdminOperations() {
     try {
       // Using project_users table for both regular users and admins, checking is_admin flag
       const { error } = await supabase
-        .from('project_users')
+        .from(Tables.project_users)
         .delete()
         .match({ user_id: userId, project_id: projectId });
       

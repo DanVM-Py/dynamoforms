@@ -61,6 +61,7 @@ import { CalendarIcon, ChevronLeft, ChevronRight, Loader2, MapPin } from 'lucide
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DateRange } from "react-day-picker"
 import { Input as InputUi } from "@/components/ui/input"
+import { Tables } from '@/config/environment';
 
 // Define Task type to match what we're getting from Supabase
 interface Task {
@@ -137,7 +138,7 @@ const TasksPage = () => {
       }
 
       let query = supabase
-        .from('tasks')
+        .from(Tables.tasks)
         .select(`
           *,
           profiles:assigned_to (name, email)
@@ -176,7 +177,7 @@ const TasksPage = () => {
         let sourceForm = undefined;
         if (task.source_form_id) {
           const { data: formData } = await supabase
-            .from('forms')
+            .from(Tables.forms)
             .select('id, title')
             .eq('id', task.source_form_id)
             .single();
@@ -232,7 +233,7 @@ const TasksPage = () => {
     setIsSaving(true);
     try {
       const { error } = await supabase
-        .from('tasks')
+        .from(Tables.tasks)
         .update({
           title: values.title,
           description: values.description,

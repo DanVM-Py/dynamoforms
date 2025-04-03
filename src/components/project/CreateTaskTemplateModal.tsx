@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { isDevelopment } from "@/config/environment";
+import { isDevelopment, Tables } from "@/config/environment";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type AssignmentType = "static" | "dynamic";
@@ -127,7 +127,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
 
       console.log(`[CreateTaskTemplateModal] Fetching forms for project: ${projectId}`);
       const { data, error } = await supabase
-        .from('forms')
+        .from(Tables.forms)
         .select('id, title, schema')
         .eq('project_id', projectId)
         .order('created_at', { ascending: false });
@@ -170,7 +170,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
       
       console.log(`[CreateTaskTemplateModal] Fetching schema for source form: ${sourceFormId}`);
       const { data, error } = await supabase
-        .from('forms')
+        .from(Tables.forms)
         .select('schema')
         .eq('id', sourceFormId)
         .maybeSingle();
@@ -198,7 +198,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
       
       console.log(`[CreateTaskTemplateModal] Fetching schema for target form: ${targetFormId}`);
       const { data, error } = await supabase
-        .from('forms')
+        .from(Tables.forms)
         .select('schema')
         .eq('id', targetFormId)
         .maybeSingle();
@@ -231,7 +231,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
       
       // First get all project_users
       const { data: projectUsersData, error: projectUsersError } = await supabase
-        .from('project_users')
+        .from(Tables.project_users)
         .select('user_id')
         .eq('project_id', projectId)
         .eq('status', 'active');
@@ -248,7 +248,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
       // Then fetch profile information for those users
       const userIds = projectUsersData.map(pu => pu.user_id);
       const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
+        .from(Tables.profiles)
         .select('id, name, email')
         .in('id', userIds);
         
@@ -276,7 +276,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
       setIsSaving(true);
 
       const { data, error } = await supabase
-        .from('task_templates')
+        .from(Tables.task_templates)
         .insert({
           title,
           description,

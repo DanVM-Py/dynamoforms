@@ -1,5 +1,5 @@
-
 import { supabase } from "@/integrations/supabase/client";
+import { Tables } from '@/config/environment';
 
 /**
  * Process form inheritance to create tasks based on templates
@@ -21,7 +21,7 @@ export const processFormInheritance = async (
     
     // Find templates where this form is the source
     let query = supabase
-      .from('task_templates')
+      .from(Tables.task_templates)
       .select('*')
       .eq('source_form_id', formId)
       .eq('is_active', true);
@@ -83,7 +83,7 @@ const createTaskFromTemplate = async (
       if (userEmail) {
         // Look up user by email
         const { data: userProfile, error } = await supabase
-          .from('profiles')
+          .from(Tables.profiles)
           .select('id')
           .eq('email', userEmail)
           .maybeSingle(); // Use maybeSingle instead of single to avoid errors
@@ -149,7 +149,7 @@ const createTaskFromTemplate = async (
     
     // Create task
     const { data: task, error } = await supabase
-      .from('tasks')
+      .from(Tables.tasks)
       .insert({
         title: template.title,
         description: template.description,
@@ -175,7 +175,7 @@ const createTaskFromTemplate = async (
     
     // Create notification for the assignee
     const { error: notificationError } = await supabase
-      .from('notifications')
+      .from(Tables.notifications)
       .insert({
         user_id: assigneeId,
         title: 'Nueva tarea asignada',
