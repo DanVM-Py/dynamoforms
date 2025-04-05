@@ -100,10 +100,6 @@ const ProjectRoles = () => {
       if (error) throw error;
       
       setProject(data);
-      
-      if (data?.id) {
-        sessionStorage.setItem('currentProjectId', data.id);
-      }
     } catch (error) {
       console.error('Error fetching project:', error);
       toast({

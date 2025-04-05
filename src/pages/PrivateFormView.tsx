@@ -9,15 +9,16 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, ShieldAlert } from 'lucide-react';
+import { AlertCircle, ShieldAlert, Loader2, AlertTriangle } from 'lucide-react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Tables } from '@/config/environment';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export function PrivateFormView() {
   const { formId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading, isGlobalAdmin } = useAuth();
   
   const [formData, setFormData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -29,35 +30,52 @@ export function PrivateFormView() {
   useEffect(() => {
     async function checkFormAccess() {
       if (!formId || !user) return;
+      
+      console.log(`[PrivateFormView] Checking access for form ${formId} and user ${user.id}`);
+      setLoading(true);
+      setAccessError(null);
+      setHasAccess(false);
 
       try {
-        console.log("[PrivateFormView] Checking form access for user", user.id, "form", formId);
-        
-        // First, try to fetch the form
+        // 1. Obtener datos del formulario
         const { data: formData, error: formError } = await supabase
           .from(Tables.forms)
-          .select('*, project_id')
+          .select('*, project: projects(name)')
           .eq('id', formId)
           .single();
 
         if (formError) {
-          console.error("[PrivateFormView] Error fetching form:", formError);
-          setAccessError("El formulario solicitado no existe o ha sido eliminado.");
+          console.error("[PrivateFormView] Error fetching form data:", formError);
+           if (formError.code === 'PGRST116') {
+             throw new Error("Formulario no encontrado.");
+           } else {
+             throw new Error("Error al cargar el formulario.");
+           }
+        }
+        
+        console.log("[PrivateFormView] Form data fetched:", formData);
+
+        // 2. Si es público, redirigir
+        if (formData.is_public) {
+          console.log("[PrivateFormView] Form is public, redirecting to public view");
+          navigate(`/public/forms/${formId}`, { replace: true });
+          return;
+        }
+
+        // 3. Verificar Acceso
+        // Si es Global Admin, tiene acceso directo
+        if (isGlobalAdmin) {
+          console.log("[PrivateFormView] Global admin access granted.");
+          setHasAccess(true);
+          setFormData(formData);
           setLoading(false);
           return;
         }
-
-        // If form is public, redirect to public form view
-        if (formData.is_public) {
-          console.log("[PrivateFormView] Form is public, redirecting to public view");
-          navigate(`/public/forms/${formId}`);
-          return;
-        }
-
-        // Check if user has access to the form's project
+        
+        // Si no es Global Admin, verificar acceso al proyecto
         const { data: projectUserData, error: projectUserError } = await supabase
           .from(Tables.project_users)
-          .select('1')
+          .select('is_admin')
           .eq('project_id', formData.project_id)
           .eq('user_id', user.id)
           .eq('status', 'active')
@@ -65,232 +83,201 @@ export function PrivateFormView() {
 
         if (projectUserError) {
           console.error("[PrivateFormView] Error checking project access:", projectUserError);
+          throw new Error("Error al verificar el acceso al proyecto.");
+        }
+        
+        const isProjectMember = !!projectUserData;
+        const isProjectAdmin = projectUserData?.is_admin === true;
+        console.log(`[PrivateFormView] Project access check: isMember=${isProjectMember}, isAdmin=${isProjectAdmin}`);
+
+        // Si es admin del proyecto, tiene acceso
+        if (isProjectAdmin) {
+           console.log("[PrivateFormView] Project admin access granted.");
+           setHasAccess(true);
+           setFormData(formData);
+           setLoading(false);
+           return;
+         }
+         
+        // Si es miembro del proyecto (no admin), verificar roles
+        if (isProjectMember) {
+           // Obtener los roles requeridos por el formulario
+           const { data: formRolesData, error: formRolesError } = await supabase
+             .from(Tables.form_roles)
+             .select('role_id')
+             .eq('form_id', formId);
+             
+           if (formRolesError) {
+              console.error("[PrivateFormView] Error fetching required form roles:", formRolesError);
+              throw new Error("Error al verificar los roles del formulario.");
+            }
+            
+           const requiredRoleIds = formRolesData?.map(fr => fr.role_id) || [];
+           console.log("[PrivateFormView] Form requires roles:", requiredRoleIds);
+           
+           // Si el formulario no requiere roles específicos, el miembro tiene acceso
+           if (requiredRoleIds.length === 0) {
+              console.log("[PrivateFormView] Form requires no specific roles, project member access granted.");
+              setHasAccess(true);
+              setFormData(formData);
+              setLoading(false);
+              return;
+            }
+            
+           // Si requiere roles, verificar si el usuario tiene alguno de ellos en este proyecto
+           const { data: userRolesData, error: userRolesError } = await supabase
+             .from(Tables.user_roles)
+             .select('role_id')
+             .eq('user_id', user.id)
+             .eq('project_id', formData.project_id)
+             .in('role_id', requiredRoleIds);
+             
+           if (userRolesError) {
+             console.error("[PrivateFormView] Error fetching user roles:", userRolesError);
+             throw new Error("Error al verificar los roles del usuario.");
+           }
+           
+           const hasRequiredRole = (userRolesData?.length || 0) > 0;
+           console.log(`[PrivateFormView] User has required role check: ${hasRequiredRole}`);
+           
+           if (hasRequiredRole) {
+             console.log("[PrivateFormView] User has required role, access granted.");
+             setHasAccess(true);
+             setFormData(formData);
+             setLoading(false);
+             return;
+           }
         }
 
-        // Check if user is a project admin
-        const { data: projectAdminData, error: projectAdminError } = await supabase
-          .from(Tables.project_users)
-          .select('id')
-          .eq('project_id', formData.project_id)
-          .eq('user_id', user.id)
-          .eq('is_admin', true)
-          .maybeSingle();
+        // Si llegamos aquí, no es Global Admin, ni Project Admin, 
+        // ni miembro con el rol requerido (o no es miembro)
+        console.log("[PrivateFormView] User does not have sufficient access.");
+        throw new Error("No tienes permiso para acceder a este formulario. Contacta al administrador del proyecto.");
 
-        if (projectAdminError) {
-          console.error("[PrivateFormView] Error checking admin access:", projectAdminError);
-        }
-        // Check if user has specific role access to this form
-        const { data: formRoleData, error: formRoleError } = await supabase
-          .from(Tables.form_roles)
-          .select('*')
-          .eq('form_id', formId)
-          .maybeSingle();
-
-        if (formRoleError && formRoleError.code !== 'PGRST116') {
-          console.error("[PrivateFormView] Error checking form role access:", formRoleError);
-        }
-
-        // If form requires specific roles, check if user has the required role
-        let hasRoleAccess = true;
-        if (formRoleData && formRoleData.role_id) {
-          const { data: userRoleData, error: userRoleError } = await supabase
-            .from(Tables.user_roles)
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('role_id', formRoleData.role_id)
-            .eq('project_id', formData.project_id)
-            .maybeSingle();
-
-          if (userRoleError && userRoleError.code !== 'PGRST116') {
-            console.error("[PrivateFormView] Error checking user role:", userRoleError);
-          }
-
-          hasRoleAccess = !!userRoleData;
-        }
-
-        // If user is a global admin, they always have access
-        const { data: userProfile, error: profileError } = await supabase
-          .from(Tables.profiles)
-          .select('role')
-          .eq('id', user.id)
-          .single();
-
-        if (profileError) {
-          console.error("[PrivateFormView] Error checking user profile:", profileError);
-        }
-
-        const isGlobalAdmin = userProfile?.role === 'global_admin';
-
-        // Determine if user has access
-        const userHasAccess = isGlobalAdmin || 
-                              !!projectAdminData || 
-                              (!!projectUserData && hasRoleAccess);
-
-        if (!userHasAccess) {
-          console.log("[PrivateFormView] User does not have access to this form");
-          setAccessError("No tienes acceso a este formulario. Por favor, contacta al administrador del proyecto.");
-          setLoading(false);
-          return;
-        }
-
-        // User has access, load the form
-        console.log("[PrivateFormView] User has access, loading form data");
-        setHasAccess(true);
-        setFormData(formData);
-        setLoading(false);
       } catch (error: any) {
-        console.error("[PrivateFormView] Error checking form access:", error);
-        setAccessError("Error al verificar acceso. Por favor, intenta nuevamente.");
+        console.error("[PrivateFormView] Access check failed:", error);
+        setAccessError(error.message || "Error al verificar acceso. Intenta nuevamente.");
         setLoading(false);
       }
     }
 
+    // Redirigir si no está autenticado
     if (!authLoading && !user) {
-      // User is not authenticated, redirect to login
       console.log("[PrivateFormView] User not authenticated, redirecting to login");
-      navigate(`/auth?redirect=/forms/${formId}`);
+      navigate(`/auth?redirect=/forms/${formId}`, { replace: true });
       return;
     }
 
+    // Ejecutar chequeo de acceso si el usuario está listo y hay formId
     if (!authLoading && user && formId) {
       checkFormAccess();
     }
-  }, [formId, user, authLoading, navigate]);
+    
+  // Depender de formId, user, authLoading, isGlobalAdmin y navigate
+  }, [formId, user, authLoading, isGlobalAdmin, navigate]);
 
-  // Function to handle form submission
-  const submitForm = async (formValues: any) => {
-    if (!formData || !formId || !user) return;
-
+  const handleFormSubmit = async (submissionData: any) => {
+    if (!formId || !user) return;
+    setSubmitting(true);
     try {
-      setSubmitting(true);
-
-      // Process any file uploads
-      const processedFormData = await processUploadFields(formValues, formData.components);
-      
-      // Create the submission data
-      const submissionData = {
-        form_id: formId,
-        response_data: processedFormData,
-        submitted_at: new Date().toISOString(),
-        is_anonymous: false,
-        user_id: user.id
-      };
-
-      console.log("[PrivateFormView] Submitting form response:", {formId, userId: user.id});
-      
-      // Submit the form response
       const { data, error } = await supabase
         .from(Tables.form_responses)
-        .insert(submissionData)
+        .insert({
+          form_id: formId,
+          user_id: user.id,
+          response_data: submissionData,
+          project_id: formData?.project_id
+        })
         .select('id')
         .single();
 
-      if (error) {
-        console.error("[PrivateFormView] Error submitting form:", error);
-        toast({
-          title: "Error al enviar formulario",
-          description: error.message,
-          variant: "destructive"
-        });
-        setSubmitting(false);
-        return;
-      }
+      if (error) throw error;
 
-      console.log("[PrivateFormView] Form submitted successfully with ID:", data.id);
-      // Store the response ID and let FormResponseHandler handle the redirect
       setSubmittedResponseId(data.id);
+      toast({ title: "Formulario enviado", description: "Tu respuesta ha sido registrada exitosamente." });
     } catch (error: any) {
-      console.error("[PrivateFormView] Error in form submission process:", error);
-      toast({
-        title: "Error al procesar el formulario",
-        description: error.message || "Ha ocurrido un error. Por favor, intenta nuevamente.",
-        variant: "destructive"
-      });
+      console.error('Error submitting form response:', error);
+      toast({ title: "Error al enviar", description: error.message || "No se pudo guardar tu respuesta.", variant: "destructive" });
+    } finally {
       setSubmitting(false);
     }
   };
 
-  // If we have a submitted response ID, show the FormResponseHandler
-  if (submittedResponseId && formId) {
+  if (loading || authLoading) {
     return (
-      <FormResponseHandler 
-        formId={formId} 
-        responseId={submittedResponseId} 
-        isPublic={false} 
-      />
-    );
-  }
-
-  // Show loading screen while checking authentication and form access
-  if (authLoading || loading) {
-    return (
-      <PageContainer>
-        <div className="container mx-auto py-8 px-4">
-          <div className="max-w-4xl mx-auto">
-            <Skeleton className="h-12 w-3/4 mb-6" />
-            <Skeleton className="h-8 w-1/2 mb-4" />
-            <div className="space-y-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="space-y-2">
-                  <Skeleton className="h-6 w-1/3" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+      <PageContainer className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-dynamo-600" />
+        <p className="ml-2">Verificando acceso y cargando formulario...</p>
       </PageContainer>
     );
   }
 
-  // Show access error if user doesn't have permission
   if (accessError) {
     return (
-      <PageContainer>
-        <div className="container mx-auto py-8 px-4">
-          <div className="max-w-4xl mx-auto">
-            <Alert variant="destructive" className="mb-6">
-              <ShieldAlert className="h-5 w-5" />
-              <AlertTitle>Acceso denegado</AlertTitle>
-              <AlertDescription>{accessError}</AlertDescription>
-            </Alert>
-            <div className="flex justify-center mt-6">
-              <Button onClick={() => navigate('/forms')}>Volver a formularios</Button>
-            </div>
-          </div>
-        </div>
-      </PageContainer>
+      <PageContainer className="flex justify-center items-center h-screen">
+         <Card className="w-full max-w-md shadow-lg border-red-200">
+           <CardHeader className="text-center">
+             <AlertTriangle className="mx-auto h-12 w-12 text-red-500" />
+             <CardTitle className="mt-4 text-xl font-semibold text-red-700">Acceso Denegado</CardTitle>
+             <CardDescription className="text-red-600">{accessError}</CardDescription>
+           </CardHeader>
+           <CardContent className="text-center">
+             <Button variant="outline" onClick={() => navigate('/')}>Volver al inicio</Button>
+           </CardContent>
+         </Card>
+       </PageContainer>
     );
   }
 
-  // Show form not found error
-  if (!formData) {
+  if (!hasAccess || !formData) {
+     // Este caso no debería ocurrir si la lógica es correcta, pero por si acaso
+     return (
+       <PageContainer className="flex justify-center items-center h-screen">
+          <p>Error inesperado al cargar el formulario.</p>
+       </PageContainer>
+     );
+   }
+
+  // Si ya envió, mostrar mensaje de éxito
+  if (submittedResponseId) {
     return (
-      <PageContainer>
-        <div className="container mx-auto py-8 px-4 text-center">
-          <h1 className="text-2xl font-bold mb-4">Formulario no encontrado</h1>
-          <p className="mb-6">El formulario que buscas no existe o ha sido eliminado.</p>
-          <Button onClick={() => navigate('/forms')}>Volver a formularios</Button>
-        </div>
+      <PageContainer className="flex justify-center items-center h-screen">
+         <Card className="w-full max-w-md shadow-lg border-green-200">
+           <CardHeader className="text-center">
+             {/* Icono de éxito */}
+             <svg className="mx-auto h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+             <CardTitle className="mt-4 text-xl font-semibold text-green-700">¡Enviado Correctamente!</CardTitle>
+             <CardDescription className="text-green-600">Tu respuesta al formulario "{formData.title}" ha sido registrada.</CardDescription>
+           </CardHeader>
+           <CardContent className="text-center">
+             <Button variant="outline" onClick={() => navigate('/')}>Volver al inicio</Button>
+           </CardContent>
+         </Card>
       </PageContainer>
     );
   }
 
-  // Finally, render the form if user has access
+  // Renderizar el formulario
   return (
-    <PageContainer>
-      <div className="container mx-auto py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <FormRenderer
-            schema={formData}
-            onSubmit={submitForm}
-            formId={formId || ''}
-            readOnly={false}
-            isPublic={false}
-            isSubmitting={submitting}
-          />
-        </div>
-      </div>
+    <PageContainer title={formData.title}>
+       <Card className="max-w-4xl mx-auto">
+         <CardHeader>
+           <CardTitle>{formData.title}</CardTitle>
+           {formData.description && <CardDescription>{formData.description}</CardDescription>}
+         </CardHeader>
+         <CardContent>
+           <FormRenderer 
+             schema={formData.schema} 
+             onSubmit={handleFormSubmit} 
+             isSubmitting={submitting} 
+             formId={formId || ''} 
+             readOnly={false}
+             isPublic={false}
+           />
+         </CardContent>
+       </Card>
     </PageContainer>
   );
 }

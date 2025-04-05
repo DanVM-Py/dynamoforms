@@ -5,101 +5,121 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Tables } from '@/config/environment';
 
 export function useSidebarProjects() {
+  const { user, isGlobalAdmin, currentProjectId: authProjectId, loading: authLoading, isProjectAdmin } = useAuth();
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
+  const [loading, setLoading] = useState(true);
   const location = useLocation();
-  const { user, isProjectAdmin, isGlobalAdmin } = useAuth();
 
-  // First effect - get project ID from storage or URL
   useEffect(() => {
-    const getProjectIdFromStorage = () => {
-      return sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
-    };
-    
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
     const getProjectIdFromUrl = () => {
       const projectMatch = location.pathname.match(/\/projects\/([^/]+)/);
       return projectMatch ? projectMatch[1] : null;
     };
-    
-    const urlProjectId = getProjectIdFromUrl();
-    const storedProjectId = getProjectIdFromStorage();
-    
-    const projectId = urlProjectId || storedProjectId;
-    
-    if (projectId) {
-      sessionStorage.setItem('currentProjectId', projectId);
-      setCurrentProjectId(projectId);
-    }
-  }, [location.pathname]);
 
-  // Second effect - fetch projects
-  useEffect(() => {
-    const fetchProjects = async () => {
-      if (!user) {
-        return;
+    const urlProjectId = getProjectIdFromUrl();
+    const determinedProjectId = urlProjectId || authProjectId;
+
+    if (determinedProjectId !== currentProjectId) {
+      if (urlProjectId) {
+        console.log(`[useSidebarProjects] Using project ID from URL: ${urlProjectId}`);
+      } else if (authProjectId) {
+        console.log(`[useSidebarProjects] Using initial project ID from useAuth: ${authProjectId}`);
+      } else {
+         console.log(`[useSidebarProjects] No project ID determined from URL or useAuth.`);
       }
-      
+
+      setCurrentProjectId(determinedProjectId);
+      if (determinedProjectId) {
+        sessionStorage.setItem('currentProjectId', determinedProjectId);
+      } else {
+        sessionStorage.removeItem('currentProjectId');
+      }
+    }
+
+  }, [location.pathname, authProjectId, authLoading, currentProjectId]);
+
+  useEffect(() => {
+    if (authLoading || !user) {
+      setProjects([]);
+      setLoading(true);
+      return;
+    }
+
+    const fetchProjects = async () => {
+      setLoading(true);
       try {
+        const projectUsersTable = Tables.project_users;
+        const projectsTable = Tables.projects;
+
         let query;
-        
+
         if (isGlobalAdmin) {
-          // Global admins can see all projects
           query = supabase
-            .from(Tables.projects)
+            .from(projectsTable)
             .select('id, name')
             .order('name', { ascending: true });
         } else {
-          // Regular users and project admins see projects they belong to
           query = supabase
-            .from(Tables.project_users)
-            .select('project_id, projects(id, name)')
+            .from(projectUsersTable)
+            .select(`project: ${projectsTable}(id, name)`)
             .eq('user_id', user.id)
-            .eq('status', 'active')
-            .order('projects(name)', { ascending: true });
+            .eq('status', 'active');
         }
-        
-        if (query) {
-          const { data, error } = await query;
-          
-          if (error) {
-            console.error('Error fetching projects:', error);
-            return;
-          }
-          
-          if (data && data.length > 0) {
-            let projectsData;
-            
-            if (isGlobalAdmin) {
-              projectsData = data;
-            } else {
-              projectsData = data.map((item: any) => item.projects).filter(Boolean);
-            }
-            
-            setProjects(projectsData);
-            
-            if (projectsData.length > 0 && !currentProjectId) {
-              const firstProjectId = projectsData[0].id;
-              setCurrentProjectId(firstProjectId);
-              sessionStorage.setItem('currentProjectId', firstProjectId);
-            }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('Error fetching projects:', error);
+          setProjects([]);
+          return;
+        }
+
+        let projectsData: { id: string; name: string }[] = [];
+        if (data) {
+          if (isGlobalAdmin) {
+            projectsData = data as { id: string; name: string }[];
+          } else {
+            projectsData = data
+              .map((item: any) => item.project)
+              .filter(p => p && p.id && p.name) as { id: string; name: string }[];
+            projectsData.sort((a, b) => a.name.localeCompare(b.name));
           }
         }
+        setProjects(projectsData);
+
       } catch (error) {
-        console.error('Error fetching projects:', error);
+        console.error('Error processing fetched projects:', error);
+        setProjects([]);
+      } finally {
+        setLoading(false);
       }
     };
-    
-    fetchProjects();
-  }, [user, isProjectAdmin, isGlobalAdmin, currentProjectId]);
 
-  const updateCurrentProjectId = (id: string) => {
+    fetchProjects();
+  }, [user, isGlobalAdmin, isProjectAdmin, authLoading]);
+
+  const updateCurrentProjectId = (id: string | null) => {
+    console.log(`[useSidebarProjects] Manually setting project ID to: ${id} (use URL navigation for primary changes)`);
     setCurrentProjectId(id);
-    sessionStorage.setItem('currentProjectId', id);
+    if (id) {
+      sessionStorage.setItem('currentProjectId', id);
+    } else {
+      sessionStorage.removeItem('currentProjectId');
+    }
   };
 
+  const combinedLoading = authLoading || loading;
+
   return {
-    currentProjectId,
     projects,
+    loading: combinedLoading,
+    currentProjectId,
     setCurrentProjectId: updateCurrentProjectId
   };
 }

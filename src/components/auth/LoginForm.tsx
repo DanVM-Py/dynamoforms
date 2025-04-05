@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -64,93 +63,27 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
       localStorage.removeItem('isGlobalAdmin');
       sessionStorage.removeItem('isGlobalAdmin');
       
-      // First check if the user is a global admin - they don't need project access
-      const { data: globalAdminData, error: isGlobalAdminError } = await supabase
-        .rpc('is_global_admin', { user_uuid: data.user.id });
-      
-      if (isGlobalAdminError) {
-        console.error("Error checking global admin status:", isGlobalAdminError);
-      }
-      
-      const isGlobalAdmin = globalAdminData === true;
-      console.log("Global admin check:", isGlobalAdmin);
-      
-      // Store the global admin status in both localStorage and sessionStorage
-      if (isGlobalAdmin) {
-        localStorage.setItem('isGlobalAdmin', 'true');
-        sessionStorage.setItem('isGlobalAdmin', 'true');
-        
-        // Store the user's authenticated state explicitly
-        localStorage.setItem('authState', JSON.stringify({
-          isAuthenticated: true,
-          userId: data.user.id,
-          isGlobalAdmin: true,
-          timestamp: Date.now()
-        }));
-      }
-      
-      // If user is global admin, they don't need project access validation
-      if (isGlobalAdmin) {
-        console.log("User is global admin, bypassing project access check");
-        
-        // Add a small delay to ensure auth state is fully processed
-        setTimeout(() => {
-          if (onSuccessfulLogin) {
-            // Use the callback if provided, with hasNoProjectAccess=false since global admins have access
-            onSuccessfulLogin(false);
-          } else {
-            // Navigate directly to the redirectTo page
-            navigate(redirectTo, { replace: true });
-          }
-        }, 100);
-        
-        return;
-      }
-      
-      // For non-global-admin users, check if they have access to any project
-      const { data: projectUserData, error: projectUserError } = await supabase
-        .from("project_users")
-        .select("project_id")
-        .eq("user_id", data.user.id)
-        .eq("status", "active")
-        .limit(1);
-      
-      // User has no project access if they have no project associations  
-      const hasNoProjectAccess = (!projectUserError && (!projectUserData || projectUserData.length === 0));
-      
-      console.log("Project access check results:");
-      console.log("- User has no project access:", hasNoProjectAccess);
-      console.log("- Project user data:", projectUserData);
-      
-      // If user has at least one project, store the first one
-      if (projectUserData && projectUserData.length > 0) {
-        const projectId = projectUserData[0].project_id;
-        console.log("Setting current project ID:", projectId);
-        localStorage.setItem('currentProjectId', projectId);
-        sessionStorage.setItem('currentProjectId', projectId);
-      }
-      
-      // Add a small delay to ensure auth state is fully processed
+      // Simplificación: Solo navegar. useAuth/ProtectedRoute harán el resto.
+      // Forzar al hook useAuth a re-verificar (si tienes un método para ello) o confiar en el listener.
+      // checkAuth(); // Si tienes algo como esto
+
+      // Navegar al destino deseado. ProtectedRoute se encargará de la lógica de acceso.
+      console.log("[LoginForm] Login successful, navigating to intended route:", redirectTo);
+      // Usamos un pequeño delay solo para permitir que el estado de autenticación comience a propagarse
+      // antes de que ProtectedRoute evalúe la ruta.
       setTimeout(() => {
-        if (onSuccessfulLogin) {
-          // Use the callback if provided
-          console.log("Using provided login callback with hasNoProjectAccess:", hasNoProjectAccess);
-          onSuccessfulLogin(hasNoProjectAccess);
-        } else {
-          // Navigate directly based on project access
-          if (hasNoProjectAccess) {
-            console.log("No callback provided, redirecting to no-project-access");
-            navigate('/no-project-access', { replace: true });
-          } else {
-            console.log("No callback provided, redirecting to:", redirectTo);
-            navigate(redirectTo, { replace: true });
-          }
-        }
-      }, 100);
+         navigate(redirectTo, { replace: true });
+         // Si aún necesitas el callback, asegúrate de que no dependa del acceso al proyecto en este punto.
+         if (onSuccessfulLogin) {
+             console.warn("[LoginForm] onSuccessfulLogin called, access check deferred to ProtectedRoute.");
+             onSuccessfulLogin(undefined);
+         }
+      }, 50);
       
     } catch (error: any) {
-      console.error("Login error:", error.message);
-      setErrorMessage(error.message);
+      console.error("Login error:", error);
+      // Mostrar el mensaje de error específico o uno genérico
+      setErrorMessage(error.message || "Ocurrió un error al iniciar sesión.");
     } finally {
       setLoading(false);
     }
