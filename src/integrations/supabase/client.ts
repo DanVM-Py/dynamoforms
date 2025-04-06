@@ -104,13 +104,32 @@ export const getSupabaseAdmin = () => {
 // Singleton getter for public/anonymous client
 export const getCustomSupabase = () => {
   if (!customSupabaseInstance) {
+    if (!config.supabaseUrl || !config.supabaseAnonKey) {
+      throw new Error('Supabase URL or Anon Key for custom client is missing.');
+    }
     console.log("Creating new custom Supabase client instance");
     customSupabaseInstance = createClient<Database>(
       config.supabaseUrl,
       config.supabaseAnonKey,
-      getClientOptions({
-        'X-Client-Info': 'dynamo-system'
-      }, PUBLIC_STORAGE_KEY)
+      {
+        auth: {
+          storageKey: PUBLIC_STORAGE_KEY,
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false
+        },
+        global: {
+          headers: {
+            'X-Client-Info': 'dynamo-system'
+          },
+          fetch: (url, options) => {
+            return fetch(url, {
+              ...options,
+              signal: options?.signal || AbortSignal.timeout(60000)
+            });
+          }
+        }
+      }
     );
   }
   return customSupabaseInstance;

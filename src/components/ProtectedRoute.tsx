@@ -24,15 +24,15 @@ const ProtectedRoute = ({
   showLoading = true 
 }: ProtectedRouteProps) => {
   const location = useLocation();
-  const { user, session, loading: authContextLoading, isGlobalAdmin, isProjectAdmin, isInitialized } = useAuth();
-  const { currentProjectId, loading: projectsLoading } = useSidebarProjects();
+  const { user, session, loading: authContextLoading, isGlobalAdmin, isProjectAdmin, isInitialized, currentProjectId } = useAuth();
+  const { loading: projectsLoading } = useSidebarProjects();
 
   const combinedComponentLoading = authContextLoading || projectsLoading;
 
   const shouldShowLoader = showLoading && (!isInitialized || combinedComponentLoading);
 
   console.log(
-    `[ProtectedRoute DEBUG] Render Check. isInitialized: ${isInitialized}, authLoading: ${authContextLoading}, projectsLoading: ${projectsLoading}, CombinedComponentLoading: ${combinedComponentLoading}, ShouldShowLoader: ${shouldShowLoader}`
+    `[ProtectedRoute DEBUG] Render Check. Path: ${location.pathname}, isInitialized: ${isInitialized}, authLoading: ${authContextLoading}, projectsLoading: ${projectsLoading}, ShouldShowLoader: ${shouldShowLoader}, User: ${!!user}, isGlobalAdmin: ${isGlobalAdmin}, currentProjectId: ${currentProjectId}`
   );
 
   if (shouldShowLoader) {
@@ -49,12 +49,13 @@ const ProtectedRoute = ({
   }
 
   if (location.pathname === "/no-project-access" || location.pathname === "/auth" || location.pathname.startsWith("/public")) {
+    console.log(`[ProtectedRoute DEBUG] Path (${location.pathname}) does not require auth/project checks. Rendering children.`);
     return <>{children}</>;
   }
   
   const isEffectivelyAuthenticated = !!user;
 
-  console.log(`[ProtectedRoute DEBUG] Authentication Check. isEffectivelyAuthenticated: ${isEffectivelyAuthenticated} (User: ${!!user})`);
+  console.log(`[ProtectedRoute DEBUG] Auth Check. requireAuth: ${requireAuth}, isEffectivelyAuthenticated: ${isEffectivelyAuthenticated}`);
 
   if (requireAuth && !isEffectivelyAuthenticated) {
     console.log("[ProtectedRoute] User not authenticated, redirecting to auth page");
@@ -65,11 +66,15 @@ const ProtectedRoute = ({
   
   const isEffectivelyGlobalAdmin = isGlobalAdmin;
 
+  console.log(`[ProtectedRoute DEBUG] Global Admin Check. requireGlobalAdmin: ${requireGlobalAdmin}, isEffectivelyGlobalAdmin: ${isEffectivelyGlobalAdmin}`);
+
   if (requireGlobalAdmin && !isEffectivelyGlobalAdmin) {
     console.log("[ProtectedRoute] Global admin access required but user is not a global admin");
     toast({ title: "Acceso Denegado", description: "Necesitas permisos de Administrador Global.", variant: "destructive" });
     return <Navigate to="/" replace />;
   }
+
+  console.log(`[ProtectedRoute DEBUG] Project Admin Check. requireProjectAdmin: ${requireProjectAdmin}, isProjectAdmin: ${isProjectAdmin}, isGlobalAdmin: ${isEffectivelyGlobalAdmin}`);
 
   if (requireProjectAdmin && !isProjectAdmin && !isEffectivelyGlobalAdmin) {
     console.log("[ProtectedRoute] Project admin access required but user is not a project admin or global admin");
@@ -77,12 +82,15 @@ const ProtectedRoute = ({
     return <Navigate to="/" replace />;
   }
 
-  if (requireProjectAccess && !currentProjectId && !isEffectivelyGlobalAdmin && location.pathname !== '/projects') {
-    console.log("[ProtectedRoute] Project access required but no project ID is set, redirecting to no-project-access");
+  const needsProjectCheck = requireProjectAccess && location.pathname !== '/projects';
+  console.log(`[ProtectedRoute DEBUG] Project Access Check Needed? ${needsProjectCheck} (requireProjectAccess: ${requireProjectAccess}, path: ${location.pathname})`);
+
+  if (needsProjectCheck && !currentProjectId) {
+    console.log(`[ProtectedRoute] Project access required (requireProjectAccess=${requireProjectAccess}) but no currentProjectId (${currentProjectId}). Redirecting user (isGlobalAdmin: ${isEffectivelyGlobalAdmin}) to /no-project-access.`);
     return <Navigate to="/no-project-access" replace />;
   }
 
-  console.log("[ProtectedRoute] Access granted for path:", location.pathname);
+  console.log(`[ProtectedRoute] Access GRANTED for path: ${location.pathname}. User: ${user?.id}, isGlobalAdmin: ${isEffectivelyGlobalAdmin}, ProjectID: ${currentProjectId}`);
   return <>{children}</>;
 };
 
