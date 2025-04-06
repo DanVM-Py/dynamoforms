@@ -59,14 +59,43 @@ export const getSupabase = () => {
 // Singleton getter for admin client
 export const getSupabaseAdmin = () => {
   if (!supabaseAdminInstance) {
-    console.log("Creating new admin Supabase client instance");
+    // Validate that required keys are present
+    if (!config.supabaseUrl || !config.supabaseServiceRoleKey) {
+      console.error('Supabase URL or Service Role Key is missing in environment config for admin client.');
+      // Depending on your app's needs, you might throw an error or return null/handle gracefully
+      // For now, let's throw an error to make the configuration issue explicit.
+      throw new Error('Missing Supabase configuration for admin client.');
+    }
+    
+    console.log("Creating new admin Supabase client instance with Service Role Key");
     supabaseAdminInstance = createClient<Database>(
       config.supabaseUrl,
-      config.supabaseAnonKey,
-      getClientOptions({
-        'X-Client-Info': 'admin-client',
-        'X-Admin-Access': 'true'
-      })
+      // Use the Service Role Key for admin privileges
+      config.supabaseServiceRoleKey,
+      // Provide specific options for the admin client, DO NOT use getClientOptions
+      {
+        auth: {
+          // Crucially disable session persistence for service role clients
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false // Not needed for service roles
+        },
+        global: {
+          // Keep custom headers if needed for backend identification
+          headers: {
+            'X-Client-Info': 'admin-client',
+            'X-Admin-Access': 'true' // This is custom, ensure your backend uses it if needed
+          },
+          // Keep fetch with timeout if desired
+          fetch: (url, options) => {
+            return fetch(url, {
+              ...options,
+              signal: options?.signal || AbortSignal.timeout(60000)
+            });
+          }
+        }
+        // db: { schema: "public" } // Can often be omitted if using the default
+      }
     );
   }
   return supabaseAdminInstance;

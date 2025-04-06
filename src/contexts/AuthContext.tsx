@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode, useEffect } from "react";
+import { createContext, useContext, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth as useAuthHook } from "@/hooks/useAuth";
@@ -13,9 +13,9 @@ interface AuthContextType {
   isProjectAdmin: boolean;
   isApprover: boolean;
   currentProjectId: string | null;
+  isInitialized: boolean;
   signOut: () => Promise<boolean>;
   refreshUserProfile: () => Promise<void>;
-  verifyAuthentication: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,39 +29,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userProfile,
     isGlobalAdmin,
     isProjectAdmin,
+    isInitialized,
     isLoading: loading,
     currentProjectId,
     signOut,
-    refreshAuthState,
-    verifyAuthentication
+    refreshAuthState
   } = useAuthHook();
 
-  // Add isApprover state (defaulting to false)
   const isApprover = userProfile?.role === 'approver' || false;
-  
-  // Setup a verification heartbeat to ensure auth state stays valid
-  useEffect(() => {
-    // Verify authentication at key moments (first load, window focus)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log("Window became visible, verifying auth state");
-        verifyAuthentication();
-      }
-    };
-    
-    // Setup verification on window focus
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Do an initial verification
-    console.log("[AuthContext] Running initial verification on mount.");
-    verifyAuthentication();
-    
-    // Cleanup
-    return () => {
-      console.log("[AuthContext] Cleaning up visibilitychange listener.");
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
 
   const refreshUserProfile = async () => {
     try {
@@ -80,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const value = {
+  const value: AuthContextType = {
     session,
     user,
     userProfile,
@@ -89,10 +64,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isProjectAdmin,
     isApprover,
     currentProjectId,
+    isInitialized,
     signOut,
-    refreshUserProfile,
-    verifyAuthentication
+    refreshUserProfile
   };
+
+  console.log("[AuthContext DEBUG] AuthProvider rendering. isInitialized:", isInitialized);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

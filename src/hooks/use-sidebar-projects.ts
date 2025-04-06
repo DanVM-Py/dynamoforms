@@ -12,6 +12,7 @@ export function useSidebarProjects() {
   const location = useLocation();
 
   useEffect(() => {
+    console.log(`[Sidebar DEBUG] Effect 1 RUNNING. authLoading: ${authLoading}`);
     if (authLoading) {
       setLoading(true);
       return;
@@ -34,6 +35,7 @@ export function useSidebarProjects() {
          console.log(`[useSidebarProjects] No project ID determined from URL or useAuth.`);
       }
 
+      console.log(`[Sidebar DEBUG] Effect 1 Determined ID: ${determinedProjectId}. Setting state.`);
       setCurrentProjectId(determinedProjectId);
       if (determinedProjectId) {
         sessionStorage.setItem('currentProjectId', determinedProjectId);
@@ -45,13 +47,24 @@ export function useSidebarProjects() {
   }, [location.pathname, authProjectId, authLoading, currentProjectId]);
 
   useEffect(() => {
-    if (authLoading || !user) {
+    // Log entrada efecto (modificado para claridad)
+    console.log(`[Sidebar DEBUG] Effect 2 TRIGGERED. User available: ${!!user}, isGlobalAdmin: ${isGlobalAdmin}`);
+
+    // Condición principal: Necesitamos un usuario para buscar proyectos
+    if (!user) {
+      console.log(`[Sidebar DEBUG] Effect 2 SKIPPING fetchProjects: No user.`);
       setProjects([]);
-      setLoading(true);
-      return;
+      // Si no hay usuario, no estamos 'cargando' proyectos para él.
+      // Establecer loading a false aquí evita el bloqueo si el usuario se desloguea.
+      setLoading(false);
+      return; // Salir si no hay usuario
     }
 
+    // Si llegamos aquí, hay un usuario. Procedemos a cargar.
     const fetchProjects = async () => {
+      // Usar JSON.stringify para el log por si 'user' es complejo, pero user.id es suficiente aquí
+      console.log(`[Sidebar DEBUG] Effect 2 fetchProjects STARTING. User ID: ${user.id}, isGlobalAdmin: ${isGlobalAdmin}`);
+      // Iniciar carga AHORA que sabemos que tenemos usuario y vamos a buscar
       setLoading(true);
       try {
         const projectUsersTable = Tables.project_users;
@@ -65,10 +78,11 @@ export function useSidebarProjects() {
             .select('id, name')
             .order('name', { ascending: true });
         } else {
+          // 'user' está garantizado como no nulo aquí por la condición de arriba
           query = supabase
             .from(projectUsersTable)
             .select(`project: ${projectsTable}(id, name)`)
-            .eq('user_id', user.id)
+            .eq('user_id', user.id) // Usar user.id directamente
             .eq('status', 'active');
         }
 
@@ -77,7 +91,8 @@ export function useSidebarProjects() {
         if (error) {
           console.error('Error fetching projects:', error);
           setProjects([]);
-          return;
+          // Podríamos mantener loading=true o false aquí, pero finally lo manejará
+          return; // Salir en caso de error de fetch
         }
 
         let projectsData: { id: string; name: string }[] = [];
@@ -95,14 +110,18 @@ export function useSidebarProjects() {
 
       } catch (error) {
         console.error('Error processing fetched projects:', error);
-        setProjects([]);
+        setProjects([]); // Limpiar en caso de error de procesamiento
       } finally {
+        console.log('[Sidebar DEBUG] Effect 2 fetchProjects FINALLY block. Setting internal loading=false.');
+        // Asegurarse de poner loading=false independientemente del resultado
         setLoading(false);
       }
     };
 
     fetchProjects();
-  }, [user, isGlobalAdmin, isProjectAdmin, authLoading]);
+    // Dependencias: Ejecutar la lógica de fetch SOLO si 'user' o 'isGlobalAdmin' cambian.
+    // 'authLoading' ya no es necesario aquí porque esperamos directamente a 'user'.
+  }, [user, isGlobalAdmin]); // <--- Dependencias actualizadas
 
   const updateCurrentProjectId = (id: string | null) => {
     console.log(`[useSidebarProjects] Manually setting project ID to: ${id} (use URL navigation for primary changes)`);

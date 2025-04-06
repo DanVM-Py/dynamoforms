@@ -1,40 +1,42 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Session } from '@supabase/supabase-js';
-import { authService, UserProfile } from '@/services/authService';
-import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/config/environment';
+import { useState, useEffect, useCallback, useRef, createContext } from 'react';
+import type { Session, User } from '@supabase/supabase-js';
+import { Tables } from '@/config/environment'; // Asumiendo existencia
+import { supabase } from '@/integrations/supabase/client'; // Para el listener
+import { authService as supabaseAuthService, UserProfile } from '@/services/authService';
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isGlobalAdmin, setIsGlobalAdmin] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
   const [isProjectAdmin, setIsProjectAdmin] = useState(false);
-  const [authVerifications, setAuthVerifications] = useState(0);
-  const [isCheckingInitialProject, setIsCheckingInitialProject] = useState(true);
-  
-  // Use a ref to track the subscription to avoid multiple listeners
-  const authListenerRef = useRef<{ data?: { subscription?: { unsubscribe?: () => void } } }>(null);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCheckingInitialProject, setIsCheckingInitialProject] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const authListenerRef = useRef<{ data: { subscription: any; } } | null>(null);
+  const authService = supabaseAuthService;
 
-  // Function to refresh auth state from the service
+  // useCallback para refreshAuthState
   const refreshAuthState = useCallback(async (fetchInitialProject = false) => {
+    console.log(`[useAuth DEBUG] refreshAuthState(${fetchInitialProject}) STARTING.`);
     setIsLoading(true);
+    setIsCheckingInitialProject(fetchInitialProject);
+
     try {
       console.log("[useAuth] Refreshing auth state...");
       const authStatus = await authService.getAuthStatus();
-      
+      console.log("[useAuth DEBUG] authService.getAuthStatus result:", authStatus);
+
+      // --- Establecer estado de autenticación central ---
       setSession(authStatus.session);
-      setUser(authStatus.user);
+      setUser(authStatus.user); // <- Actualización de User
       setUserProfile(authStatus.profile);
-      
-      const isAdmin = authStatus.isGlobalAdmin;
-      setIsGlobalAdmin(isAdmin);
-      
+      setIsGlobalAdmin(authStatus.isGlobalAdmin);
+      console.log("[useAuth DEBUG] Core auth states SET. User:", authStatus.user ? authStatus.user.id : 'null');
+
       // Store global admin status
-      if (isAdmin) {
+      if (authStatus.isGlobalAdmin) {
         localStorage.setItem('isGlobalAdmin', 'true');
         sessionStorage.setItem('isGlobalAdmin', 'true');
         
@@ -55,183 +57,152 @@ export function useAuth() {
         }
       }
       
-      const currentUser = authStatus.user;
+      const currentUser = authStatus.user; // Usar el usuario recién obtenido
 
-      // --- Obtener projectId inicial (solo si se solicita explícitamente) ---
+      // --- Obtener projectId inicial (si se solicita y hay usuario) ---
       if (fetchInitialProject && currentUser) {
-        setIsCheckingInitialProject(true); // Marcar inicio de carga de proyecto
+        // NOTA: isCheckingInitialProject ya está en true si llegamos aquí
         try {
-          const projectUsersTable = Tables.project_users;
-          console.log(`[useAuth] Fetching initial project from table: ${projectUsersTable} for user: ${currentUser.id}`);
+          console.log(`[useAuth DEBUG] Project Fetch TRY block STARTING. User: ${currentUser.id}`);
+          // Intentar asegurar que el cliente Supabase tenga la sesión más reciente
+          console.log("[useAuth DEBUG] Explicitly calling getSession before project query...");
+          const { error: sessionError } = await supabase.auth.getSession();
+          if (sessionError) {
+              console.error("[useAuth DEBUG] Error during explicit getSession before project query:", sessionError);
+              // Considerar si lanzar un error aquí o continuar igualmente
+          } else {
+              console.log("[useAuth DEBUG] Supabase getSession completed before project query.");
+          }
+
+          console.log(`[useAuth] Fetching initial project from table: ${Tables.project_users} for user: ${currentUser.id}`);
 
           const { data: projectUserData, error: projectUserError } = await supabase
-            .from(projectUsersTable)
+            .from(Tables.project_users)
             .select('project_id')
             .eq('user_id', currentUser.id)
             .eq('status', 'active')
             .limit(1)
             .single();
+          console.log('[useAuth DEBUG] Project fetch RESULT:', { projectUserData, projectUserError });
 
           if (projectUserError && projectUserError.code !== 'PGRST116') {
              console.error('[useAuth] Error fetching initial project user data:', projectUserError);
            }
 
           const initialProjectId = projectUserData?.project_id || null;
-          console.log(`[useAuth] Initial project ID found: ${initialProjectId}`);
-
-          setCurrentProjectId(initialProjectId);
+          console.log(`[useAuth DEBUG] Determined initialProjectId: ${initialProjectId}`);
+          setCurrentProjectId(initialProjectId); // <- Actualización de ProjectId
           if (initialProjectId) {
              sessionStorage.setItem('currentProjectId', initialProjectId);
            } else {
              sessionStorage.removeItem('currentProjectId');
            }
-        } catch (error) {
-          console.error('[useAuth] Failed to fetch initial project ID:', error);
-           setCurrentProjectId(null);
+           console.log(`[useAuth DEBUG] Project Fetch state updated.`);
+          } catch (error) {
+          console.error('[useAuth DEBUG] Project Fetch CATCH block:', error);
+           setCurrentProjectId(null); // Limpiar en error
            sessionStorage.removeItem('currentProjectId');
         } finally {
-           setIsCheckingInitialProject(false); // Marcar fin de carga de proyecto
-         }
-      } else if (!currentUser) {
-         // Limpiar si no hay usuario
-         setCurrentProjectId(null);
-         sessionStorage.removeItem('currentProjectId');
-         setIsCheckingInitialProject(false); // No hay proyecto que buscar
-       }
-      // --- Fin obtención projectId inicial ---
+          // SOLO marcamos que la revisión del proyecto terminó aquí
+          console.log('[useAuth DEBUG] Project Fetch FINALLY block. Setting isCheckingInitialProject=false.');
+          setIsCheckingInitialProject(false);
+        }
+      } else if (fetchInitialProject) {
+        // Si se solicitó fetchInitialProject pero no había usuario,
+        // también terminamos la 'revisión' del proyecto (que no ocurrió).
+         console.log('[useAuth DEBUG] Skipping project fetch (no user), setting isCheckingInitialProject=false.');
+         setIsCheckingInitialProject(false);
+      }
+      // Si fetchInitialProject era false, isCheckingInitialProject ya estaba en false.
+
+      // En este punto, todas las operaciones async y setState DENTRO del try han sido iniciadas.
 
     } catch (error) {
-      console.error("[useAuth] Error refreshing auth state:", error);
-       // Limpiar en caso de error
-       setCurrentProjectId(null);
-       sessionStorage.removeItem('currentProjectId');
-       setIsGlobalAdmin(false);
-       // ... (limpiar storage) ...
+      console.error('[useAuth] Error during refreshAuthState:', error);
+      // Limpiar todo el estado en caso de error
+      setSession(null);
+      setUser(null);
+      setUserProfile(null);
+      setIsGlobalAdmin(false);
+      setCurrentProjectId(null);
+      setIsCheckingInitialProject(false); // Asegurar que esté en false
+      setIsLoading(false); // Detener carga en error también
+      // Podrías considerar cleanupAuthState() aquí si es apropiado
     } finally {
-      setIsLoading(false); // Marcar fin carga general
-      // isCheckingInitialProject se maneja dentro del bloque try/catch/finally
-      setIsInitialized(true);
+      // Este finally se ejecuta DESPUÉS del try completo o del catch.
+      // Solo ponemos isLoading principal en false AQUI, una vez todo lo demás (incluido el finally del proyecto) ha terminado.
+      console.log('[useAuth DEBUG] refreshAuthState FINAL finally block. Setting isLoading=false.');
+      setIsLoading(false);
+      if (!isInitialized) setIsInitialized(true); // Marcar como inicializado después del primer refresh
     }
-  }, []);
+  }, [authService]);
 
-  // NUEVO: useEffect simplificado que depende solo de authVerifications
+  // Efecto para listener y carga inicial
   useEffect(() => {
-    if (authVerifications > 0) {
-      console.log(`[useAuth] Running auth verification #${authVerifications} (triggered by counter)`);
-
-      // VERIFICACIÓN MÁS SIMPLE: Solo detectar si la sesión se perdió en Supabase
-      // mientras aún tenemos un usuario en el contexto.
-      const checkSessionInconsistency = async () => {
-        try {
-          const { data, error } = await supabase.auth.getSession();
-
-          if (error) {
-            // Si hay error al obtener la sesión, loguear pero no hacer nada drástico aquí.
-            // Podría ser un problema temporal de red.
-            console.error("[useAuth] Error checking session during verification:", error);
-            return;
-          }
-
-          // La única inconsistencia crítica que manejamos aquí:
-          // Supabase dice NO hay sesión, PERO el contexto todavía tiene un usuario.
-          if (!data.session && user) {
-            console.warn("[useAuth] Supabase session missing during verification, but user exists in context. Forcing sign out to resync.");
-            // Forzar sign out para limpiar el estado local inconsistente.
-            await signOut();
-          } else {
-            // En todos los demás casos (sesión y usuario coinciden, o ambos son null,
-            // o hay sesión en Supabase pero no usuario local aún), no hacemos nada aquí.
-            // Confiamos en onAuthStateChange y refreshAuthState(true) inicial.
-            console.log("[useAuth] Session check during verification completed (no critical inconsistency detected).");
-          }
-        } catch (error) {
-          // Capturar errores de la lógica interna de checkSessionInconsistency
-          console.error("[useAuth] Auth verification checkSessionInconsistency error:", error);
-        }
-      };
-
-      checkSessionInconsistency();
+    // Solo configurar una vez
+    if (authListenerRef.current) {
+       console.log("[useAuth Initial Effect] Listener already exists, skipping setup.");
+       return;
     }
-  }, [authVerifications]); // Solo depende de authVerifications
+    console.log("[useAuth Initial Effect] Setting up auth listener.");
 
-  // Set up auth listener and get initial state
-  useEffect(() => {
-    if (isInitialized) return;
-    
-    setIsLoading(true); // Asegurar estado de carga
-    setIsCheckingInitialProject(true); // Asegurar estado de carga del proyecto
-
-    // Clean up any existing listeners before setting a new one
-    if (authListenerRef.current?.data?.subscription?.unsubscribe) {
-      console.log("Cleaning up existing auth listener before setting up a new one");
-      authListenerRef.current.data.subscription.unsubscribe();
-    }
-    
-    console.log("[useAuth] Setting up auth listener and performing initial load.");
-
-    const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
+    const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => { // Hacer async para await refreshAuthState
       console.log("[useAuth] Auth state changed, event:", event, "session:", !!newSession);
-      
-      setSession(newSession);
-      setUser(newSession?.user || null);
-      
-      // Si el usuario cierra sesión, limpiar todo
-      if (event === 'SIGNED_OUT') {
+
+      if (event === 'INITIAL_SESSION') {
+        if (newSession) {
+          console.log("[useAuth DEBUG] INITIAL_SESSION (user exists) -> Calling refreshAuthState(true)");
+          try {
+            await refreshAuthState(true);
+            console.log("[useAuth DEBUG] INITIAL_SESSION refresh complete, setting isInitialized=true");
+          } catch (e) { console.error("Error during initial session refresh:", e); }
+          finally { setIsInitialized(true); } // Marcar inicializado incluso si hubo error en refresh? O solo en éxito? Decidimos marcar siempre.
+        } else {
+          console.log("[useAuth DEBUG] INITIAL_SESSION (no user) -> Setting isLoading=false, isInitialized=true");
+          setIsLoading(false); // No hay nada que cargar
+          setIsInitialized(true); // Pero el estado inicial está determinado
+        }
+      } else if (event === 'SIGNED_IN') {
+        console.log("[useAuth DEBUG] SIGNED_IN event -> Calling refreshAuthState(true)");
+        try {
+           await refreshAuthState(true);
+           console.log("[useAuth DEBUG] SIGNED_IN refresh complete, setting isInitialized=true");
+        } catch (e) { console.error("Error during signed in refresh:", e); }
+        finally { setIsInitialized(true); } // Marcar inicializado después del login
+      } else if (event === 'SIGNED_OUT') {
+        console.log("[useAuth DEBUG] SIGNED_OUT event -> Cleaning up state.");
+        setSession(null);
+        setUser(null);
+        setUserProfile(null);
         setIsGlobalAdmin(false);
         setIsProjectAdmin(false);
-        setUserProfile(null);
-        setCurrentProjectId(null); // Limpiar projectId
+        setCurrentProjectId(null);
+        sessionStorage.removeItem('currentProjectId');
         localStorage.removeItem('isGlobalAdmin');
-        sessionStorage.removeItem('isGlobalAdmin');
         localStorage.removeItem('authState');
-        sessionStorage.removeItem('currentProjectId'); // Limpiar storage projectId
-        setIsCheckingInitialProject(false); // No hay proyecto que buscar
-      }
-      
-      // For sign-in events, store basic auth state immediately
-      if (event === 'SIGNED_IN' && newSession?.user) {
-        localStorage.setItem('authState', JSON.stringify({
-          isAuthenticated: true,
-          userId: newSession.user.id,
-          timestamp: Date.now()
-        }));
-        
-        // If the user already has global admin flag in storage, preserve it
-        if (localStorage.getItem('isGlobalAdmin') === 'true') {
-          localStorage.setItem('authState', JSON.stringify({
-            isAuthenticated: true,
-            userId: newSession.user.id,
-            isGlobalAdmin: true,
-            timestamp: Date.now()
-          }));
-        }
-      }
-      
-      // Refrescar estado completo, PERO indicar que NO busque el proyecto inicial aquí,
-      // ya que el listener puede dispararse por cambios menores. La búsqueda inicial
-      // se hace una vez abajo.
-      if (event === 'SIGNED_IN') {
-        console.log("[useAuth] SIGNED_IN detected, calling refreshAuthState(true) to fetch project.");
-        refreshAuthState(true);
-      } else if (event !== 'INITIAL_SESSION' && event !== 'SIGNED_OUT') {
-        console.log(`[useAuth] Auth event ${event} detected, calling refreshAuthState(false).`);
-        refreshAuthState(false);
+        setIsLoading(false);
+        setIsCheckingInitialProject(false);
+        // ¿Deberíamos poner isInitialized = false aquí? Depende.
+        // Si queremos que al volver a loguear se muestre "Inicializando...", sí.
+        // Por ahora, dejémoslo en true.
+      } else if (event !== 'USER_UPDATED' && event !== 'PASSWORD_RECOVERY' && event !== 'TOKEN_REFRESHED') {
+        // Otros eventos que podrían requerir un refresh simple (sin buscar proyecto)
+        console.log(`[useAuth DEBUG] Auth event ${event} -> Calling refreshAuthState(false)`);
+        await refreshAuthState(false);
+      } else {
+        console.log(`[useAuth DEBUG] Auth event ${event} -> No action needed.`);
       }
     });
-    
+
     authListenerRef.current = { data };
-    
-    // Carga inicial completa: refrescar estado Y buscar proyecto inicial
-    refreshAuthState(true);
-    
-    // Clean up the listener on unmount
+
     return () => {
-      console.log("[useAuth] Cleaning up auth listener");
-      if (authListenerRef.current?.data?.subscription?.unsubscribe) {
-        authListenerRef.current.data.subscription.unsubscribe();
-      }
+      console.log("[useAuth Initial Effect] Cleaning up auth listener.");
+      authListenerRef.current?.data.subscription.unsubscribe();
+      authListenerRef.current = null;
     };
-  }, [isInitialized, refreshAuthState]);
+    // Ejecutar solo una vez para configurar el listener
+  }, [refreshAuthState]); // Depender de refreshAuthState
 
   // Sign out function
   const signOut = useCallback(async () => {
@@ -256,7 +227,7 @@ export function useAuth() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [authService]);
 
   // Efecto para verificar si es Project Admin cuando cambia el usuario o el projectId
   useEffect(() => {
@@ -282,12 +253,7 @@ export function useAuth() {
       // Si no hay usuario o proyecto, no puede ser project admin
       setIsProjectAdmin(false);
     }
-  }, [user, currentProjectId]); // Dependencias correctas
-
-  // Function to trigger a manual auth verification
-  const verifyAuthentication = useCallback(() => {
-    setAuthVerifications(prev => prev + 1);
-  }, []);
+  }, [user, currentProjectId, authService]); // Dependencias correctas
 
   // Estado de carga combinado
   const combinedLoading = isLoading || isCheckingInitialProject;
@@ -298,11 +264,13 @@ export function useAuth() {
     userProfile,
     isGlobalAdmin,
     isProjectAdmin,
-    isLoading: combinedLoading, // Asegurar que se exporta con este nombre
-    isInitialized,
-    currentProjectId, // El ID obtenido inicialmente o null
-    signOut,
-    refreshAuthState, // Puede ser útil para refrescos manuales
-    verifyAuthentication
+    isLoading: combinedLoading, // Estado de carga para consumidores
+    isInitialized, // Estado de inicialización
+    currentProjectId,
+    signOut, // Export the locally defined signOut function
+    refreshAuthState,
   };
 }
+
+// Nota: El hook `useAuthActions` y el contexto `AuthContext` / `AuthProvider` no se muestran aquí
+// pero se asume que usan los valores devueltos por `useAuth`.

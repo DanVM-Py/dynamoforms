@@ -36,11 +36,12 @@ export const getCurrentEnvironment = (): Environment => {
   return isProduction ? 'production' : 'development';
 };
 
-// Configuration interface
+// Define the structure for environment-specific settings
 interface EnvironmentConfig {
   apiUrl: string;
   supabaseUrl: string;
   supabaseAnonKey: string;
+  supabaseServiceRoleKey: string; // Add the service role key property
   tablePrefix: string; // Prefijo para las tablas según el entorno
   featureFlags: {
     debuggingEnabled: boolean;
@@ -58,6 +59,7 @@ const configurations: Record<Environment, EnvironmentConfig> = {
     apiUrl: "https://dgnjoqgfccxdlteiptfv.supabase.co",
     supabaseUrl: "https://dgnjoqgfccxdlteiptfv.supabase.co",
     supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRnbmpvcWdmY2N4ZGx0ZWlwdGZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE5OTQxNDMsImV4cCI6MjA1NzU3MDE0M30.WaKEJL_VuJL9osWDEIc5NUUWekD-90Hbavya5S_5uIg",
+    supabaseServiceRoleKey: import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'fallback_prod_key_if_needed',
     tablePrefix: "dev_", // Prefijo para tablas de desarrollo
     featureFlags: {
       debuggingEnabled: true,
@@ -72,7 +74,8 @@ const configurations: Record<Environment, EnvironmentConfig> = {
     apiUrl: "https://dgnjoqgfccxdlteiptfv.supabase.co",
     supabaseUrl: "https://dgnjoqgfccxdlteiptfv.supabase.co",
     supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRnbmpvcWdmY2N4ZGx0ZWlwdGZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE5OTQxNDMsImV4cCI6MjA1NzU3MDE0M30.WaKEJL_VuJL9osWDEIc5NUUWekD-90Hbavya5S_5uIg",
-    tablePrefix: "", // Sin prefijo para producción
+    supabaseServiceRoleKey: import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'fallback_prod_key_if_needed',
+    tablePrefix: "",
     featureFlags: {
       debuggingEnabled: false,
       notificationsEnabled: true,
@@ -84,10 +87,10 @@ const configurations: Record<Environment, EnvironmentConfig> = {
   }
 };
 
-// Get current environment
+// Determine the current environment
 export const environment = getCurrentEnvironment();
 
-// Export the configuration for the current environment
+// Export the configuration object for the current environment (SINGLE DECLARATION)
 export const config = configurations[environment];
 
 // Check if we're in a production environment
@@ -118,8 +121,7 @@ export type TableName =
   | 'task_templates'
   | 'user_roles';
 
-
-// Objeto con nombres de tabla tipados - usar esto para conservar el tipado estricto
+// Define and export table names AFTER config is defined
 export const Tables = {
   form_responses: `${config.tablePrefix}form_responses` as 'form_responses',
   forms: `${config.tablePrefix}forms` as 'forms',
