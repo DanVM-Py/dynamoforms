@@ -16,6 +16,7 @@ interface AuthContextType {
   isInitialized: boolean;
   signOut: () => Promise<boolean>;
   refreshUserProfile: () => Promise<void>;
+  refreshAuthState: (fetchInitialProject?: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -66,7 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     currentProjectId,
     isInitialized,
     signOut,
-    refreshUserProfile
+    refreshUserProfile,
+    refreshAuthState
   };
 
   console.log("[AuthContext DEBUG] AuthProvider rendering. isInitialized:", isInitialized);

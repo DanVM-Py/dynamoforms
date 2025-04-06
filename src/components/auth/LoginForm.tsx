@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface LoginFormProps {
   redirectTo?: string;
@@ -20,6 +21,7 @@ export const LoginForm = ({ redirectTo = "/" }: LoginFormProps) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { refreshAuthState } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +54,15 @@ export const LoginForm = ({ redirectTo = "/" }: LoginFormProps) => {
         throw new Error("No se pudo iniciar sesión. Inténtalo de nuevo.");
       }
       
-      console.log("Login successful for:", email);
+      console.log("Login successful (Supabase Auth OK) for:", email);
+
+      // --- LLAMADA EXPLÍCITA A REFRESH AUTH STATE ---
+      // Antes de navegar, forzar la carga completa de datos (incluye proyecto)
+      console.log("[LoginForm] Calling refreshAuthState(true) explicitly after successful sign in...");
+      await refreshAuthState(true);
+      console.log("[LoginForm] refreshAuthState(true) completed.");
+      // ---------------------------------------------
+
       toast({
         title: "Bienvenido de nuevo",
         description: "Has iniciado sesión correctamente."
@@ -62,21 +72,14 @@ export const LoginForm = ({ redirectTo = "/" }: LoginFormProps) => {
       localStorage.removeItem('isGlobalAdmin');
       sessionStorage.removeItem('isGlobalAdmin');
       
-      // Simplificación: Solo navegar. useAuth/ProtectedRoute harán el resto.
-
       // Navegar al destino deseado. ProtectedRoute se encargará de la lógica de acceso.
-      console.log("[LoginForm] Login successful, navigating to intended route:", redirectTo);
-      // Usamos un pequeño delay solo para permitir que el estado de autenticación comience a propagarse
-      // antes de que ProtectedRoute evalúe la ruta.
-      setTimeout(() => {
-         navigate(redirectTo, { replace: true });
-      }, 50);
+      console.log("[LoginForm] Navigating to intended route:", redirectTo);
+      navigate(redirectTo, { replace: true });
 
     } catch (error: any) {
       console.error("Login error:", error);
       // Mostrar el mensaje de error específico o uno genérico
       setErrorMessage(error.message || "Ocurrió un error al iniciar sesión.");
-    } finally {
       setLoading(false);
     }
   };
