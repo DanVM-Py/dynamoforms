@@ -1,4 +1,3 @@
-
 import { createContext, useContext, ReactNode, useEffect } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { useToast } from "@/components/ui/use-toast";
@@ -54,13 +53,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
     // Do an initial verification
+    console.log("[AuthContext] Running initial verification on mount.");
     verifyAuthentication();
     
     // Cleanup
     return () => {
+      console.log("[AuthContext] Cleaning up visibilitychange listener.");
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [verifyAuthentication]);
+  }, []);
 
   const refreshUserProfile = async () => {
     try {

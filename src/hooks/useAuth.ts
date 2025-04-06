@@ -114,33 +114,45 @@ export function useAuth() {
     }
   }, []);
 
-  // Verify authentication when requested or on critical moments
+  // NUEVO: useEffect simplificado que depende solo de authVerifications
   useEffect(() => {
     if (authVerifications > 0) {
-      console.log("[useAuth] Running auth verification #", authVerifications);
-      const verifyAuth = async () => {
+      console.log(`[useAuth] Running auth verification #${authVerifications} (triggered by counter)`);
+
+      // VERIFICACIÓN MÁS SIMPLE: Solo detectar si la sesión se perdió en Supabase
+      // mientras aún tenemos un usuario en el contexto.
+      const checkSessionInconsistency = async () => {
         try {
-          // Check session directly
-          const { data } = await supabase.auth.getSession();
-          
-          if (data?.session?.user) {
-            console.log("Auth verification found valid session");
-            setSession(data.session);
-            setUser(data.session.user);
-            
-            // If we have a session but no profile, get it
-            if (!userProfile) {
-              refreshAuthState();
-            }
+          const { data, error } = await supabase.auth.getSession();
+
+          if (error) {
+            // Si hay error al obtener la sesión, loguear pero no hacer nada drástico aquí.
+            // Podría ser un problema temporal de red.
+            console.error("[useAuth] Error checking session during verification:", error);
+            return;
+          }
+
+          // La única inconsistencia crítica que manejamos aquí:
+          // Supabase dice NO hay sesión, PERO el contexto todavía tiene un usuario.
+          if (!data.session && user) {
+            console.warn("[useAuth] Supabase session missing during verification, but user exists in context. Forcing sign out to resync.");
+            // Forzar sign out para limpiar el estado local inconsistente.
+            await signOut();
+          } else {
+            // En todos los demás casos (sesión y usuario coinciden, o ambos son null,
+            // o hay sesión en Supabase pero no usuario local aún), no hacemos nada aquí.
+            // Confiamos en onAuthStateChange y refreshAuthState(true) inicial.
+            console.log("[useAuth] Session check during verification completed (no critical inconsistency detected).");
           }
         } catch (error) {
-          console.error("Auth verification error:", error);
+          // Capturar errores de la lógica interna de checkSessionInconsistency
+          console.error("[useAuth] Auth verification checkSessionInconsistency error:", error);
         }
       };
-      
-      verifyAuth();
+
+      checkSessionInconsistency();
     }
-  }, [authVerifications, userProfile]);
+  }, [authVerifications]); // Solo depende de authVerifications
 
   // Set up auth listener and get initial state
   useEffect(() => {
@@ -198,8 +210,11 @@ export function useAuth() {
       // Refrescar estado completo, PERO indicar que NO busque el proyecto inicial aquí,
       // ya que el listener puede dispararse por cambios menores. La búsqueda inicial
       // se hace una vez abajo.
-      if (event !== 'INITIAL_SESSION' && event !== 'SIGNED_OUT') {
-        // Llamar a refreshAuthState sin el flag para buscar proyecto inicial
+      if (event === 'SIGNED_IN') {
+        console.log("[useAuth] SIGNED_IN detected, calling refreshAuthState(true) to fetch project.");
+        refreshAuthState(true);
+      } else if (event !== 'INITIAL_SESSION' && event !== 'SIGNED_OUT') {
+        console.log(`[useAuth] Auth event ${event} detected, calling refreshAuthState(false).`);
         refreshAuthState(false);
       }
     });

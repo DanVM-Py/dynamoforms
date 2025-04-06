@@ -1,20 +1,19 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CardContent, CardFooter } from "@/components/ui/card";
-import { AlertCircle, Loader2 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useNavigate } from "react-router-dom";
+import { Loader2, AlertCircle } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface LoginFormProps {
   redirectTo?: string;
-  onSuccessfulLogin?: (hasNoProjectAccess: boolean) => void;
 }
 
-export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProps) => {
+export const LoginForm = ({ redirectTo = "/" }: LoginFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -64,8 +63,6 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
       sessionStorage.removeItem('isGlobalAdmin');
       
       // Simplificación: Solo navegar. useAuth/ProtectedRoute harán el resto.
-      // Forzar al hook useAuth a re-verificar (si tienes un método para ello) o confiar en el listener.
-      // checkAuth(); // Si tienes algo como esto
 
       // Navegar al destino deseado. ProtectedRoute se encargará de la lógica de acceso.
       console.log("[LoginForm] Login successful, navigating to intended route:", redirectTo);
@@ -73,13 +70,8 @@ export const LoginForm = ({ redirectTo = "/", onSuccessfulLogin }: LoginFormProp
       // antes de que ProtectedRoute evalúe la ruta.
       setTimeout(() => {
          navigate(redirectTo, { replace: true });
-         // Si aún necesitas el callback, asegúrate de que no dependa del acceso al proyecto en este punto.
-         if (onSuccessfulLogin) {
-             console.warn("[LoginForm] onSuccessfulLogin called, access check deferred to ProtectedRoute.");
-             onSuccessfulLogin(undefined);
-         }
       }, 50);
-      
+
     } catch (error: any) {
       console.error("Login error:", error);
       // Mostrar el mensaje de error específico o uno genérico
