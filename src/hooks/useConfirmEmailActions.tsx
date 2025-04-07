@@ -2,6 +2,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { logger } from "@/lib/logger";
+import { Tables } from "@/config/environment";
 
 export function useConfirmEmailActions(email: string | undefined, userId?: string) {
   const [resending, setResending] = useState(false);
@@ -66,7 +67,7 @@ export function useConfirmEmailActions(email: string | undefined, userId?: strin
 
       // Check if the user has confirmed their email
       const { data, error } = await supabase
-        .from("profiles")
+        .from(Tables.profiles)
         .select("*")  // Select all columns to avoid missing columns
         .eq("email", email)
         .maybeSingle();

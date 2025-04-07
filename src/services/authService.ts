@@ -1,6 +1,7 @@
 import { supabase, cleanupAuthState } from "@/integrations/supabase/client";
 import { Session, User, AuthError } from "@supabase/supabase-js";
 import { logger } from '@/lib/logger';
+import { Tables } from "@/config/environment";
 
 // Interface for user profile data
 export interface UserProfile {
@@ -70,7 +71,7 @@ class AuthService {
     try {
       logger.debug("[authService DEBUG] Attempting SELECT from profiles for user:", userId);
       const { data, error } = await supabase
-        .from("profiles")
+        .from(Tables.profiles)
         .select("*")
         .eq("id", userId)
         .maybeSingle();

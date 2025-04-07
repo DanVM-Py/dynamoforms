@@ -109,29 +109,31 @@ export const getEnvironmentName = (): string => {
 
 // Tipo para las tablas permitidas en Supabase
 export type TableName = 
-  | 'form_responses'
-  | 'forms'
   | 'profiles'
   | 'projects'
-  | 'form_roles'
-  | 'roles'
-  | 'notifications'
   | 'project_users'
+  | 'roles'
+  | 'user_roles'
+  | 'forms'
+  | 'form_roles'
+  | 'form_responses'
+  | 'form_attachments'
+  | 'notifications'
   | 'tasks'
-  | 'task_templates'
-  | 'user_roles';
+  | 'task_templates';
 
 // Define and export table names AFTER config is defined
 export const Tables = {
-  form_responses: `${config.tablePrefix}form_responses` as 'form_responses',
-  forms: `${config.tablePrefix}forms` as 'forms',
   profiles: `${config.tablePrefix}profiles` as 'profiles',
   projects: `${config.tablePrefix}projects` as 'projects',
-  form_roles: `${config.tablePrefix}form_roles` as 'form_roles',
-  roles: `${config.tablePrefix}roles` as 'roles',
-  notifications: `${config.tablePrefix}notifications` as 'notifications',
   project_users: `${config.tablePrefix}project_users` as 'project_users',
+  roles: `${config.tablePrefix}roles` as 'roles',
+  user_roles: `${config.tablePrefix}user_roles` as 'user_roles',
+  forms: `${config.tablePrefix}forms` as 'forms',
+  form_roles: `${config.tablePrefix}form_roles` as 'form_roles',
+  form_responses: `${config.tablePrefix}form_responses` as 'form_responses',
+  form_attachments: `${config.tablePrefix}form_attachments` as 'form_attachments',
+  notifications: `${config.tablePrefix}notifications` as 'notifications',
   tasks: `${config.tablePrefix}tasks` as 'tasks',
   task_templates: `${config.tablePrefix}task_templates` as 'task_templates',
-  user_roles: `${config.tablePrefix}user_roles` as 'user_roles',
 };

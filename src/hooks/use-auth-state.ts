@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { ProjectUser } from "@/types/custom";
 import { logger } from "@/lib/logger";
+import { Tables } from "@/config/environment";
 
 export function useAuthState() {
   const [session, setSession] = useState<Session | null>(null);
@@ -43,7 +44,7 @@ export function useAuthState() {
       logger.debug("Fetching profile data at:", Date.now());
       
       const { data, error } = await supabase
-        .from("profiles")
+        .from(Tables.profiles)
         .select("*")
         .eq("id", userId)
         .maybeSingle();
@@ -78,7 +79,7 @@ export function useAuthState() {
             
             // Create a basic profile for the user
             const { data: newProfile, error: insertError } = await supabase
-              .from("profiles")
+              .from(Tables.profiles)
               .insert({
                 id: userId,
                 email: userData.user.email,
@@ -130,7 +131,7 @@ export function useAuthState() {
         // Fallback - if no current project, check all project_users
         setProfileFetchStage("checking_all_projects_admin");
         const { data: projectUserData, error: projectUserError } = await supabase
-          .from("project_users")
+          .from(Tables.project_users)
           .select("*")
           .eq("user_id", userId)
           .eq("status", "active");

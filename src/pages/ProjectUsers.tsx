@@ -20,6 +20,7 @@ import { UserFilters } from "@/components/project-users/UserFilters";
 import { EmptyUsersList } from "@/components/project-users/EmptyUsersList";
 import { InviteUserForm, InviteFormValues } from "@/components/project-users/InviteUserForm";
 import { UsersList } from "@/components/project-users/UsersList";
+import { Tables } from "@/config/environment";
 
 const ProjectUsers = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -35,7 +36,7 @@ const ProjectUsers = () => {
     queryKey: ["project", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("projects")
+        .from(Tables.projects)
         .select("*")
         .eq("id", projectId)
         .single();
@@ -49,7 +50,7 @@ const ProjectUsers = () => {
     queryKey: ["projectRoles", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("roles")
+        .from(Tables.roles)
         .select("*")
         .eq("project_id", projectId);
 
@@ -65,7 +66,7 @@ const ProjectUsers = () => {
         if (!user) return [];
         
         let query = supabase
-          .from("project_users")
+          .from(Tables.project_users)
           .select("*")
           .eq("project_id", projectId);
 
@@ -86,7 +87,7 @@ const ProjectUsers = () => {
           projectUsersData.map(async (pu) => {
             try {
               const { data: profileData } = await supabase
-                .from("profiles")
+                .from(Tables.profiles)
                 .select("email, name")
                 .eq("id", pu.user_id)
                 .maybeSingle();
@@ -94,7 +95,7 @@ const ProjectUsers = () => {
               let roleName = undefined;
               if (roleFilter) {
                 const { data: userRoleData } = await supabase
-                  .from("user_roles")
+                  .from(Tables.user_roles)
                   .select("roles(name)")
                   .eq("user_id", pu.user_id)
                   .eq("role_id", roleFilter)
@@ -106,7 +107,7 @@ const ProjectUsers = () => {
                 roleName = userRoleData.roles?.name;
               } else {
                 const { data: userRoleData } = await supabase
-                  .from("user_roles")
+                  .from(Tables.user_roles)
                   .select("roles(name)")
                   .eq("user_id", pu.user_id)
                   .eq("project_id", projectId);
@@ -160,7 +161,7 @@ const ProjectUsers = () => {
         }
         
         const { data: existingUserProfile, error: userProfileError } = await supabase
-          .from("profiles")
+          .from(Tables.profiles)
           .select("id, email")
           .ilike("email", values.email);
           
@@ -176,7 +177,7 @@ const ProjectUsers = () => {
         const userId = existingUserProfile[0].id;
         
         const { data: existingProjectUser, error: projectUserError } = await supabase
-          .from("project_users")
+          .from(Tables.project_users)
           .select("*")
           .eq("user_id", userId)
           .eq("project_id", projectId);
@@ -191,7 +192,7 @@ const ProjectUsers = () => {
         }
 
         const { error: insertError } = await supabase
-          .from("project_users")
+          .from(Tables.project_users)
           .insert({
             project_id: projectId,
             user_id: userId,
@@ -211,7 +212,7 @@ const ProjectUsers = () => {
 
         if (values.roleId) {
           const { error: roleError } = await supabase
-            .from("user_roles")
+            .from(Tables.user_roles)
             .insert({
               user_id: userId,
               role_id: values.roleId,
@@ -256,7 +257,7 @@ const ProjectUsers = () => {
   const updateUserStatusMutation = useMutation({
     mutationFn: async ({ userId, status }: { userId: string; status: ProjectUserStatus }) => {
       const { error } = await supabase
-        .from("project_users")
+        .from(Tables.project_users)
         .update({ 
           status,
           ...(status === "active" ? { activated_at: new Date().toISOString() } : {})
@@ -286,7 +287,7 @@ const ProjectUsers = () => {
   const toggleAdminStatusMutation = useMutation({
     mutationFn: async ({ userId, isAdmin }: { userId: string; isAdmin: boolean }) => {
       const { error } = await supabase
-        .from("project_users")
+        .from(Tables.project_users)
         .update({ 
           is_admin: isAdmin,
           ...(isAdmin ? { status: 'active' as ProjectUserStatus } : {})
