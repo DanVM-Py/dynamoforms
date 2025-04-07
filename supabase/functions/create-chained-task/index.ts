@@ -1,14 +1,18 @@
-
 // Follow this setup guide to integrate the Deno language server with your editor:
 // https://deno.land/manual/getting_started/setup_your_environment
 // This enables autocomplete, go to definition, etc.
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
+import {
+  createClient,
+  SupabaseClient,
+} from "https://esm.sh/@supabase/supabase-js@2.38.0";
+import { Tables } from "../../../src/config/environment.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 async function handleCreateChainedTask(
@@ -17,12 +21,14 @@ async function handleCreateChainedTask(
   isAnonymous: boolean,
   supabase: SupabaseClient
 ) {
-  console.log(`Creating chained task for form response: ${formResponseId}, from form: ${sourceFormId}, isAnonymous: ${isAnonymous}`);
+  console.log(
+    `Creating chained task for form response: ${formResponseId}, from form: ${sourceFormId}, isAnonymous: ${isAnonymous}`
+  );
 
   try {
     // Fetch the form response data
     const { data: formResponse, error: responseError } = await supabase
-      .from("form_responses")
+      .from(Tables.form_responses)
       .select("*")
       .eq("id", formResponseId)
       .single();
@@ -34,11 +40,12 @@ async function handleCreateChainedTask(
     if (!formResponse) {
       throw new Error(`Form response with ID ${formResponseId} not found`);
     }
-    
+
     // Get the active task templates for this source form
     const { data: taskTemplates, error: templatesError } = await supabase
-      .from("task_templates")
-      .select(`
+      .from(Tables.task_templates)
+      .select(
+        `
         id, 
         title, 
         description, 
@@ -50,12 +57,15 @@ async function handleCreateChainedTask(
         due_days,
         inheritance_mapping,
         project_id
-      `)
+      `
+      )
       .eq("source_form_id", sourceFormId)
       .eq("is_active", true);
 
     if (templatesError) {
-      throw new Error(`Error fetching task templates: ${templatesError.message}`);
+      throw new Error(
+        `Error fetching task templates: ${templatesError.message}`
+      );
     }
 
     if (!taskTemplates || taskTemplates.length === 0) {
@@ -69,29 +79,41 @@ async function handleCreateChainedTask(
       let assignedUserId = template.default_assignee;
 
       // Skip task creation if this is an anonymous submission and we need specific assignee data
-      if (isAnonymous && template.assignment_type === "dynamic" && !assignedUserId) {
-        console.log(`Skipping task creation for anonymous submission because dynamic assignment is required`);
+      if (
+        isAnonymous &&
+        template.assignment_type === "dynamic" &&
+        !assignedUserId
+      ) {
+        console.log(
+          `Skipping task creation for anonymous submission because dynamic assignment is required`
+        );
         continue;
       }
-      
+
       // For dynamic assignment, extract assignee from form response data if possible
-      if (template.assignment_type === "dynamic" && template.assignee_form_field && !isAnonymous) {
+      if (
+        template.assignment_type === "dynamic" &&
+        template.assignee_form_field &&
+        !isAnonymous
+      ) {
         const responseData = formResponse.response_data;
         const fieldValue = responseData[template.assignee_form_field];
-        
+
         if (fieldValue) {
           // If field contains a user ID
           assignedUserId = fieldValue;
         }
       }
-      
+
       // If we don't have an assignee at this point, use default
       if (!assignedUserId) {
         // For anonymous submissions, we'll need a fallback assignee
         // This could be a system admin or project owner
         console.log(`No assignee determined, using default or skipping`);
         if (!template.default_assignee) {
-          console.log(`No default assignee for template ${template.id}, skipping task creation`);
+          console.log(
+            `No default assignee for template ${template.id}, skipping task creation`
+          );
           continue;
         }
         assignedUserId = template.default_assignee;
@@ -107,7 +129,7 @@ async function handleCreateChainedTask(
 
       // Create the task
       const { data: task, error: taskError } = await supabase
-        .from("tasks")
+        .from(Tables.tasks)
         .insert({
           title: template.title,
           description: template.description,
@@ -118,7 +140,7 @@ async function handleCreateChainedTask(
           project_id: template.project_id,
           source_form_id: sourceFormId,
           due_date: dueDate,
-          priority: "medium" // Default priority
+          priority: "medium", // Default priority
         })
         .select()
         .single();
@@ -130,30 +152,31 @@ async function handleCreateChainedTask(
 
       console.log(`Created task: ${task.id}`);
       createdTasks.push(task);
-      
+
       // Create notification for the assignee
       try {
-        await supabase
-          .from("notifications")
-          .insert({
-            user_id: assignedUserId,
-            title: 'Nueva tarea asignada',
-            message: `Se te ha asignado una nueva tarea: ${template.title}`,
-            type: 'task_assigned',
-            read: false,
-            project_id: template.project_id,
-            metadata: {
-              task_id: task.id,
-              form_id: template.target_form_id
-            }
-          });
+        await supabase.from(Tables.notifications).insert({
+          user_id: assignedUserId,
+          title: "Nueva tarea asignada",
+          message: `Se te ha asignado una nueva tarea: ${template.title}`,
+          type: "task_assigned",
+          read: false,
+          project_id: template.project_id,
+          metadata: {
+            task_id: task.id,
+            form_id: template.target_form_id,
+          },
+        });
       } catch (notifError) {
         console.error("Error creating notification:", notifError);
         // Continue even if notification fails
       }
     }
 
-    return { message: `Created ${createdTasks.length} tasks`, tasks: createdTasks };
+    return {
+      message: `Created ${createdTasks.length} tasks`,
+      tasks: createdTasks,
+    };
   } catch (err) {
     console.error("Error in handleCreateChainedTask:", err);
     throw err;
@@ -177,7 +200,7 @@ serve(async (req) => {
 
     const requestData = await req.json();
     const { formResponseId, sourceFormId, isAnonymous = false } = requestData;
-    
+
     if (!formResponseId || !sourceFormId) {
       return new Response(
         JSON.stringify({
@@ -203,12 +226,15 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Error processing request:", error);
-    return new Response(
-      JSON.stringify({ error: error.message || "Unknown error occurred" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    let errorMessage = "Ha ocurrido un error desconocido";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === "string") {
+      errorMessage = error;
+    }
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
