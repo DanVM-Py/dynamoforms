@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  app:
+    # Construye la imagen usando el Dockerfile en el mismo directorio
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NODE_VERSION: "lts/*"
+
+    volumes:
+      - ..:/workspaces:cached
+      # - node_modules:/workspaces/frontend/node_modules
+      # - deno_cache:/home/vscode/.cache/deno
+
+    command: sleep infinity
+
+    labels:
+      devcontainer.local_folder: /home/danvm/daka_forms/dynamoforms
+      devcontainer.config_file: /home/danvm/daka_forms/dynamoforms/.devcontainer/devcontainer.json
+
+# volumes:
+#   node_modules:
+#   deno_cache:

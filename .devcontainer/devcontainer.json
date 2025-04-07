@@ -1,0 +1,47 @@
+{
+	"name": "Proyecto Fullstack (Node + Deno)",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "app",
+	"workspaceFolder": "/workspaces",
+	"forwardPorts": [
+		5173,
+		8000
+	],
+	"remoteUser": "vscode",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"dbaeumer.vscode-eslint",
+				"esbenp.prettier-vscode",
+				"denoland.vscode-deno",
+				"ms-azuretools.vscode-docker",
+				"github.vscode-github-actions",
+				"ms-vscode-remote.remote-containers",
+				"bierner.markdown-preview-github-styles"
+			],
+			"settings": {
+				"deno.enable": true,
+				"deno.lint": true,
+				"editor.defaultFormatter": "esbenp.prettier-vscode",
+				"editor.formatOnSave": true,
+				"eslint.validate": [
+					"javascript",
+					"javascriptreact",
+					"typescript",
+					"typescriptreact"
+				],
+				"deno.importMap": "./import_map.json"
+			}
+		}
+	},
+	"runArgs": [
+		"--label",
+		"devcontainer.local_folder=/home/danvm/daka_forms/dynamoforms",
+		"--label",
+		"devcontainer.config_file=/home/danvm/daka_forms/dynamoforms/.devcontainer/devcontainer.json"
+	],
+	"mounts": [
+		"source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+	],
+	"shutdownAction": "stopCompose"
+}
