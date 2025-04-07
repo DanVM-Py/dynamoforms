@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase, customSupabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { logger } from '@/lib/logger';
 
 interface FormResponseHandlerProps {
   formId: string;
@@ -20,7 +21,7 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
         // Select the appropriate client based on whether this is a public form
         const client = isPublic ? customSupabase : supabase;
         
-        console.log("[FormResponseHandler] Triggering task creation for form response:", {
+        logger.info("[FormResponseHandler] Triggering task creation for form response:", {
           formResponseId: responseId,
           sourceFormId: formId,
           isPublic,
@@ -40,17 +41,17 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
         });
 
         if (error) {
-          console.error("[FormResponseHandler] Error triggering task creation:", error);
+          logger.error("[FormResponseHandler] Error triggering task creation:", error);
           toast({
             title: "Error en el procesamiento",
             description: "Hubo un problema al procesar su formulario, pero su respuesta fue guardada.",
             variant: "destructive"
           });
         } else {
-          console.log("[FormResponseHandler] Task creation triggered successfully:", data);
+          logger.info("[FormResponseHandler] Task creation triggered successfully:", data);
         }
       } catch (err) {
-        console.error("[FormResponseHandler] Failed to trigger task creation:", err);
+        logger.error("[FormResponseHandler] Failed to trigger task creation:", err);
       }
     };
 

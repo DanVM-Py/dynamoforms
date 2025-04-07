@@ -1,10 +1,10 @@
-
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Image, X, Upload, Loader2 } from "lucide-react";
 import { uploadFileToStorage } from "@/utils/fileUploadUtils";
 import { useToast } from "@/components/ui/use-toast";
+import { logger } from '@/lib/logger';
 
 interface ImageUploadFieldProps {
   label: string;
@@ -26,6 +26,7 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(value || null);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,7 +75,7 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
         description: "La imagen se ha subido y guardado correctamente.",
       });
     } catch (error) {
-      console.error('Error uploading image:', error);
+      logger.error('Error uploading image:', error);
       toast({
         title: "Error al subir la imagen",
         description: "Por favor, inténtelo de nuevo.",

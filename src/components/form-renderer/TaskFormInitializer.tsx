@@ -1,9 +1,9 @@
-
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Table } from "lucide-react";
 import { Tables } from "@/config/environment";
+import { logger } from '@/lib/logger';
 
 interface TaskFormInitializerProps {
   formId: string;
@@ -21,7 +21,7 @@ export const TaskFormInitializer = ({ formId, taskId, onInitialData }: TaskFormI
       
       setLoading(true);
       try {
-        console.log(`Initializing form ${formId} with data from task ${taskId}`);
+        logger.info(`Initializing form ${formId} with data from task ${taskId}`);
         
         // Get the task
         const { data: task, error: taskError } = await supabase
@@ -35,12 +35,12 @@ export const TaskFormInitializer = ({ formId, taskId, onInitialData }: TaskFormI
           .single();
           
         if (taskError) {
-          console.error("Error fetching task:", taskError);
+          logger.error("Error fetching task:", taskError);
           return;
         }
         
         if (!task.source_form_id || !task.form_response_id) {
-          console.log("No source form or response found for this task");
+          logger.warn("No source form or response found for this task");
           return;
         }
         
@@ -52,7 +52,7 @@ export const TaskFormInitializer = ({ formId, taskId, onInitialData }: TaskFormI
           .single();
           
         if (responseError) {
-          console.error("Error fetching form response:", responseError);
+          logger.error("Error fetching form response:", responseError);
           return;
         }
         
@@ -66,7 +66,7 @@ export const TaskFormInitializer = ({ formId, taskId, onInitialData }: TaskFormI
           
         if (templateError && templateError.code !== 'PGRST116') {
           // PGRST116 means no rows returned, which is fine if no template exists
-          console.error("Error fetching task template:", templateError);
+          logger.error("Error fetching task template:", templateError);
           return;
         }
         
@@ -83,7 +83,7 @@ export const TaskFormInitializer = ({ formId, taskId, onInitialData }: TaskFormI
                   sourceData && 
                   sourceData[sourceField] !== undefined) {
                 initialData[targetField] = sourceData[sourceField];
-                console.log(`Mapped ${sourceField} to ${targetField}: ${sourceData[sourceField]}`);
+                logger.debug(`Mapped ${sourceField} to ${targetField}: ${sourceData[sourceField]}`);
               }
             });
           }
@@ -91,13 +91,13 @@ export const TaskFormInitializer = ({ formId, taskId, onInitialData }: TaskFormI
           // Send the initial data to the parent component
           if (Object.keys(initialData).length > 0) {
             onInitialData(initialData);
-            console.log("Initial data set:", initialData);
+            logger.debug("Initial data set:", initialData);
           }
         } else {
-          console.log("No field mapping found for this task");
+          logger.info("No field mapping found for this task");
         }
       } catch (error) {
-        console.error("Error initializing form:", error);
+        logger.error("Error initializing form:", error);
       } finally {
         setLoading(false);
         setInitialized(true);

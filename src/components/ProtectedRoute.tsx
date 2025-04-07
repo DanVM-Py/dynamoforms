@@ -5,6 +5,7 @@ import { useSidebarProjects } from '@/hooks/use-sidebar-projects';
 import { Loader2 } from 'lucide-react';
 import { cleanupAuthState } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { logger } from '@/lib/logger';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -31,7 +32,7 @@ const ProtectedRoute = ({
 
   const shouldShowLoader = showLoading && (!isInitialized || combinedComponentLoading);
 
-  console.log(
+  logger.debug(
     `[ProtectedRoute DEBUG] Render Check. Path: ${location.pathname}, isInitialized: ${isInitialized}, authLoading: ${authContextLoading}, projectsLoading: ${projectsLoading}, ShouldShowLoader: ${shouldShowLoader}, User: ${!!user}, isGlobalAdmin: ${isGlobalAdmin}, currentProjectId: ${currentProjectId}`
   );
 
@@ -49,16 +50,16 @@ const ProtectedRoute = ({
   }
 
   if (location.pathname === "/no-project-access" || location.pathname === "/auth" || location.pathname.startsWith("/public")) {
-    console.log(`[ProtectedRoute DEBUG] Path (${location.pathname}) does not require auth/project checks. Rendering children.`);
+    logger.debug(`[ProtectedRoute DEBUG] Path (${location.pathname}) does not require auth/project checks. Rendering children.`);
     return <>{children}</>;
   }
   
   const isEffectivelyAuthenticated = !!user;
 
-  console.log(`[ProtectedRoute DEBUG] Auth Check. requireAuth: ${requireAuth}, isEffectivelyAuthenticated: ${isEffectivelyAuthenticated}`);
+  logger.debug(`[ProtectedRoute DEBUG] Auth Check. requireAuth: ${requireAuth}, isEffectivelyAuthenticated: ${isEffectivelyAuthenticated}`);
 
   if (requireAuth && !isEffectivelyAuthenticated) {
-    console.log("[ProtectedRoute] User not authenticated, redirecting to auth page");
+    logger.info("User not authenticated, redirecting to auth page");
     cleanupAuthState();
     const currentPath = location.pathname;
     return <Navigate to={`/auth${currentPath !== "/" ? `?redirect=${encodeURIComponent(currentPath)}` : ""}`} replace />;
@@ -66,31 +67,31 @@ const ProtectedRoute = ({
   
   const isEffectivelyGlobalAdmin = isGlobalAdmin;
 
-  console.log(`[ProtectedRoute DEBUG] Global Admin Check. requireGlobalAdmin: ${requireGlobalAdmin}, isEffectivelyGlobalAdmin: ${isEffectivelyGlobalAdmin}`);
+  logger.debug(`[ProtectedRoute DEBUG] Global Admin Check. requireGlobalAdmin: ${requireGlobalAdmin}, isEffectivelyGlobalAdmin: ${isEffectivelyGlobalAdmin}`);
 
   if (requireGlobalAdmin && !isEffectivelyGlobalAdmin) {
-    console.log("[ProtectedRoute] Global admin access required but user is not a global admin");
+    logger.warn("Global admin access required but user is not a global admin");
     toast({ title: "Acceso Denegado", description: "Necesitas permisos de Administrador Global.", variant: "destructive" });
     return <Navigate to="/" replace />;
   }
 
-  console.log(`[ProtectedRoute DEBUG] Project Admin Check. requireProjectAdmin: ${requireProjectAdmin}, isProjectAdmin: ${isProjectAdmin}, isGlobalAdmin: ${isEffectivelyGlobalAdmin}`);
+  logger.debug(`[ProtectedRoute DEBUG] Project Admin Check. requireProjectAdmin: ${requireProjectAdmin}, isProjectAdmin: ${isProjectAdmin}, isGlobalAdmin: ${isEffectivelyGlobalAdmin}`);
 
   if (requireProjectAdmin && !isProjectAdmin && !isEffectivelyGlobalAdmin) {
-    console.log("[ProtectedRoute] Project admin access required but user is not a project admin or global admin");
+    logger.warn("Project admin access required but user is not a project admin or global admin");
     toast({ title: "Acceso Denegado", description: "Necesitas permisos de Administrador de Proyecto.", variant: "destructive" });
     return <Navigate to="/" replace />;
   }
 
   const needsProjectCheck = requireProjectAccess && location.pathname !== '/projects';
-  console.log(`[ProtectedRoute DEBUG] Project Access Check Needed? ${needsProjectCheck} (requireProjectAccess: ${requireProjectAccess}, path: ${location.pathname})`);
+  logger.debug(`[ProtectedRoute DEBUG] Project Access Check Needed? ${needsProjectCheck} (requireProjectAccess: ${requireProjectAccess}, path: ${location.pathname})`);
 
   if (needsProjectCheck && !currentProjectId) {
-    console.log(`[ProtectedRoute] Project access required (requireProjectAccess=${requireProjectAccess}) but no currentProjectId (${currentProjectId}). Redirecting user (isGlobalAdmin: ${isEffectivelyGlobalAdmin}) to /no-project-access.`);
+    logger.info(`[ProtectedRoute] Project access required (requireProjectAccess=${requireProjectAccess}) but no currentProjectId (${currentProjectId}). Redirecting user (isGlobalAdmin: ${isEffectivelyGlobalAdmin}) to /no-project-access.`);
     return <Navigate to="/no-project-access" replace />;
   }
 
-  console.log(`[ProtectedRoute] Access GRANTED for path: ${location.pathname}. User: ${user?.id}, isGlobalAdmin: ${isEffectivelyGlobalAdmin}, ProjectID: ${currentProjectId}`);
+  logger.debug(`[ProtectedRoute] Access GRANTED for path: ${location.pathname}. User: ${user?.id}, isGlobalAdmin: ${isEffectivelyGlobalAdmin}, ProjectID: ${currentProjectId}`);
   return <>{children}</>;
 };
 

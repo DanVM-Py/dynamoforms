@@ -4,6 +4,7 @@ import { useSidebarProjects } from './use-sidebar-projects';
 import { FormAccessControl } from '../types/forms';
 import { supabase, supabaseAdmin } from '../integrations/supabase/client';
 import { Tables } from '../config/environment';
+import { logger } from "@/lib/logger";
 
 export const useFormAccess = () => {
   const { isGlobalAdmin, isProjectAdmin, user } = useAuth();
@@ -46,7 +47,7 @@ export const useFormAccess = () => {
           projectForms
         });
       } catch (error) {
-        console.error('Error fetching form access control:', error);
+        logger.error('Error fetching form access control:', error);
       }
     };
 

@@ -3,6 +3,7 @@ import { Session, User } from "@supabase/supabase-js";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth as useAuthHook } from "@/hooks/useAuth";
 import { UserProfile } from "@/services/authService";
+import { logger } from "@/lib/logger";
 
 interface AuthContextType {
   session: Session | null;
@@ -47,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "La información de tu perfil ha sido actualizada."
       });
     } catch (error) {
-      console.error("Error refreshing user profile:", error);
+      logger.error("Error refreshing user profile:", error);
       toast({
         title: "Error",
         description: "No se pudo actualizar la información del perfil.",
@@ -71,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshAuthState
   };
 
-  console.log("[AuthContext DEBUG] AuthProvider rendering. isInitialized:", isInitialized);
+  logger.debug("[AuthContext DEBUG] AuthProvider rendering. isInitialized:", isInitialized);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

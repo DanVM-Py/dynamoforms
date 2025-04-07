@@ -1,8 +1,8 @@
-
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,7 +86,9 @@ interface Task {
 const TasksPage = () => {
   const [currentFilter, setCurrentFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const { projectId } = useParams<{ projectId: string }>();
+  const { projectId } = useParams<{ projectId?: string }>();
+  const [searchParams] = useSearchParams();
+  const statusFilter = searchParams.get('status') || 'pending'; // Default to pending
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -97,7 +99,7 @@ const TasksPage = () => {
 
   useEffect(() => {
     if (!projectId) {
-      console.warn("Project ID is missing.");
+      logger.warn("Project ID is missing, viewing all tasks.");
     }
   }, [projectId]);
 
@@ -133,7 +135,7 @@ const TasksPage = () => {
     queryKey: ['tasks', projectId, currentFilter, searchQuery],
     queryFn: async () => {
       if (!projectId) {
-        console.warn("Project ID is missing.");
+        logger.warn("Project ID is missing, fetching tasks across all projects for user.");
         return [];
       }
 
@@ -164,7 +166,7 @@ const TasksPage = () => {
       const { data, error } = await query;
 
       if (error) {
-        console.error("Error fetching tasks:", error);
+        logger.error("Error fetching tasks:", error);
         throw error;
       }
 
@@ -243,7 +245,7 @@ const TasksPage = () => {
         .eq('id', selectedTask.id);
 
       if (error) {
-        console.error("Error updating task:", error);
+        logger.error("Error updating task:", error);
         toast({
           title: "Error",
           description: "Failed to update task.",
@@ -259,7 +261,7 @@ const TasksPage = () => {
       handleDialogClose();
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId, currentFilter, searchQuery] });
     } catch (error) {
-      console.error("Error updating task:", error);
+      logger.error("Error updating task:", error);
       toast({
         title: "Error",
         description: "Failed to update task.",

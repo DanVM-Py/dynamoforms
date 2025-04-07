@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft, Download } from "lucide-react";
 import { Tables } from "@/config/environment";
+import { logger } from '@/lib/logger';
+
 interface FormResponse {
   id: string;
   form_id: string;
@@ -57,7 +59,7 @@ const FormResponses = () => {
       
       setResponses(responsesData || []);
     } catch (error) {
-      console.error('Error al cargar datos:', error);
+      logger.error('Error al cargar datos:', error);
       toast({
         title: "Error al cargar datos",
         description: "No se pudieron cargar los datos del formulario y sus respuestas.",
@@ -105,7 +107,7 @@ const FormResponses = () => {
         description: "Las respuestas han sido exportadas correctamente.",
       });
     } catch (error) {
-      console.error('Error al exportar respuestas:', error);
+      logger.error('Error al exportar respuestas:', error);
       toast({
         title: "Error al exportar",
         description: "No se pudieron exportar las respuestas.",

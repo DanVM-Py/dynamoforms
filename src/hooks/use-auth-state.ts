@@ -1,8 +1,8 @@
-
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { ProjectUser } from "@/types/custom";
+import { logger } from "@/lib/logger";
 
 export function useAuthState() {
   const [session, setSession] = useState<Session | null>(null);
@@ -19,8 +19,8 @@ export function useAuthState() {
     try {
       if (!skipLoading) setLoading(true);
       
-      console.log("Fetching user profile for ID:", userId);
-      console.log("Profile fetch started at:", Date.now());
+      logger.debug("Fetching user profile for ID:", userId);
+      logger.debug("Profile fetch started at:", Date.now());
       setProfileFetchStage("starting");
       
       // Step 1: Call the is_global_admin function first to avoid recursion
@@ -30,17 +30,17 @@ export function useAuthState() {
         .rpc('is_global_admin', { user_uuid: userId });
         
       if (isAdminError) {
-        console.error("Error checking global admin status:", isAdminError);
+        logger.error("Error checking global admin status:", isAdminError);
         setProfileFetchStage("global_admin_check_error");
       } else {
-        console.log("User is global admin:", isAdminData);
+        logger.debug("User is global admin:", isAdminData);
         setIsGlobalAdmin(isAdminData === true);
         setProfileFetchStage("global_admin_check_complete");
       }
       
       // Step 2: Fetch user profile - now that we know admin status, RLS should work correctly
       setProfileFetchStage("fetching_profile");
-      console.log("Fetching profile data at:", Date.now());
+      logger.debug("Fetching profile data at:", Date.now());
       
       const { data, error } = await supabase
         .from("profiles")
@@ -49,18 +49,18 @@ export function useAuthState() {
         .maybeSingle();
         
       if (error) {
-        console.error("Error fetching user profile:", error);
+        logger.error("Error fetching user profile:", error);
         setUserProfile(null);
         setProfileFetchStage("profile_fetch_error");
       } else if (data) {
-        console.log("User profile found:", data);
+        logger.debug("User profile found:", data);
         setUserProfile(data);
         setProfileFetchStage("profile_found");
         
         // For approver, check the role field
         setIsApprover(data.role === "approver");
       } else {
-        console.log("No user profile found");
+        logger.warn("No user profile found");
         setProfileFetchStage("no_profile_found");
         
         // If no profile exists but we have a user, create a basic profile with email_confirmed=false
@@ -70,10 +70,10 @@ export function useAuthState() {
           const { data: userData, error: userError } = await supabase.auth.getUser();
           
           if (userError) {
-            console.error("Error getting user data:", userError);
+            logger.error("Error getting user data:", userError);
             setProfileFetchStage("get_user_error_for_new_profile");
           } else if (userData?.user) {
-            console.log("Creating new profile for user:", userData.user.email);
+            logger.debug("Creating new profile for user:", userData.user.email);
             setProfileFetchStage("creating_new_profile");
             
             // Create a basic profile for the user
@@ -90,16 +90,16 @@ export function useAuthState() {
               .single();
               
             if (insertError) {
-              console.error("Error creating profile:", insertError);
+              logger.error("Error creating profile:", insertError);
               setProfileFetchStage("new_profile_creation_error");
             } else if (newProfile) {
-              console.log("New profile created:", newProfile);
+              logger.info("New profile created:", newProfile);
               setUserProfile(newProfile);
               setProfileFetchStage("new_profile_created");
             }
           }
         } catch (err) {
-          console.error("Error in profile creation workflow:", err);
+          logger.error("Error in profile creation workflow:", err);
           setProfileFetchStage("profile_creation_exception");
         }
       }
@@ -119,10 +119,10 @@ export function useAuthState() {
           });
           
         if (isProjectAdminError) {
-          console.error("Error checking project admin status:", isProjectAdminError);
+          logger.error("Error checking project admin status:", isProjectAdminError);
           setProfileFetchStage("project_admin_check_error");
         } else {
-          console.log("User is project admin for current project:", isProjectAdminData);
+          logger.debug("User is project admin for current project:", isProjectAdminData);
           setIsProjectAdmin(isProjectAdminData === true);
           setProfileFetchStage("project_admin_check_complete");
         }
@@ -136,7 +136,7 @@ export function useAuthState() {
           .eq("status", "active");
           
         if (projectUserError) {
-          console.error("Error fetching project admin status:", projectUserError);
+          logger.error("Error fetching project admin status:", projectUserError);
           setProfileFetchStage("all_projects_admin_check_error");
         } else {
           // Check if any project has admin rights - using type assertion to help TypeScript
@@ -144,18 +144,18 @@ export function useAuthState() {
             const projectUser = pu as unknown as ProjectUser;
             return projectUser.is_admin === true;
           });
-          console.log("User is project admin (from all projects check):", isAdmin);
+          logger.debug("User is project admin (from all projects check):", isAdmin);
           setIsProjectAdmin(!!isAdmin);
           setProfileFetchStage("all_projects_admin_check_complete");
         }
       }
       
-      console.log("User profile fetch completed at:", Date.now(), "Final stage:", profileFetchStage);
+      logger.debug("User profile fetch completed at:", Date.now(), "Final stage:", profileFetchStage);
       setProfileFetchStage("complete");
       setFetchComplete(true);
     } catch (error) {
-      console.error("Error in user profile workflow:", error);
-      console.log("Profile fetch exception at stage:", profileFetchStage);
+      logger.error("Error in user profile workflow:", error);
+      logger.debug("Profile fetch exception at stage:", profileFetchStage);
       setProfileFetchStage("exception");
       setFetchComplete(true);
     } finally {

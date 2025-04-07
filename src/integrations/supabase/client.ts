@@ -2,6 +2,7 @@
 import { createClient, SupabaseClientOptions } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { config } from '@/config/environment';
+import { logger } from '@/lib/logger';
 
 // Define service constants for microservice identification
 export enum SERVICES {
@@ -46,7 +47,7 @@ const getClientOptions = (customHeaders = {}, storageKey = AUTH_STORAGE_KEY): Su
 // Singleton getter for primary Supabase client
 export const getSupabase = () => {
   if (!supabaseInstance) {
-    console.log("Creating new primary Supabase client instance");
+    logger.info("Creating new primary Supabase client instance");
     supabaseInstance = createClient<Database>(
       config.supabaseUrl,
       config.supabaseAnonKey,
@@ -61,13 +62,13 @@ export const getSupabaseAdmin = () => {
   if (!supabaseAdminInstance) {
     // Validate that required keys are present
     if (!config.supabaseUrl || !config.supabaseServiceRoleKey) {
-      console.error('Supabase URL or Service Role Key is missing in environment config for admin client.');
+      logger.info('Supabase URL or Service Role Key is missing in environment config for admin client.');
       // Depending on your app's needs, you might throw an error or return null/handle gracefully
       // For now, let's throw an error to make the configuration issue explicit.
       throw new Error('Missing Supabase configuration for admin client.');
     }
     
-    console.log("Creating new admin Supabase client instance with Service Role Key");
+    logger.info("Creating new admin Supabase client instance with Service Role Key");
     supabaseAdminInstance = createClient<Database>(
       config.supabaseUrl,
       // Use the Service Role Key for admin privileges
@@ -105,9 +106,10 @@ export const getSupabaseAdmin = () => {
 export const getCustomSupabase = () => {
   if (!customSupabaseInstance) {
     if (!config.supabaseUrl || !config.supabaseAnonKey) {
+      logger.error('Supabase URL or Anon Key for custom client is missing.');
       throw new Error('Supabase URL or Anon Key for custom client is missing.');
     }
-    console.log("Creating new custom Supabase client instance");
+    logger.debug("Creating new custom Supabase client instance");
     customSupabaseInstance = createClient<Database>(
       config.supabaseUrl,
       config.supabaseAnonKey,
@@ -146,17 +148,17 @@ export const supabaseApiUrl = config.supabaseUrl;
 // Centralized function to get current session
 export const getCurrentSession = async () => {
   try {
-    console.log("Requesting current session...");
+    logger.debug("Requesting current session...");
     const { data, error } = await supabase.auth.getSession();
     
     if (error) {
-      console.error("Error getting current session:", error);
+      logger.error("Error getting current session:", error);
       return null;
     }
     
     return data.session;
   } catch (e) {
-    console.error("Error getting current session:", e);
+    logger.error("Error getting current session:", e);
     return null;
   }
 };
@@ -169,7 +171,7 @@ export const isAuthenticated = async () => {
 
 // Centralized function to clean up auth state
 export const cleanupAuthState = () => {
-  console.log("Cleaning up auth state across the application");
+  logger.info("Cleaning up auth state across the application");
   
   // Clear local/session storage items
   localStorage.removeItem('currentProjectId');
@@ -193,7 +195,7 @@ export const cleanupAuthState = () => {
   const storageKeys = Object.keys(localStorage);
   const supabaseKeys = storageKeys.filter(key => key.startsWith('sb-'));
   supabaseKeys.forEach(key => {
-    console.log("Clearing supabase storage key:", key);
+    logger.debug("Clearing supabase storage key:", key);
     localStorage.removeItem(key);
     sessionStorage.removeItem(key);
   });

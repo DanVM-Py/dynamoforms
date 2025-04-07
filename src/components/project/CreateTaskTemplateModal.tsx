@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -46,6 +45,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { isDevelopment, Tables } from "@/config/environment";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { logger } from '@/lib/logger';
 
 type AssignmentType = "static" | "dynamic";
 
@@ -125,7 +125,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
     queryFn: async () => {
       if (!projectId) return [];
 
-      console.log(`[CreateTaskTemplateModal] Fetching forms for project: ${projectId}`);
+      logger.debug(`[CreateTaskTemplateModal] Fetching forms for project: ${projectId}`);
       const { data, error } = await supabase
         .from(Tables.forms)
         .select('id, title, schema')
@@ -133,7 +133,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error("[CreateTaskTemplateModal] Error fetching forms:", error);
+        logger.error("[CreateTaskTemplateModal] Error fetching forms:", error);
         throw error;
       }
 
@@ -168,7 +168,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
     queryFn: async () => {
       if (!sourceFormId) return null;
       
-      console.log(`[CreateTaskTemplateModal] Fetching schema for source form: ${sourceFormId}`);
+      logger.debug(`[CreateTaskTemplateModal] Fetching schema for source form: ${sourceFormId}`);
       const { data, error } = await supabase
         .from(Tables.forms)
         .select('schema')
@@ -176,7 +176,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
         .maybeSingle();
 
       if (error) {
-        console.error("[CreateTaskTemplateModal] Error loading source form schema:", error);
+        logger.error("[CreateTaskTemplateModal] Error loading source form schema:", error);
         throw error;
       }
 
@@ -196,7 +196,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
     queryFn: async () => {
       if (!targetFormId) return null;
       
-      console.log(`[CreateTaskTemplateModal] Fetching schema for target form: ${targetFormId}`);
+      logger.debug(`[CreateTaskTemplateModal] Fetching schema for target form: ${targetFormId}`);
       const { data, error } = await supabase
         .from(Tables.forms)
         .select('schema')
@@ -204,7 +204,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
         .maybeSingle();
 
       if (error) {
-        console.error("[CreateTaskTemplateModal] Error loading target form schema:", error);
+        logger.error("[CreateTaskTemplateModal] Error loading target form schema:", error);
         throw error;
       }
 
@@ -227,7 +227,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
 
   const getProjectUsers = async (projectId: string): Promise<User[]> => {
     try {
-      console.log(`[CreateTaskTemplateModal] Fetching users for project: ${projectId}`);
+      logger.debug(`[CreateTaskTemplateModal] Fetching users for project: ${projectId}`);
       
       // First get all project_users
       const { data: projectUsersData, error: projectUsersError } = await supabase
@@ -237,7 +237,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
         .eq('status', 'active');
 
       if (projectUsersError) {
-        console.error("[CreateTaskTemplateModal] Error fetching project users:", projectUsersError);
+        logger.error("[CreateTaskTemplateModal] Error fetching project users:", projectUsersError);
         return [];
       }
       
@@ -253,7 +253,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
         .in('id', userIds);
         
       if (profilesError) {
-        console.error("[CreateTaskTemplateModal] Error fetching user profiles:", profilesError);
+        logger.error("[CreateTaskTemplateModal] Error fetching user profiles:", profilesError);
         return [];
       }
       
@@ -263,10 +263,10 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
         email: profile.email || 'correo@desconocido.com'
       })) || [];
       
-      console.log(`[CreateTaskTemplateModal] Found ${users.length} users for project ${projectId}`);
+      logger.debug(`[CreateTaskTemplateModal] Found ${users.length} users for project ${projectId}`);
       return users;
     } catch (error) {
-      console.error("[CreateTaskTemplateModal] Error fetching project users:", error);
+      logger.error("[CreateTaskTemplateModal] Error fetching project users:", error);
       return [];
     }
   };
@@ -294,7 +294,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
         .select();
 
       if (error) {
-        console.error("[CreateTaskTemplateModal] Error creating task template:", error);
+        logger.error("[CreateTaskTemplateModal] Error creating task template:", error);
         throw error;
       }
 
@@ -311,7 +311,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
       onSuccess();
     },
     onError: (error: any) => {
-      console.error("[CreateTaskTemplateModal] Error creating task template:", error);
+      logger.error("[CreateTaskTemplateModal] Error creating task template:", error);
       toast({
         title: "Error",
         description: "Hubo un error al crear la plantilla de tarea. Inténtalo de nuevo.",
@@ -425,7 +425,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
 
   // Log when modal is opened/closed to help with debugging
   useEffect(() => {
-    console.log("[CreateTaskTemplateModal] Modal state changed:", {
+    logger.trace("[CreateTaskTemplateModal] Modal state changed:", {
       open,
       projectId,
       sourceFormId,

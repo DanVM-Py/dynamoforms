@@ -8,6 +8,7 @@ import { CardContent, CardFooter } from "@/components/ui/card";
 import { Loader2, AlertCircle, MailCheck } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { logger } from "@/lib/logger";
 
 interface SignUpFormProps {
   redirectTo?: string;
@@ -41,9 +42,9 @@ export const SignUpForm = ({ redirectTo }: SignUpFormProps) => {
       // Get current origin for redirection
       const origin = window.location.origin;
       const redirectUrl = `${origin}/auth?confirmation=success`;
-      
-      console.log("Starting signup process for:", email);
-      console.log("Email redirect URL:", redirectUrl);
+
+      logger.info("Starting signup process for:", email);
+      logger.debug("Email redirect URL:", redirectUrl);
       
       // Clear any existing session first to avoid conflicts
       await supabase.auth.signOut();
@@ -61,8 +62,8 @@ export const SignUpForm = ({ redirectTo }: SignUpFormProps) => {
       });
       
       if (error) {
-        console.error("Signup error:", error.message);
-        
+        logger.error("Signup error:", error.message);
+
         if (error.message.includes("already registered")) {
           throw new Error("Este correo ya está registrado. Por favor, inicia sesión.");
         } else if (error.message.includes("password")) {
@@ -70,6 +71,7 @@ export const SignUpForm = ({ redirectTo }: SignUpFormProps) => {
         } else {
           throw error;
         }
+        return;
       }
       
       if (!data?.user) {
@@ -83,7 +85,7 @@ export const SignUpForm = ({ redirectTo }: SignUpFormProps) => {
       });
       
     } catch (error: any) {
-      console.error("Signup error:", error.message);
+      logger.error("Signup error:", error.message);
       setErrorMessage(error.message);
     } finally {
       setLoading(false);

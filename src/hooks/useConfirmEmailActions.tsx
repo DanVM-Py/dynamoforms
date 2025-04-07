@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { logger } from "@/lib/logger";
 
 export function useConfirmEmailActions(email: string | undefined, userId?: string) {
   const [resending, setResending] = useState(false);
@@ -37,7 +38,7 @@ export function useConfirmEmailActions(email: string | undefined, userId?: strin
         description: "Se ha reenviado el correo de confirmación. Por favor revisa tu bandeja de entrada.",
       });
     } catch (error: any) {
-      console.error("Error al reenviar correo:", error);
+      logger.error("Error al reenviar correo:", error);
       setErrorMessage(error.message || "No se pudo reenviar el correo de confirmación");
       
       toast({
@@ -93,7 +94,7 @@ export function useConfirmEmailActions(email: string | undefined, userId?: strin
         });
       }
     } catch (error: any) {
-      console.error("Error al verificar estado del correo:", error);
+      logger.error("Error al verificar estado del correo:", error);
       setErrorMessage(error.message || "No se pudo verificar el estado de confirmación del correo");
     } finally {
       setChecking(false);

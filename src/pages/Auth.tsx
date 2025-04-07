@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingAuthState } from "@/components/auth/LoadingAuthState";
 import { useAuth } from "@/contexts/AuthContext";
+import { logger } from '@/lib/logger';
 // cleanupAuthState might not be needed here if signOut handles it
 // import { supabase, cleanupAuthState } from "@/integrations/supabase/client";
 
@@ -24,8 +25,8 @@ const Auth = () => {
 
   // Effect solely to handle initial forced sign out
   useEffect(() => {
+    logger.info("Auth page: Handling forced sign out on mount.");
     if (forceSignOut && isHandlingForcedSignOut) {
-      console.log("Auth page: Handling forced sign out on mount.");
       // Attempt sign out only if needed
       if (user || sessionStorage.getItem('supabase.auth.token') || localStorage.getItem('supabase.auth.token')) {
          signOut().finally(() => {
@@ -63,48 +64,48 @@ const Auth = () => {
   //    ProtectedRoute wrapping the layout handles preventing access to AUTHENTICATED routes,
   //    this handles redirecting AWAY from AUTH page itself.
   if (!authContextLoading && user) {
-     console.log("Auth page: User is authenticated AFTER loading, redirecting to:", redirect);
-     return <Navigate to={redirect} replace />;
-   }
+    logger.info("Auth page: User is authenticated AFTER loading, redirecting to:", redirect);
+    return <Navigate to={redirect} replace />;
+  }
 
   // 3. If **NOT** loading and **NO** user, render the Login/Signup form
   //    (This is the default state after loading finishes and user is confirmed null)
-  console.log("Auth page: No user authenticated after loading, rendering Auth forms.");
+  logger.info("Auth page: No user authenticated after loading, rendering Auth forms.");
   return (
     <PageContainer hideSidebar className="flex items-center justify-center p-0">
-       <Tabs defaultValue="login" className="w-full max-w-md px-4">
-         <Card>
-           <CardHeader className="flex flex-col items-center space-y-4 p-6 pt-4 pb-0">
-             <div className="text-center mb-2">
-               <CardTitle className="text-2xl font-bold text-dynamo-700">Dynamo</CardTitle>
-               <CardDescription className="text-sm text-gray-500">
-                 Plataforma de gestión de formularios
-               </CardDescription>
-             </div>
-             <div className="w-full pb-2">
-               <TabsList className="w-full">
-                 <TabsTrigger value="login" className="flex-1">
-                   Iniciar Sesión
-                 </TabsTrigger>
-                 <TabsTrigger value="signup" className="flex-1">
-                   Crear Cuenta
-                 </TabsTrigger>
-               </TabsList>
-             </div>
-           </CardHeader>
-           <TabsContent value="login" className="pt-0 pb-0">
-             <LoginForm redirectTo={redirect} />
-           </TabsContent>
-           <TabsContent value="signup" className="pt-0 pb-0">
-             <SignUpForm redirectTo={redirect} />
-           </TabsContent>
-           <CardFooter className="px-6 py-2 border-t">
-             <div className="text-xs text-gray-500 w-full text-center">
-               Al continuar, estás aceptando nuestros términos y condiciones
-             </div>
-           </CardFooter>
-         </Card>
-       </Tabs>
+      <Tabs defaultValue="login" className="w-full max-w-md px-4">
+        <Card>
+          <CardHeader className="flex flex-col items-center space-y-4 p-6 pt-4 pb-0">
+            <div className="text-center mb-2">
+              <CardTitle className="text-2xl font-bold text-dynamo-700">Dynamo</CardTitle>
+              <CardDescription className="text-sm text-gray-500">
+                Plataforma de gestión de formularios
+              </CardDescription>
+            </div>
+            <div className="w-full pb-2">
+              <TabsList className="w-full">
+                <TabsTrigger value="login" className="flex-1">
+                  Iniciar Sesión
+                </TabsTrigger>
+                <TabsTrigger value="signup" className="flex-1">
+                  Crear Cuenta
+                </TabsTrigger>
+              </TabsList>
+            </div>
+          </CardHeader>
+          <TabsContent value="login" className="pt-0 pb-0">
+            <LoginForm redirectTo={redirect} />
+          </TabsContent>
+          <TabsContent value="signup" className="pt-0 pb-0">
+            <SignUpForm redirectTo={redirect} />
+          </TabsContent>
+          <CardFooter className="px-6 py-2 border-t">
+            <div className="text-xs text-gray-500 w-full text-center">
+              Al continuar, estás aceptando nuestros términos y condiciones
+            </div>
+          </CardFooter>
+        </Card>
+      </Tabs>
     </PageContainer>
   );
 };

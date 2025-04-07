@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, LogOut, Loader2 } from 'lucide-react';
@@ -6,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/use-toast';
 import { cleanupAuthState } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
 
 interface SidebarUserSectionProps {
   isExpanded: boolean;
@@ -57,7 +57,7 @@ const SidebarUserSection = ({
       window.location.href = '/auth?signout=forced';
       
     } catch (error) {
-      console.error("Error signing out:", error);
+      logger.error("Error signing out:", error);
       toast({
         title: "Error al cerrar sesión",
         description: "Hubo un problema al cerrar sesión. Intenta de nuevo.",

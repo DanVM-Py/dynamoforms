@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { AlertCircle, FileSpreadsheet, UsersRound, UserPlus } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ProjectUserStatus } from "@/types/custom";
+import { logger } from "@/lib/logger";
 
 import { UserStatusBadge } from "@/components/project-users/UserStatusBadge";
 import { UserActionButtons } from "@/components/project-users/UserActionButtons";
@@ -75,7 +76,7 @@ const ProjectUsers = () => {
         const { data: projectUsersData, error: projectUsersError } = await query;
         
         if (projectUsersError) {
-          console.error("Error fetching project users:", projectUsersError);
+          logger.error("Error fetching project users:", projectUsersError);
           return [];
         }
         
@@ -125,7 +126,7 @@ const ProjectUsers = () => {
                 role_name: roleName
               };
             } catch (profileError) {
-              console.error("Error enriching user data:", profileError);
+              logger.error("Error enriching user data:", profileError);
               return {
                 ...pu,
                 status: pu.status as ProjectUserStatus,
@@ -139,7 +140,7 @@ const ProjectUsers = () => {
 
         return enrichedUsers.filter(Boolean) as any[];
       } catch (error) {
-        console.error("Error in projectUsers query:", error);
+        logger.error("Error in projectUsers query:", error);
         return [];
       }
     },
@@ -148,7 +149,7 @@ const ProjectUsers = () => {
   const inviteUserMutation = useMutation({
     mutationFn: async (values: InviteFormValues) => {
       try {
-        console.log("Inviting user with email:", values.email);
+        logger.info("Inviting user with email:", values.email);
         
         if (!user?.id) {
           throw new Error("Debes iniciar sesión para invitar usuarios");
@@ -164,7 +165,7 @@ const ProjectUsers = () => {
           .ilike("email", values.email);
           
         if (userProfileError) {
-          console.error("Error checking if user profile exists:", userProfileError);
+          logger.error("Error checking if user profile exists:", userProfileError);
           throw new Error(`Error al verificar si el perfil de usuario existe: ${userProfileError.message}`);
         }
         
@@ -181,7 +182,7 @@ const ProjectUsers = () => {
           .eq("project_id", projectId);
 
         if (projectUserError) {
-          console.error("Error checking project user existence:", projectUserError);
+          logger.error("Error checking project user existence:", projectUserError);
           throw new Error(`Error al comprobar si el usuario ya está en el proyecto: ${projectUserError.message}`);
         }
 
@@ -201,7 +202,7 @@ const ProjectUsers = () => {
           });
 
         if (insertError) {
-          console.error("Insert error:", insertError);
+          logger.error("Insert error:", insertError);
           if (insertError.code === "23505") {
             throw new Error(`El usuario ${values.email} ya está asignado a este proyecto`);
           }
@@ -219,7 +220,7 @@ const ProjectUsers = () => {
             });
 
           if (roleError) {
-            console.error("Error assigning role:", roleError);
+            logger.error("Error assigning role:", roleError);
             toast({
               title: "Advertencia",
               description: `Usuario añadido pero hubo un error al asignar el rol: ${roleError.message}`,
@@ -230,7 +231,7 @@ const ProjectUsers = () => {
 
         return { success: true, email: values.email };
       } catch (error: any) {
-        console.error("Error in inviteUserMutation:", error);
+        logger.error("Error in inviteUserMutation:", error);
         throw error;
       }
     },
@@ -243,7 +244,7 @@ const ProjectUsers = () => {
       queryClient.invalidateQueries({ queryKey: ["projectUsers", projectId] });
     },
     onError: (error: any) => {
-      console.error("Full invitation error:", error);
+      logger.error("Full invitation error:", error);
       toast({
         title: "Error al invitar usuario",
         description: error.message || "Ocurrió un error inesperado",

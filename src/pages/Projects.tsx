@@ -17,6 +17,7 @@ import { Project, ProjectUser } from "@/types/custom";
 import { EditProjectModal } from "@/components/projects/EditProjectModal";
 import ProjectCard from "@/components/projects/ProjectCard";
 import { Tables } from "@/config/environment";
+import { logger } from '@/lib/logger';
 
 // Define extended project type that includes adminId
 interface ExtendedProject extends Project {
@@ -67,15 +68,15 @@ const Projects = () => {
       const fetchUsers = async () => {
         try {
           const { data, error } = await supabase
-            .from(Tables.profiles)
-            .select('id, name, email')
-            .not('role', 'eq', 'global_admin');
-            
-          if (error) throw error;
+          .from(Tables.profiles)
+          .select('id, name, email')
+          .not('role', 'eq', 'global_admin');
           
-          setAvailableUsers(data || []);
-        } catch (error: any) {
-          console.error('Error fetching users:', error);
+        if (error) throw error;
+
+        setAvailableUsers(data || []);
+      } catch (error: any) {
+        logger.error('Error fetching users:', error);
           toast({
             title: "Error loading users",
             description: error?.message || "Could not load users.",
@@ -162,7 +163,7 @@ const Projects = () => {
         refetch();
       }
     } catch (error: any) {
-      console.error("Error creating project:", error);
+      logger.error("Error al crear el proyecto:", error);
       toast({
         title: "Error al crear el proyecto",
         description: error?.message || "No se pudo crear el proyecto. Por favor, intenta de nuevo.",
@@ -174,20 +175,20 @@ const Projects = () => {
   };
 
   const handleEditProject = async (project: Project) => {
-    try {
-      // Get the current admin for this project
-      const { data: adminData, error: adminError } = await supabase
-        .from(Tables.project_users)
-        .select('user_id')
-        .eq('project_id', project.id)
-        .eq('is_admin', true)
-        .eq('status', 'active')
-        .maybeSingle();
-      
-      if (adminError && adminError.code !== 'PGRST116') {
-        console.error("Error fetching project admin:", adminError);
+      try {
+        // Get the current admin for this project
+        const { data: adminData, error: adminError } = await supabase
+          .from(Tables.project_users)
+          .select('user_id')
+          .eq('project_id', project.id)
+          .eq('is_admin', true)
+          .eq('status', 'active')
+          .maybeSingle();
+        
+        if (adminError && adminError.code !== 'PGRST116') {
+        logger.error("Error fetching project admin:", adminError);
       }
-      
+
       // Create an extended project with adminId property
       const extendedProject: ExtendedProject = {
         ...project,
@@ -198,7 +199,7 @@ const Projects = () => {
       setIsEditModalOpen(true);
       
     } catch (error) {
-      console.error("Error preparing project edit:", error);
+      logger.error("Error preparing project edit:", error);
       toast({
         title: "Error",
         description: "No se pudo cargar la información del proyecto para editar.",
@@ -216,12 +217,12 @@ const Projects = () => {
       setIsDeleting(true);
       try {
         const { error } = await supabase
-          .from(Tables.projects)
-          .delete()
-          .eq('id', projectToDelete.id);
+        .from(Tables.projects)
+        .delete()
+        .eq('id', projectToDelete.id);
 
-        if (error) {
-          console.error("Error deleting project:", error);
+      if (error) {
+          logger.error("Error deleting project:", error);
           toast({
             title: "Error deleting project",
             description: error.message,
@@ -235,7 +236,7 @@ const Projects = () => {
           refetch();
         }
       } catch (error: any) {
-        console.error("Exception during project deletion:", error);
+        logger.error("Exception during project deletion:", error);
         toast({
           title: "Failed to delete project",
           description: error?.message || "An unexpected error occurred",

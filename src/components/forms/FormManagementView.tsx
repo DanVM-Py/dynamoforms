@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useFormContext } from '../../contexts/FormContext';
 import { FormManagement } from '../../types/forms';
 import { Button } from '../ui/button';
@@ -6,6 +6,7 @@ import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '../ui/use-toast';
 import { FormService } from '../../services/formService';
+import { logger } from '@/lib/logger';
 
 export const FormManagementView: React.FC = () => {
   const { forms, loading, error, permissions, refreshForms } = useFormContext();
@@ -24,7 +25,7 @@ export const FormManagementView: React.FC = () => {
         description: "El formulario ha sido eliminado exitosamente.",
       });
     } catch (error) {
-      console.error('Error deleting form:', error);
+      logger.error('Error deleting form:', error);
       toast({
         title: "Error",
         description: "No se pudo eliminar el formulario.",

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase, supabaseAdmin } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { Tables } from "@/config/environment";
+import { logger } from '@/lib/logger';
 
 interface CloneFormModalProps {
   open: boolean;
@@ -76,7 +76,7 @@ export function CloneFormModal({
         setForms(data);
       }
     } catch (error) {
-      console.error('Error fetching forms:', error);
+      logger.error('Error fetching forms:', error);
       toast({
         title: "Error al cargar formularios",
         description: "No se pudieron cargar los formularios para clonar.",
@@ -110,7 +110,7 @@ export function CloneFormModal({
         }
       }
     } catch (error) {
-      console.error('Error fetching projects:', error);
+      logger.error('Error fetching projects:', error);
     } finally {
       setFetching(false);
     }
@@ -182,7 +182,7 @@ export function CloneFormModal({
         onSuccess(data.newFormId);
       }
     } catch (error: any) {
-      console.error('Error cloning form:', error);
+      logger.error('Error cloning form:', error);
       toast({
         title: "Error al clonar formulario",
         description: error?.message || "No se pudo clonar el formulario. Por favor, intenta nuevamente.",

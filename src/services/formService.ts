@@ -1,6 +1,7 @@
 import { supabase, supabaseAdmin } from '../integrations/supabase/client';
 import { Tables } from '../config/environment';
 import { FormManagement, FormOperational, FormMode, SupabaseForm, SupabaseFormInsert, SupabaseFormUpdate } from '../types/forms';
+import { logger } from '@/lib/logger';
 
 interface GetFormsOptions {
   mode: FormMode;
@@ -74,7 +75,7 @@ export class FormService {
         }
       });
     } catch (error) {
-      console.error('Error fetching forms:', error);
+      logger.error('Error fetching forms:', error);
       throw error;
     }
   }
@@ -90,7 +91,7 @@ export class FormService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error creating form:', error);
+      logger.error('Error creating form:', error);
       throw error;
     }
   }
@@ -107,7 +108,7 @@ export class FormService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error updating form:', error);
+      logger.error('Error updating form:', error);
       throw error;
     }
   }
@@ -121,7 +122,7 @@ export class FormService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error deleting form:', error);
+      logger.error('Error deleting form:', error);
       throw error;
     }
   }

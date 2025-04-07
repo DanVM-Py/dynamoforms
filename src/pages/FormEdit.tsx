@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { useSidebarProjects } from "@/hooks/use-sidebar-projects";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tables } from "@/config/environment";
+import { logger } from '@/lib/logger';
 const FormEdit = () => {
   const { formId } = useParams();
   const navigate = useNavigate();
@@ -84,7 +85,7 @@ const FormEdit = () => {
         setProjects(data);
       }
     } catch (error) {
-      console.error('Error fetching projects:', error);
+      logger.error('Error fetching projects:', error);
       toast({
         title: "Error al cargar proyectos",
         description: "No se pudieron cargar los proyectos.",
@@ -153,7 +154,7 @@ const FormEdit = () => {
         navigate('/forms');
       }
     } catch (error) {
-      console.error('Error al cargar el formulario:', error);
+      logger.error('Error al cargar el formulario:', error);
       toast({
         title: "Error al cargar formulario",
         description: "No se pudo cargar la información del formulario.",
@@ -179,7 +180,7 @@ const FormEdit = () => {
       
       setRoles(data || []);
     } catch (error) {
-      console.error('Error al cargar roles:', error);
+      logger.error('Error al cargar roles:', error);
     }
   };
 
@@ -205,7 +206,7 @@ const FormEdit = () => {
       
       setFormRoles(transformedData);
     } catch (error) {
-      console.error('Error al cargar roles del formulario:', error);
+      logger.error('Error al cargar roles del formulario:', error);
     }
   };
 
@@ -235,7 +236,7 @@ const FormEdit = () => {
         description: "Los cambios han sido guardados exitosamente.",
       });
     } catch (error) {
-      console.error('Error al guardar el formulario:', error);
+      logger.error('Error al guardar el formulario:', error);
       toast({
         title: "Error al guardar",
         description: "No se pudieron guardar los cambios.",
@@ -272,7 +273,7 @@ const FormEdit = () => {
         description: `El formulario ahora está ${newStatus === 'active' ? 'activo' : 'en borrador'}.`,
       });
     } catch (error: any) {
-      console.error('Error al cambiar el estado del formulario:', error);
+      logger.error('Error al cambiar el estado del formulario:', error);
       toast({
         title: "Error al actualizar estado",
         description: error?.message || "No se pudo actualizar el estado del formulario.",
@@ -324,7 +325,7 @@ const FormEdit = () => {
         setTimeout(() => setCopied(false), 2000);
       })
       .catch((error) => {
-        console.error('Error al copiar enlace:', error);
+        logger.error('Error al copiar enlace:', error);
         toast({
           title: "Error al copiar",
           description: "No se pudo copiar el enlace.",
@@ -393,7 +394,7 @@ const FormEdit = () => {
         description: "El rol ha sido asignado al formulario exitosamente.",
       });
     } catch (error) {
-      console.error('Error al asignar rol:', error);
+      logger.error('Error al asignar rol:', error);
       toast({
         title: "Error",
         description: "No se pudo asignar el rol al formulario.",
@@ -421,7 +422,7 @@ const FormEdit = () => {
         description: "El rol ha sido removido del formulario exitosamente.",
       });
     } catch (error) {
-      console.error('Error al remover rol:', error);
+      logger.error('Error al remover rol:', error);
       toast({
         title: "Error",
         description: "No se pudo remover el rol del formulario.",

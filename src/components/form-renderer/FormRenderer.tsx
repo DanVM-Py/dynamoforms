@@ -25,6 +25,7 @@ import { FileUploader } from "../FileUploader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { isComponentRequired, isAboveMinValue } from "@/utils/formValidationUtils";
 import { Tables } from "@/config/environment";
+import { logger } from '@/lib/logger';
 
 export interface FormRendererProps {
   formId: string;
@@ -163,7 +164,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
         .select();
 
       if (error) {
-        console.error("Error al enviar el formulario:", error);
+        logger.error("Error al enviar el formulario:", error);
         setSubmissionError("Hubo un error al enviar el formulario. Inténtalo de nuevo o contacta con el administrador.");
         toast({
           title: "Error",
@@ -185,7 +186,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
         onSuccess();
       }
     } catch (error: any) {
-      console.error("Error al enviar el formulario:", error);
+      logger.error("Error al enviar el formulario:", error);
       setSubmissionError(`Hubo un error al enviar el formulario: ${error.message || "Error desconocido"}. Por favor, inténtalo de nuevo o contacta con el administrador.`);
       toast({
         title: "Error",

@@ -51,6 +51,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Project } from '@/types/supabase';
+import { logger } from '@/lib/logger';
 
 const passwordResetSchema = z.object({
   password: z.string()
@@ -90,7 +91,7 @@ const Admin = () => {
 
   useEffect(() => {
     if (!isGlobalAdmin) {
-      console.error("Access Denied: Admin page requires global admin privileges.");
+      logger.error("Access Denied: Admin page requires global admin privileges.");
       return;
     }
 
@@ -112,7 +113,7 @@ const Admin = () => {
         setUsers(data || []);
         setFilteredUsers(data || []);
       } catch (error: any) {
-        console.error("Error fetching users:", error);
+        logger.error("Error fetching users:", error);
       } finally {
         setUsersLoading(false);
       }
@@ -122,12 +123,12 @@ const Admin = () => {
       try {
         setProjectsLoading(true);
         const { data, error } = await supabase.from(Tables.projects).select('*');
-        
+          
         if (error) throw error;
         
         setProjects(data || []);
       } catch (error: any) {
-        console.error("Error fetching projects:", error);
+        logger.error("Error fetching projects:", error);
       } finally {
         setProjectsLoading(false);
       }
@@ -172,12 +173,12 @@ const Admin = () => {
       // NOTA: setUserPassword no está disponible desde useAdminOperations ni definido localmente.
       // Comentado para evitar error de linter. Se necesita implementar esta función.
       // await setUserPassword(selectedUserId, data.password);
-      console.warn('setUserPassword function is not available, password reset skipped.'); // Añadir advertencia
+      logger.warn('setUserPassword function is not available, password reset skipped.'); // Añadir advertencia
       setResetPasswordDialogOpen(false);
       toast({ title: "Funcionalidad incompleta", description: "La función para resetear contraseña no está implementada.", variant: "destructive"});
       // toast({ title: "Contraseña actualizada", description: "La contraseña del usuario ha sido cambiada." });
     } catch (error) {
-      console.error("Error in password reset:", error);
+      logger.error("Error in password reset:", error);
       toast({ title: "Error", description: "No se pudo completar la acción.", variant: "destructive" });
       // toast({ title: "Error", description: "No se pudo resetear la contraseña.", variant: "destructive" });
     }
@@ -239,7 +240,7 @@ const Admin = () => {
       setRemoveUserDialogOpen(false);
       setRemoveUserData(null);
     } catch (error: any) {
-      console.error("Error removing user from project:", error);
+      logger.error("Error removing user from project:", error);
       toast({ title: "Error", description: "No se pudo remover al usuario del proyecto.", variant: "destructive" });
     }
   };

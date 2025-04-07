@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from '@/config/environment';
+import { logger } from '@/lib/logger';
 
 /**
  * Process form inheritance to create tasks based on templates
@@ -17,7 +18,7 @@ export const processFormInheritance = async (
   submitterId?: string
 ) => {
   try {
-    console.log(`Procesando herencia de formulario para: ${formId}, respuesta: ${formResponseId}, proyecto: ${projectId || 'no especificado'}`);
+    logger.info(`Procesando herencia de formulario para: ${formId}, respuesta: ${formResponseId}, proyecto: ${projectId || 'no especificado'}`);
     
     // Find templates where this form is the source
     let query = supabase
@@ -28,23 +29,23 @@ export const processFormInheritance = async (
     
     // Add project filter if available
     if (projectId) {
-      console.log(`Filtrando por proyecto: ${projectId}`);
+      logger.debug(`Filtrando por proyecto: ${projectId}`);
       query = query.eq('project_id', projectId);
     }
     
     const { data: templates, error } = await query;
     
     if (error) {
-      console.error("Error al buscar plantillas de tareas:", error);
+      logger.error("Error al buscar plantillas de tareas:", error);
       return false;
     }
     
     if (!templates || templates.length === 0) {
-      console.log("No se encontraron plantillas de tareas aplicables.");
+      logger.info("No se encontraron plantillas de tareas aplicables.");
       return false;
     }
     
-    console.log(`Se encontraron ${templates.length} plantillas de tareas aplicables.`);
+    logger.info(`Se encontraron ${templates.length} plantillas de tareas aplicables.`);
     
     // Process each template
     for (const template of templates) {
@@ -53,8 +54,8 @@ export const processFormInheritance = async (
     
     return true;
   } catch (error) {
-    console.error("Error processing form inheritance:", error);
-    return false;
+    logger.error("Error processing form inheritance:", error);
+    throw error;
   }
 };
 
@@ -70,8 +71,8 @@ const createTaskFromTemplate = async (
   submitterId?: string
 ) => {
   try {
-    console.log(`Creando tarea desde plantilla: ${template.title} (ID: ${template.id})`);
-    console.log(`Proyecto de la plantilla: ${template.project_id}, Proyecto del contexto: ${projectId}`);
+    logger.debug(`Creando tarea desde plantilla: ${template.title} (ID: ${template.id})`);
+    logger.debug(`Proyecto de la plantilla: ${template.project_id}, Proyecto del contexto: ${projectId}`);
     
     // Determine the assignee
     let assigneeId = template.default_assignee;
@@ -89,14 +90,14 @@ const createTaskFromTemplate = async (
           .maybeSingle(); // Use maybeSingle instead of single to avoid errors
         
         if (error) {
-          console.error("Error buscando usuario por email:", error);
+          logger.error("Error buscando usuario por email:", error);
         }
         
         if (userProfile) {
           assigneeId = userProfile.id;
-          console.log(`Usuario asignado por email: ${userEmail}, ID: ${assigneeId}`);
+          logger.info(`Usuario asignado por email: ${userEmail}, ID: ${assigneeId}`);
         } else {
-          console.warn(`No se encontró usuario con email: ${userEmail}`);
+          logger.warn(`No se encontró usuario con email: ${userEmail}`);
         }
       }
     }
@@ -104,12 +105,12 @@ const createTaskFromTemplate = async (
     // If no assignee could be determined, use the submitter as fallback
     if (!assigneeId && submitterId) {
       assigneeId = submitterId;
-      console.log(`Usando remitente como asignado: ${assigneeId}`);
+      logger.info(`Usando remitente como asignado: ${assigneeId}`);
     }
     
     // If still no assignee, log an error
     if (!assigneeId) {
-      console.error("No se pudo determinar el asignado para la tarea. La tarea no será creada.");
+      logger.error("No se pudo determinar el asignado para la tarea. La tarea no será creada.");
       return;
     }
     
@@ -119,7 +120,7 @@ const createTaskFromTemplate = async (
       const date = new Date();
       date.setDate(date.getDate() + template.due_days);
       dueDate = date.toISOString();
-      console.log(`Fecha de vencimiento calculada: ${dueDate}`);
+      logger.info(`Fecha de vencimiento calculada: ${dueDate}`);
     }
     
     // Calculate min date based on min_days
@@ -128,18 +129,18 @@ const createTaskFromTemplate = async (
       const date = new Date();
       date.setDate(date.getDate() + template.min_days);
       minDate = date.toISOString();
-      console.log(`Fecha mínima calculada: ${minDate}`);
+      logger.info(`Fecha mínima calculada: ${minDate}`);
     }
     
     // Resolve project ID (use passed projectId first, fallback to template's project_id)
     const finalProjectId = projectId || template.project_id;
     
     if (!finalProjectId) {
-      console.error("No se pudo determinar el proyecto para la tarea. La tarea no será creada.");
+      logger.error("No se pudo determinar el proyecto para la tarea. La tarea no será creada.");
       return;
     }
     
-    console.log(`Proyecto final para la tarea: ${finalProjectId}`);
+    logger.info(`Proyecto final para la tarea: ${finalProjectId}`);
     
     // Create metadata for min completion date
     const metadata = {
@@ -167,11 +168,11 @@ const createTaskFromTemplate = async (
       .maybeSingle(); // Use maybeSingle instead of single to avoid errors
     
     if (error) {
-      console.error("Error al crear la tarea:", error);
+      logger.error("Error al crear la tarea:", error);
       return;
     }
     
-    console.log(`Tarea creada con éxito: ${task?.id} en proyecto ${finalProjectId}`);
+    logger.info(`Tarea creada con éxito: ${task?.id} en proyecto ${finalProjectId}`);
     
     // Create notification for the assignee
     const { error: notificationError } = await supabase
@@ -193,14 +194,14 @@ const createTaskFromTemplate = async (
       });
       
     if (notificationError) {
-      console.error("Error al crear notificación:", notificationError);
+      logger.error("Error al crear notificación:", notificationError);
     } else {
-      console.log("Notificación creada con éxito para el usuario", assigneeId);
+      logger.info("Notificación creada con éxito para el usuario", assigneeId);
     }
     
     return task;
   } catch (error) {
-    console.error("Error creating task from template:", error);
+    logger.error("Error creating task from template:", error);
     return null;
   }
 };

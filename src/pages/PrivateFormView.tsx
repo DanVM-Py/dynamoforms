@@ -13,6 +13,7 @@ import { AlertCircle, ShieldAlert, Loader2, AlertTriangle } from 'lucide-react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { Tables } from '@/config/environment';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { logger } from '@/lib/logger';
 
 export function PrivateFormView() {
   const { formId } = useParams();
@@ -28,10 +29,10 @@ export function PrivateFormView() {
   const [hasAccess, setHasAccess] = useState(false);
 
   useEffect(() => {
-    async function checkFormAccess() {
-      if (!formId || !user) return;
-      
-      console.log(`[PrivateFormView] Checking access for form ${formId} and user ${user.id}`);
+      async function checkFormAccess() {
+        if (!formId || !user) return;
+ 
+      logger.debug(`[PrivateFormView] Checking access for form ${formId} and user ${user.id}`);
       setLoading(true);
       setAccessError(null);
       setHasAccess(false);
@@ -45,19 +46,19 @@ export function PrivateFormView() {
           .single();
 
         if (formError) {
-          console.error("[PrivateFormView] Error fetching form data:", formError);
+          logger.error("[PrivateFormView] Error fetching form data:", formError);
            if (formError.code === 'PGRST116') {
              throw new Error("Formulario no encontrado.");
            } else {
              throw new Error("Error al cargar el formulario.");
            }
         }
-        
-        console.log("[PrivateFormView] Form data fetched:", formData);
+
+        logger.debug("[PrivateFormView] Form data fetched:", formData);
 
         // 2. Si es público, redirigir
         if (formData.is_public) {
-          console.log("[PrivateFormView] Form is public, redirecting to public view");
+          logger.info("[PrivateFormView] Form is public, redirecting to public view");
           navigate(`/public/forms/${formId}`, { replace: true });
           return;
         }
@@ -65,7 +66,7 @@ export function PrivateFormView() {
         // 3. Verificar Acceso
         // Si es Global Admin, tiene acceso directo
         if (isGlobalAdmin) {
-          console.log("[PrivateFormView] Global admin access granted.");
+          logger.info("[PrivateFormView] Global admin access granted.");
           setHasAccess(true);
           setFormData(formData);
           setLoading(false);
@@ -82,17 +83,17 @@ export function PrivateFormView() {
           .maybeSingle();
 
         if (projectUserError) {
-          console.error("[PrivateFormView] Error checking project access:", projectUserError);
+          logger.error("[PrivateFormView] Error checking project access:", projectUserError);
           throw new Error("Error al verificar el acceso al proyecto.");
         }
         
         const isProjectMember = !!projectUserData;
         const isProjectAdmin = projectUserData?.is_admin === true;
-        console.log(`[PrivateFormView] Project access check: isMember=${isProjectMember}, isAdmin=${isProjectAdmin}`);
+        logger.info(`[PrivateFormView] Project access check: isMember=${isProjectMember}, isAdmin=${isProjectAdmin}`);
 
         // Si es admin del proyecto, tiene acceso
         if (isProjectAdmin) {
-           console.log("[PrivateFormView] Project admin access granted.");
+           logger.info("[PrivateFormView] Project admin access granted.");
            setHasAccess(true);
            setFormData(formData);
            setLoading(false);
@@ -108,16 +109,16 @@ export function PrivateFormView() {
              .eq('form_id', formId);
              
            if (formRolesError) {
-              console.error("[PrivateFormView] Error fetching required form roles:", formRolesError);
+              logger.error("[PrivateFormView] Error fetching required form roles:", formRolesError);
               throw new Error("Error al verificar los roles del formulario.");
             }
             
            const requiredRoleIds = formRolesData?.map(fr => fr.role_id) || [];
-           console.log("[PrivateFormView] Form requires roles:", requiredRoleIds);
+           logger.trace("[PrivateFormView] Form requires roles:", requiredRoleIds);
            
            // Si el formulario no requiere roles específicos, el miembro tiene acceso
            if (requiredRoleIds.length === 0) {
-              console.log("[PrivateFormView] Form requires no specific roles, project member access granted.");
+              logger.debug("[PrivateFormView] Form requires no specific roles, project member access granted.");
               setHasAccess(true);
               setFormData(formData);
               setLoading(false);
@@ -133,15 +134,15 @@ export function PrivateFormView() {
              .in('role_id', requiredRoleIds);
              
            if (userRolesError) {
-             console.error("[PrivateFormView] Error fetching user roles:", userRolesError);
+             logger.error("[PrivateFormView] Error fetching user roles:", userRolesError);
              throw new Error("Error al verificar los roles del usuario.");
            }
            
            const hasRequiredRole = (userRolesData?.length || 0) > 0;
-           console.log(`[PrivateFormView] User has required role check: ${hasRequiredRole}`);
+           logger.info(`[PrivateFormView] User has required role check: ${hasRequiredRole}`);
            
            if (hasRequiredRole) {
-             console.log("[PrivateFormView] User has required role, access granted.");
+             logger.info("[PrivateFormView] User has required role, access granted.");
              setHasAccess(true);
              setFormData(formData);
              setLoading(false);
@@ -151,11 +152,11 @@ export function PrivateFormView() {
 
         // Si llegamos aquí, no es Global Admin, ni Project Admin, 
         // ni miembro con el rol requerido (o no es miembro)
-        console.log("[PrivateFormView] User does not have sufficient access.");
+        logger.warn("[PrivateFormView] User does not have sufficient access.");
         throw new Error("No tienes permiso para acceder a este formulario. Contacta al administrador del proyecto.");
 
       } catch (error: any) {
-        console.error("[PrivateFormView] Access check failed:", error);
+        logger.error("[PrivateFormView] Access check failed:", error);
         setAccessError(error.message || "Error al verificar acceso. Intenta nuevamente.");
         setLoading(false);
       }
@@ -163,7 +164,7 @@ export function PrivateFormView() {
 
     // Redirigir si no está autenticado
     if (!authLoading && !user) {
-      console.log("[PrivateFormView] User not authenticated, redirecting to login");
+      logger.warn("[PrivateFormView] User not authenticated, redirecting to login");
       navigate(`/auth?redirect=/forms/${formId}`, { replace: true });
       return;
     }
@@ -196,7 +197,7 @@ export function PrivateFormView() {
       setSubmittedResponseId(data.id);
       toast({ title: "Formulario enviado", description: "Tu respuesta ha sido registrada exitosamente." });
     } catch (error: any) {
-      console.error('Error submitting form response:', error);
+      logger.error('Error submitting form response:', error);
       toast({ title: "Error al enviar", description: error.message || "No se pudo guardar tu respuesta.", variant: "destructive" });
     } finally {
       setSubmitting(false);

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FormResponseHandler } from '@/components/form-renderer/FormResponseHandler';
 import { Tables } from '@/config/environment';
+import { logger } from '@/lib/logger';
 
 export function PublicFormView() {
   const { formId } = useParams();
@@ -22,7 +23,7 @@ export function PublicFormView() {
       if (!formId) return;
 
       try {
-        console.log("[PublicFormView] Fetching public form with ID:", formId);
+        logger.info("[PublicFormView] Fetching public form with ID:", formId);
         const { data, error } = await supabase
           .from(Tables.forms)
           .select('*')
@@ -30,8 +31,8 @@ export function PublicFormView() {
           .eq('is_public', true)
           .single();
 
-        if (error || !data) {
-          console.error("[PublicFormView] Error fetching form:", error);
+          if (error || !data) {
+          logger.error("[PublicFormView] Error fetching form:", error);
           toast({
             title: "Error",
             description: "No se pudo cargar el formulario o no existe.",
@@ -41,10 +42,10 @@ export function PublicFormView() {
           return;
         }
 
-        console.log("[PublicFormView] Form loaded successfully:", data.title);
+        logger.debug("[PublicFormView] Form loaded successfully:", data.title);
         setFormData(data);
       } catch (error: any) {
-        console.error("[PublicFormView] Error in form fetch process:", error);
+        logger.error("[PublicFormView] Error in form fetch process:", error);
         toast({
           title: "Error",
           description: error.message || "Ha ocurrido un error al cargar el formulario.",
@@ -77,7 +78,7 @@ export function PublicFormView() {
         user_id: null // Set to null for anonymous submissions
       };
 
-      console.log("[PublicFormView] Submitting form response:", {formId, isAnonymous: true});
+      logger.info("[PublicFormView] Submitting form response:", {formId, isAnonymous: true});
       
       // Submit the form response
       const { data, error } = await supabase
@@ -87,7 +88,7 @@ export function PublicFormView() {
         .single();
 
       if (error) {
-        console.error("[PublicFormView] Error submitting form:", error);
+        logger.error("[PublicFormView] Error submitting form:", error);
         toast({
           title: "Error al enviar formulario",
           description: error.message,
@@ -97,11 +98,11 @@ export function PublicFormView() {
         return;
       }
 
-      console.log("[PublicFormView] Form submitted successfully with ID:", data.id);
+      logger.info("[PublicFormView] Form submitted successfully with ID:", data.id);
       // Store the response ID and let the FormResponseHandler handle the redirect
       setSubmittedResponseId(data.id);
     } catch (error: any) {
-      console.error("[PublicFormView] Error in form submission process:", error);
+      logger.error("[PublicFormView] Error in form submission process:", error);
       toast({
         title: "Error al procesar el formulario",
         description: error.message || "Ha ocurrido un error. Por favor, intenta nuevamente.",

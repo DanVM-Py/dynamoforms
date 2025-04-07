@@ -7,6 +7,7 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import { Json } from "@/types/supabase";
 import { areFieldTypesCompatible, getSourceFormFields, getTargetFormFields, FormField } from "@/utils/taskTemplateUtils";
 import { debugFormSchema } from "@/utils/formSchemaUtils";
+import { logger } from '@/lib/logger';
 
 interface InheritanceTabProps {
   sourceFormId: string;
@@ -34,17 +35,16 @@ const InheritanceTab = ({
   // Debugging effects to track schema state
   useEffect(() => {
     if (sourceFormSchema && targetFormSchema) {
-      console.group("[InheritanceTab] Schema Debug");
-      console.log("Source ID:", sourceFormId);
-      console.log("Target ID:", targetFormId);
+      logger.debug("[InheritanceTab] Schema Debug");
+      logger.debug("Source ID:", sourceFormId);
+      logger.debug("Target ID:", targetFormId);
       debugFormSchema(sourceFormSchema, "Source Form Schema");
       debugFormSchema(targetFormSchema, "Target Form Schema");
-      console.groupEnd();
     }
   }, [sourceFormId, targetFormId, sourceFormSchema, targetFormSchema]);
   
   const handleFieldMapping = (sourceKey: string, targetKey: string) => {
-    console.log(`[InheritanceTab] Mapping source field "${sourceKey}" to target field "${targetKey}"`);
+    logger.debug(`[InheritanceTab] Mapping source field "${sourceKey}" to target field "${targetKey}"`);
     
     const newMapping = { ...inheritanceMapping };
     
@@ -55,7 +55,7 @@ const InheritanceTab = ({
         .find(([_, value]) => value === targetKey)?.[0];
       
       if (sourceKeyToRemove) {
-        console.log(`[InheritanceTab] Removing inheritance mapping for target: ${targetKey}`);
+        logger.debug(`[InheritanceTab] Removing inheritance mapping for target: ${targetKey}`);
         delete newMapping[sourceKeyToRemove];
       }
     } else {
@@ -70,20 +70,20 @@ const InheritanceTab = ({
       newMapping[sourceKey] = targetKey;
     }
     
-    console.log("[InheritanceTab] New mapping:", newMapping);
+    logger.debug("[InheritanceTab] New mapping:", newMapping);
     setInheritanceMapping(newMapping);
   };
   
   // Obtenemos los campos de origen y destino
   const sourceFields = React.useMemo(() => {
     const fields = getSourceFormFields(sourceFormSchema);
-    console.log("[InheritanceTab] Source Fields:", fields.length, fields);
+    logger.debug("[InheritanceTab] Source Fields:", fields.length, fields);
     return fields;
   }, [sourceFormSchema]);
   
   const targetFields = React.useMemo(() => {
     const fields = getTargetFormFields(targetFormSchema);
-    console.log("[InheritanceTab] Target Fields:", fields.length, fields);
+    logger.debug("[InheritanceTab] Target Fields:", fields.length, fields);
     return fields;
   }, [targetFormSchema]);
   

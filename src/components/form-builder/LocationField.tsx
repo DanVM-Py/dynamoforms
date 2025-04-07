@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { MapPin, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { logger } from '@/lib/logger';
 
 interface LocationFieldProps {
   label: string;
@@ -42,13 +43,13 @@ export const LocationField: React.FC<LocationFieldProps> = ({
           setLocation({ lat: latitude, lng: longitude });
         },
         (error) => {
-          console.error('Error getting current location:', error);
+          logger.error('Error getting current location:', error);
           // Default to a location in Mexico City if we can't get the current location
           setLocation({ lat: 19.4326, lng: -99.1332 });
         }
       );
     } else {
-      console.error('Geolocation is not supported by this browser.');
+      logger.error('Geolocation is not supported by this browser.');
       // Default to a location in Mexico City
       setLocation({ lat: 19.4326, lng: -99.1332 });
     }

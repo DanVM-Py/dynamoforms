@@ -53,6 +53,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tables } from "@/config/environment";
+import { logger } from '@/lib/logger';
 
 const ProjectRoles = () => {
   const { projectId } = useParams();
@@ -79,7 +80,7 @@ const ProjectRoles = () => {
       fetchUserRoles();
       fetchUsers();
     } else {
-      console.error("No project ID found in URL");
+      logger.error("No project ID found in URL");
       toast({
         title: "Error",
         description: "No se pudo encontrar el ID del proyecto.",
@@ -99,9 +100,9 @@ const ProjectRoles = () => {
         
       if (error) throw error;
       
-      setProject(data);
+        setProject(data);
     } catch (error) {
-      console.error('Error fetching project:', error);
+      logger.error('Error fetching project:', error);
       toast({
         title: "Error",
         description: "No se pudo cargar la información del proyecto.",
@@ -124,7 +125,7 @@ const ProjectRoles = () => {
       
       setRoles(data || [] as Role[]);
     } catch (error) {
-      console.error('Error fetching roles:', error);
+      logger.error('Error fetching roles:', error);
       toast({
         title: "Error",
         description: "No se pudieron cargar los roles del proyecto.",
@@ -157,7 +158,7 @@ const ProjectRoles = () => {
       
       setUserRoles(transformedData);
     } catch (error) {
-      console.error('Error fetching user roles:', error);
+      logger.error('Error fetching user roles:', error);
     }
   };
   
@@ -188,7 +189,7 @@ const ProjectRoles = () => {
       
       setUsers(profilesData || []);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      logger.error('Error fetching users:', error);
       toast({
         title: "Error",
         description: "No se pudieron cargar los usuarios del proyecto.",
@@ -221,7 +222,7 @@ const ProjectRoles = () => {
         .single();
         
       if (error) {
-        console.error('Error creating role:', error);
+        logger.error('Error creating role:', error);
         if (error.code === '23505') { // Unique constraint violation
           toast({
             title: "Error",
@@ -246,7 +247,7 @@ const ProjectRoles = () => {
         description: `El rol "${data.name}" ha sido creado exitosamente.`,
       });
     } catch (error) {
-      console.error('Error creating role:', error);
+      logger.error('Error creating role:', error);
       toast({
         title: "Error",
         description: "No se pudo crear el rol. Intenta nuevamente.",
@@ -273,7 +274,7 @@ const ProjectRoles = () => {
         description: "El rol ha sido eliminado exitosamente.",
       });
     } catch (error) {
-      console.error('Error deleting role:', error);
+      logger.error('Error deleting role:', error);
       toast({
         title: "Error",
         description: "No se pudo eliminar el rol. Puede que tenga usuarios asignados.",
@@ -330,7 +331,7 @@ const ProjectRoles = () => {
         description: "El rol ha sido asignado al usuario exitosamente.",
       });
     } catch (error) {
-      console.error('Error assigning role:', error);
+      logger.error('Error assigning role:', error);
       toast({
         title: "Error",
         description: "No se pudo asignar el rol al usuario.",
@@ -355,7 +356,7 @@ const ProjectRoles = () => {
         description: "El rol ha sido removido del usuario exitosamente.",
       });
     } catch (error) {
-      console.error('Error removing user role:', error);
+      logger.error('Error removing user role:', error);
       toast({
         title: "Error",
         description: "No se pudo remover el rol del usuario.",

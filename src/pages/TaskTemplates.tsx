@@ -24,6 +24,7 @@ import {
   AssignmentType
 } from "@/utils/taskTemplateUtils";
 import { Tables } from '@/config/environment';
+import { logger } from '@/lib/logger';
 
 const TaskTemplates = () => {
   const [editOpen, setEditOpen] = useState(false);
@@ -55,13 +56,13 @@ const TaskTemplates = () => {
     const storedProjectId = sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
     
     if (storedProjectId) {
-      console.log("[TaskTemplates] Using project ID from session storage:", storedProjectId);
+      logger.info("[TaskTemplates] Using project ID from session storage:", storedProjectId);
       setProjectId(storedProjectId);
     } else if (userProfile?.project_id) {
-      console.log("[TaskTemplates] Falling back to project ID from user profile:", userProfile.project_id);
+      logger.info("[TaskTemplates] Falling back to project ID from user profile:", userProfile.project_id);
       setProjectId(userProfile.project_id);
     } else {
-      console.warn("[TaskTemplates] No project ID found in session storage or user profile");
+      logger.warn("[TaskTemplates] No project ID found in session storage or user profile");
     }
   }, [userProfile]);
 
@@ -106,7 +107,7 @@ const TaskTemplates = () => {
       const { data, error } = await query;
 
       if (error) {
-        console.error("[TaskTemplates] Error fetching task templates:", error);
+        logger.error("[TaskTemplates] Error fetching task templates:", error);
         throw error;
       }
 
@@ -124,7 +125,7 @@ const TaskTemplates = () => {
     queryFn: async () => {
       if (!projectId) return [];
       
-      console.log(`[TaskTemplates] Fetching forms for project: ${projectId}`);
+      logger.info(`[TaskTemplates] Fetching forms for project: ${projectId}`);
       const { data, error } = await supabase
         .from(Tables.forms)
         .select('id, title, schema')
@@ -132,7 +133,7 @@ const TaskTemplates = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error("[TaskTemplates] Error fetching forms:", error);
+        logger.error("[TaskTemplates] Error fetching forms:", error);
         throw error;
       }
 
@@ -149,14 +150,14 @@ const TaskTemplates = () => {
   } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
-      console.log("[TaskTemplates] Fetching all projects");
+      logger.info("[TaskTemplates] Fetching all projects");
       const { data, error } = await supabase
         .from(Tables.projects)
         .select('id, name')
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error("[TaskTemplates] Error fetching projects:", error);
+        logger.error("[TaskTemplates] Error fetching projects:", error);
         throw error;
       }
 
@@ -188,7 +189,7 @@ const TaskTemplates = () => {
     queryFn: async () => {
       if (!sourceFormId) return null;
       
-      console.log(`[TaskTemplates] Fetching schema for source form: ${sourceFormId}`);
+      logger.info(`[TaskTemplates] Fetching schema for source form: ${sourceFormId}`);
       const { data, error } = await supabase
         .from(Tables.forms)
         .select('schema')
@@ -196,27 +197,27 @@ const TaskTemplates = () => {
         .maybeSingle();
 
       if (error) {
-        console.error("[TaskTemplates] Error loading source form schema:", error);
+        logger.error("[TaskTemplates] Error loading source form schema:", error);
         throw error;
       }
 
       if (!data || !data.schema) {
-        console.warn(`[TaskTemplates] No schema found for source form: ${sourceFormId}`);
+        logger.warn(`[TaskTemplates] No schema found for source form: ${sourceFormId}`);
         return null;
       }
 
-      console.log(`[TaskTemplates] Source form schema retrieved:`, 
+      logger.info(`[TaskTemplates] Source form schema retrieved:`, 
         data.schema ? `type: ${typeof data.schema}` : "null");
       
       // Si el esquema es un string, intentamos parsearlo
       if (typeof data.schema === 'string') {
         try {
           const parsedSchema = JSON.parse(data.schema);
-          console.log("[TaskTemplates] Successfully parsed source schema from string");
+          logger.info("[TaskTemplates] Successfully parsed source schema from string");
           debugFormSchema(parsedSchema, "[TaskTemplates] Source Form Schema (Parsed)");
           return parsedSchema;
         } catch (e) {
-          console.error("[TaskTemplates] Error parsing source schema string:", e);
+          logger.error("[TaskTemplates] Error parsing source schema string:", e);
           return data.schema;
         }
       }
@@ -238,7 +239,7 @@ const TaskTemplates = () => {
     queryFn: async () => {
       if (!targetFormId) return null;
       
-      console.log(`[TaskTemplates] Fetching schema for target form: ${targetFormId}`);
+      logger.info(`[TaskTemplates] Fetching schema for target form: ${targetFormId}`);
       const { data, error } = await supabase
         .from(Tables.forms)
         .select('schema')
@@ -246,27 +247,27 @@ const TaskTemplates = () => {
         .maybeSingle();
 
       if (error) {
-        console.error("[TaskTemplates] Error loading target form schema:", error);
+        logger.error("[TaskTemplates] Error loading target form schema:", error);
         throw error;
       }
 
       if (!data || !data.schema) {
-        console.warn(`[TaskTemplates] No schema found for target form: ${targetFormId}`);
+        logger.warn(`[TaskTemplates] No schema found for target form: ${targetFormId}`);
         return null;
       }
 
-      console.log(`[TaskTemplates] Target form schema retrieved:`, 
+      logger.info(`[TaskTemplates] Target form schema retrieved:`, 
         data.schema ? `type: ${typeof data.schema}` : "null");
       
       // Si el esquema es un string, intentamos parsearlo
       if (typeof data.schema === 'string') {
         try {
           const parsedSchema = JSON.parse(data.schema);
-          console.log("[TaskTemplates] Successfully parsed target schema from string");
+          logger.info("[TaskTemplates] Successfully parsed target schema from string");
           debugFormSchema(parsedSchema, "[TaskTemplates] Target Form Schema (Parsed)");
           return parsedSchema;
         } catch (e) {
-          console.error("[TaskTemplates] Error parsing target schema string:", e);
+          logger.error("[TaskTemplates] Error parsing target schema string:", e);
           return data.schema;
         }
       }
@@ -322,7 +323,7 @@ const TaskTemplates = () => {
         .select();
 
       if (error) {
-        console.error("[TaskTemplates] Error updating task template:", error);
+        logger.error("[TaskTemplates] Error updating task template:", error);
         throw error;
       }
 
@@ -338,7 +339,7 @@ const TaskTemplates = () => {
       clearForm();
     },
     onError: (error: any) => {
-      console.error("[TaskTemplates] Error updating task template:", error);
+      logger.error("[TaskTemplates] Error updating task template:", error);
       toast({
         title: "Error",
         description: typeof error === 'object' && error.message ? error.message : "Hubo un error al actualizar la plantilla de tarea. Inténtalo de nuevo.",
@@ -360,7 +361,7 @@ const TaskTemplates = () => {
         .eq('id', selectedTemplate?.id);
 
       if (error) {
-        console.error("[TaskTemplates] Error deleting task template:", error);
+        logger.error("[TaskTemplates] Error deleting task template:", error);
         throw error;
       }
 
@@ -376,7 +377,7 @@ const TaskTemplates = () => {
       clearForm();
     },
     onError: (error: any) => {
-      console.error("[TaskTemplates] Error deleting task template:", error);
+      logger.error("[TaskTemplates] Error deleting task template:", error);
       toast({
         title: "Error",
         description: "Hubo un error al eliminar la plantilla de tarea. Inténtalo de nuevo.",
@@ -398,7 +399,7 @@ const TaskTemplates = () => {
   };
 
   const handleEdit = (template: TaskTemplate) => {
-    console.log("[TaskTemplates] Editing template:", template.id);
+    logger.info("[TaskTemplates] Editing template:", template.id);
     setSelectedTemplate(template);
     setTitle(template.title);
     setDescription(template.description);
@@ -441,7 +442,7 @@ const TaskTemplates = () => {
 
   useEffect(() => {
     if (editOpen && sourceFormId && targetFormId) {
-      console.log("[TaskTemplates] Edit modal opened with form schemas:", {
+      logger.info("[TaskTemplates] Edit modal opened with form schemas:", {
         templateId: selectedTemplate?.id,
         sourceFormId,
         targetFormId,
@@ -451,52 +452,50 @@ const TaskTemplates = () => {
         targetSchemaType: targetFormSchema ? typeof targetFormSchema : 'undefined',
         isLoadingSchemas: isLoadingSourceSchema || isLoadingTargetSchema
       });
-      
+
       // Debug logging for form schemas
       if (sourceFormSchema) {
-        console.group("[TaskTemplates] Source Form Schema Debug");
+        logger.debug("[TaskTemplates] Source Form Schema Debug");
         if (typeof sourceFormSchema === 'string') {
-          console.log("String length:", sourceFormSchema.length);
-          console.log("First 100 chars:", sourceFormSchema.substring(0, 100));
+          logger.debug("String length:", sourceFormSchema.length);
+          logger.debug("First 100 chars:", sourceFormSchema.substring(0, 100));
           try {
             const parsed = JSON.parse(sourceFormSchema);
-            console.log("Has components array:", Array.isArray(parsed.components));
+            logger.debug("Has components array:", Array.isArray(parsed.components));
             if (Array.isArray(parsed.components)) {
-              console.log("Component count:", parsed.components.length);
+              logger.debug("Component count:", parsed.components.length);
             }
           } catch (e) {
-            console.error("Parse error:", e);
+            logger.error("Parse error:", e);
           }
         } else if (typeof sourceFormSchema === 'object') {
-          console.log("Object keys:", Object.keys(sourceFormSchema));
+          logger.debug("Object keys:", Object.keys(sourceFormSchema));
           if (Array.isArray((sourceFormSchema as any).components)) {
-            console.log("Component count:", (sourceFormSchema as any).components.length);
+            logger.debug("Component count:", (sourceFormSchema as any).components.length);
           }
         }
-        console.groupEnd();
       }
       
       if (targetFormSchema) {
-        console.group("[TaskTemplates] Target Form Schema Debug");
+        logger.debug("[TaskTemplates] Target Form Schema Debug");
         if (typeof targetFormSchema === 'string') {
-          console.log("String length:", targetFormSchema.length);
-          console.log("First 100 chars:", targetFormSchema.substring(0, 100));
+          logger.debug("String length:", targetFormSchema.length);
+          logger.debug("First 100 chars:", targetFormSchema.substring(0, 100));
           try {
             const parsed = JSON.parse(targetFormSchema);
-            console.log("Has components array:", Array.isArray(parsed.components));
+            logger.debug("Has components array:", Array.isArray(parsed.components));
             if (Array.isArray(parsed.components)) {
-              console.log("Component count:", parsed.components.length);
+              logger.debug("Component count:", parsed.components.length);
             }
           } catch (e) {
-            console.error("Parse error:", e);
+            logger.error("Parse error:", e);
           }
         } else if (typeof targetFormSchema === 'object') {
-          console.log("Object keys:", Object.keys(targetFormSchema));
+          logger.debug("Object keys:", Object.keys(targetFormSchema));
           if (Array.isArray((targetFormSchema as any).components)) {
-            console.log("Component count:", (targetFormSchema as any).components.length);
+            logger.debug("Component count:", (targetFormSchema as any).components.length);
           }
         }
-        console.groupEnd();
       }
     }
   }, [editOpen, selectedTemplate?.id, sourceFormId, targetFormId, sourceFormSchema, targetFormSchema, isLoadingSourceSchema, isLoadingTargetSchema]);

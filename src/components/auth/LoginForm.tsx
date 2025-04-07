@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { logger } from "@/lib/logger";
 
 interface LoginFormProps {
   redirectTo?: string;
@@ -34,7 +35,7 @@ export const LoginForm = ({ redirectTo = "/" }: LoginFormProps) => {
     
     try {
       setLoading(true);
-      console.log("Starting login process for:", email);
+      logger.info("Starting login process for:", email);
       
       // Attempt to sign in
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -54,13 +55,13 @@ export const LoginForm = ({ redirectTo = "/" }: LoginFormProps) => {
         throw new Error("No se pudo iniciar sesión. Inténtalo de nuevo.");
       }
       
-      console.log("Login successful (Supabase Auth OK) for:", email);
+      logger.info("Login successful (Supabase Auth OK) for:", email);
 
       // --- LLAMADA EXPLÍCITA A REFRESH AUTH STATE ---
       // Antes de navegar, forzar la carga completa de datos (incluye proyecto)
-      console.log("[LoginForm] Calling refreshAuthState(true) explicitly after successful sign in...");
+      logger.debug("[LoginForm] Calling refreshAuthState(true) explicitly after successful sign in...");
       await refreshAuthState(true);
-      console.log("[LoginForm] refreshAuthState(true) completed.");
+      logger.debug("[LoginForm] refreshAuthState(true) completed.");
       // ---------------------------------------------
 
       toast({
@@ -73,11 +74,11 @@ export const LoginForm = ({ redirectTo = "/" }: LoginFormProps) => {
       sessionStorage.removeItem('isGlobalAdmin');
       
       // Navegar al destino deseado. ProtectedRoute se encargará de la lógica de acceso.
-      console.log("[LoginForm] Navigating to intended route:", redirectTo);
+      logger.info("[LoginForm] Navigating to intended route:", redirectTo);
       navigate(redirectTo, { replace: true });
 
     } catch (error: any) {
-      console.error("Login error:", error);
+      logger.error("Login error:", error);
       // Mostrar el mensaje de error específico o uno genérico
       setErrorMessage(error.message || "Ocurrió un error al iniciar sesión.");
       setLoading(false);

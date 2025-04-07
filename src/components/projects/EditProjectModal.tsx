@@ -24,6 +24,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProjectUserStatus, ProjectErrors } from "@/types/custom";
 import { Tables } from "@/config/environment";
+import { logger } from '@/lib/logger';
+
 export interface EditProjectModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -86,7 +88,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
         setAdminId(data.user_id);
       }
     } catch (error: any) {
-      console.error('Error fetching current admin:', error);
+      logger.error('Error fetching current admin:', error);
       toast({
         title: "Error loading project admin",
         description: error?.message || "Could not load project admin information.",
@@ -109,7 +111,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
         setUsers(data);
       }
     } catch (error: any) {
-      console.error('Error fetching users:', error);
+      logger.error('Error fetching users:', error);
       toast({
         title: "Error loading users",
         description: error?.message || "Could not load users.",
@@ -246,7 +248,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
       
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Error updating project:", error);
+      logger.error("Error updating project:", error);
       toast({
         title: "Error al actualizar",
         description: error?.message || "No se pudo actualizar el proyecto. Por favor, intenta de nuevo.",

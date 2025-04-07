@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tables } from '@/config/environment';
+import { logger } from "@/lib/logger";
 
 export function useSidebarProjects() {
   const { user, isGlobalAdmin, currentProjectId: authProjectId, loading: authLoading, isProjectAdmin } = useAuth();
@@ -12,7 +13,7 @@ export function useSidebarProjects() {
   const location = useLocation();
 
   useEffect(() => {
-    console.log(`[Sidebar DEBUG] Effect 1 RUNNING. authLoading: ${authLoading}`);
+    logger.debug(`[Sidebar DEBUG] Effect 1 RUNNING. authLoading: ${authLoading}`);
     if (authLoading) {
       setLoading(true);
       return;
@@ -28,14 +29,14 @@ export function useSidebarProjects() {
 
     if (determinedProjectId !== currentProjectId) {
       if (urlProjectId) {
-        console.log(`[useSidebarProjects] Using project ID from URL: ${urlProjectId}`);
+        logger.info(`[useSidebarProjects] Using project ID from URL: ${urlProjectId}`);
       } else if (authProjectId) {
-        console.log(`[useSidebarProjects] Using initial project ID from useAuth: ${authProjectId}`);
+        logger.info(`[useSidebarProjects] Using initial project ID from useAuth: ${authProjectId}`);
       } else {
-         console.log(`[useSidebarProjects] No project ID determined from URL or useAuth.`);
+         logger.info(`[useSidebarProjects] No project ID determined from URL or useAuth.`);
       }
 
-      console.log(`[Sidebar DEBUG] Effect 1 Determined ID: ${determinedProjectId}. Setting state.`);
+      logger.debug(`[Sidebar DEBUG] Effect 1 Determined ID: ${determinedProjectId}. Setting state.`);
       setCurrentProjectId(determinedProjectId);
       if (determinedProjectId) {
         sessionStorage.setItem('currentProjectId', determinedProjectId);
@@ -48,11 +49,11 @@ export function useSidebarProjects() {
 
   useEffect(() => {
     // Log entrada efecto (modificado para claridad)
-    console.log(`[Sidebar DEBUG] Effect 2 TRIGGERED. User available: ${!!user}, isGlobalAdmin: ${isGlobalAdmin}`);
+    logger.debug(`[Sidebar DEBUG] Effect 2 TRIGGERED. User available: ${!!user}, isGlobalAdmin: ${isGlobalAdmin}`);
 
     // Condición principal: Necesitamos un usuario para buscar proyectos
     if (!user) {
-      console.log(`[Sidebar DEBUG] Effect 2 SKIPPING fetchProjects: No user.`);
+      logger.debug(`[Sidebar DEBUG] Effect 2 SKIPPING fetchProjects: No user.`);
       setProjects([]);
       // Si no hay usuario, no estamos 'cargando' proyectos para él.
       // Establecer loading a false aquí evita el bloqueo si el usuario se desloguea.
@@ -63,7 +64,7 @@ export function useSidebarProjects() {
     // Si llegamos aquí, hay un usuario. Procedemos a cargar.
     const fetchProjects = async () => {
       // Usar JSON.stringify para el log por si 'user' es complejo, pero user.id es suficiente aquí
-      console.log(`[Sidebar DEBUG] Effect 2 fetchProjects STARTING. User ID: ${user.id}, isGlobalAdmin: ${isGlobalAdmin}`);
+      logger.debug(`[Sidebar DEBUG] Effect 2 fetchProjects STARTING. User ID: ${user.id}, isGlobalAdmin: ${isGlobalAdmin}`);
       // Iniciar carga AHORA que sabemos que tenemos usuario y vamos a buscar
       setLoading(true);
       try {
@@ -89,7 +90,7 @@ export function useSidebarProjects() {
         const { data, error } = await query;
 
         if (error) {
-          console.error('Error fetching projects:', error);
+          logger.error('Error fetching projects:', error);
           setProjects([]);
           // Podríamos mantener loading=true o false aquí, pero finally lo manejará
           return; // Salir en caso de error de fetch
@@ -109,10 +110,10 @@ export function useSidebarProjects() {
         setProjects(projectsData);
 
       } catch (error) {
-        console.error('Error processing fetched projects:', error);
+        logger.error('Error processing fetched projects:', error);
         setProjects([]); // Limpiar en caso de error de procesamiento
       } finally {
-        console.log('[Sidebar DEBUG] Effect 2 fetchProjects FINALLY block. Setting internal loading=false.');
+        logger.debug('[Sidebar DEBUG] Effect 2 fetchProjects FINALLY block. Setting internal loading=false.');
         // Asegurarse de poner loading=false independientemente del resultado
         setLoading(false);
       }
@@ -124,7 +125,7 @@ export function useSidebarProjects() {
   }, [user, isGlobalAdmin]); // <--- Dependencias actualizadas
 
   const updateCurrentProjectId = (id: string | null) => {
-    console.log(`[useSidebarProjects] Manually setting project ID to: ${id} (use URL navigation for primary changes)`);
+    logger.warn(`[useSidebarProjects] Manually setting project ID to: ${id} (use URL navigation for primary changes)`);
     setCurrentProjectId(id);
     if (id) {
       sessionStorage.setItem('currentProjectId', id);

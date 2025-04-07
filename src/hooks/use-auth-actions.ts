@@ -1,131 +1,81 @@
-
 import { useCallback } from "react";
 import { supabase, cleanupAuthState } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { config } from "@/config/environment";
+import { useAuth } from './useAuth'; // Assuming useAuth provides setAuthState
+import { logger } from "@/lib/logger"; // <-- Import logger
 
 export function useAuthActions(
-  setUser: (user: any) => void,
-  setSession: (session: any) => void,
-  setUserProfile: (profile: any) => void,
-  setIsGlobalAdmin: (isAdmin: boolean) => void,
-  setIsProjectAdmin: (isAdmin: boolean) => void,
-  setIsApprover: (isApprover: boolean) => void,
-  setLoading: (loading: boolean) => void
+  setAuthState: Function,
+  fetchUserProfile: Function
 ) {
   const signOut = useCallback(async () => {
+    logger.info("Starting sign out process");
     try {
-      setLoading(true);
-      
-      console.log("Starting sign out process");
-      
-      // Clear local state first - this ensures UI responds immediately
-      setUser(null);
-      setSession(null);
-      setUserProfile(null);
-      setIsGlobalAdmin(false);
-      setIsProjectAdmin(false);
-      setIsApprover(false);
-      
-      // Use the centralized cleanup function
-      cleanupAuthState();
-      
-      try {
-        // Then sign out from Supabase - this may fail if session is already gone
-        const { error } = await supabase.auth.signOut();
-        
-        if (error) {
-          console.warn("Supabase signOut warning:", error.message);
-          // Don't throw on AuthSessionMissingError since that's expected in some cases
-          if (error.name !== 'AuthSessionMissingError') {
-            console.error("Error during signOut:", error);
-          }
-        }
-      } catch (err: any) {
-        // Log but don't rethrow, since we've already cleared local state
-        console.warn("Error in Supabase signOut:", err.message || err);
+      // Clear local auth state immediately for faster UI response
+      setAuthState({ 
+        session: null, 
+        user: null, 
+        userProfile: null, 
+        isGlobalAdmin: false, 
+        isProjectAdmin: false, 
+        loading: false, // No longer loading auth state
+        error: null 
+      });
+      // Remove potentially sensitive items from storage
+      await cleanupAuthState(); 
+
+      // Then call Supabase signout
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        // Even if Supabase fails, local state is cleared. Log the warning.
+        logger.warn("Supabase signOut warning:", error.message);
       }
-      
+
       toast({
         title: "Sesión finalizada",
         description: "Has cerrado sesión correctamente."
       });
       
       return true;
-    } catch (error: any) {
-      console.error("Error in signOut function:", error);
+    } catch (error) {
+      logger.error("Error during signOut:", error); 
+      // Ensure state is cleared even if cleanupAuthState failed
+      setAuthState({ 
+         session: null, 
+         user: null, 
+         userProfile: null, 
+         isGlobalAdmin: false, 
+         isProjectAdmin: false, 
+         loading: false, 
+         error: 'Error during sign out process.' 
+      });
       toast({
         title: "Error al cerrar sesión",
         description: "No se pudo cerrar sesión completamente.",
         variant: "destructive"
       });
       return false;
-    } finally {
-      setLoading(false);
     }
-  }, [setUser, setSession, setUserProfile, setIsGlobalAdmin, setIsProjectAdmin, setIsApprover, setLoading]);
+  }, [setAuthState]);
 
-  const refreshUserProfile = useCallback(async () => {
-    if (!supabase.auth || !setUser || !setUserProfile) return;
-    
+  const refreshAuthState = useCallback(async (userId: string) => {
     try {
-      setLoading(true);
-      
-      // First get current session
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session || !session.user) {
-        return;
-      }
-      
-      const userId = session.user.id;
-      
-      // Check global admin status first (bypasses RLS)
-      const { data: isAdminData, error: isAdminError } = await supabase
-        .rpc('is_global_admin', { user_uuid: userId });
-        
-      if (isAdminError) {
-        console.error("Error checking global admin status:", isAdminError);
-      } else {
-        setIsGlobalAdmin(isAdminData === true);
-      }
-      
-      // Get user profile
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
-        
-      if (profileError) {
-        console.error("Error fetching profile:", profileError);
-      } else if (profileData) {
-        setUserProfile(profileData);
-        setIsApprover(profileData.role === "approver");
-      }
-      
-      // Check project admin status
-      const currentProjectId = sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
-      
-      if (currentProjectId) {
-        const { data: isProjectAdminData, error: isProjectAdminError } = await supabase
-          .rpc('is_project_admin', { 
-            user_uuid: userId,
-            project_uuid: currentProjectId 
-          });
-          
-        if (isProjectAdminError) {
-          console.error("Error checking project admin status:", isProjectAdminError);
-        } else {
-          setIsProjectAdmin(isProjectAdminData === true);
-        }
-      }
+      // Re-fetch the user profile and associated admin states
+      const profile = await fetchUserProfile(userId);
+      // Update the state with the latest profile info
+      setAuthState({ 
+        userProfile: profile, 
+        isGlobalAdmin: profile?.is_global_admin || false,
+        isProjectAdmin: profile?.is_project_admin || false, 
+        error: null // Clear previous errors on successful refresh
+      });
     } catch (error) {
-      console.error("Error refreshing user profile:", error);
-    } finally {
-      setLoading(false);
+      logger.error("Error refreshing user profile:", error);
+      setAuthState({ error: 'Failed to refresh user profile.' });
     }
-  }, [setLoading, setIsGlobalAdmin, setUserProfile, setIsApprover, setIsProjectAdmin]);
+  }, [fetchUserProfile, setAuthState]);
 
-  return { signOut, refreshUserProfile };
+  return { signOut, refreshAuthState };
 }

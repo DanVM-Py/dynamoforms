@@ -1,4 +1,4 @@
-
+import React from 'react';
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ClipboardList, Loader2 } from "lucide-react";
 import { Tables } from "@/config/environment";
+import { logger } from '@/lib/logger';
+
 interface TaskFormsHandlerProps {
   formId: string;
   taskId: string | null;
@@ -47,20 +49,20 @@ export const TaskFormsHandler = ({ formId, taskId, responseId }: TaskFormsHandle
           updated_at: new Date().toISOString()
         })
         .eq('id', taskId);
+         
+        if (error) throw error;
+      
+        toast({
+          title: "Tarea completada",
+          description: "La tarea ha sido marcada como completada correctamente."
+        });
         
-      if (error) throw error;
-      
-      toast({
-        title: "Tarea completada",
-        description: "La tarea ha sido marcada como completada correctamente."
-      });
-      
-      setIsDialogOpen(false);
-      
-      // Navigate back to tasks
-      navigate(projectId ? `/projects/${projectId}/tasks` : '/tasks');
-    } catch (error) {
-      console.error("Error completing task:", error);
+        setIsDialogOpen(false);
+        
+        // Navigate back to tasks
+        navigate(projectId ? `/projects/${projectId}/tasks` : '/tasks');
+      } catch (error) {
+      logger.error("Error completing task:", error);
       toast({
         title: "Error",
         description: "No se pudo completar la tarea. Por favor, inténtelo de nuevo.",
