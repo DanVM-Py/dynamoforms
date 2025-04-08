@@ -13,16 +13,18 @@ import { Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { Project, ProjectUser } from "@/types/custom";
+import { Tables, Project, Profile } from '@/types/database-entities';
 import { EditProjectModal } from "@/components/projects/EditProjectModal";
 import ProjectCard from "@/components/projects/ProjectCard";
-import { Tables } from "@/config/environment";
 import { logger } from '@/lib/logger';
 
-// Define extended project type that includes adminId
+// Define extended project type that includes adminId, using the imported Project type
 interface ExtendedProject extends Project {
   adminId?: string;
 }
+
+// Type for available users, picking only needed fields from Profile
+type AvailableUser = Pick<Profile, 'id' | 'name' | 'email'>;
 
 const Projects = () => {
   const { user } = useAuth();
@@ -34,7 +36,7 @@ const Projects = () => {
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [projectAdminId, setProjectAdminId] = useState("");
-  const [availableUsers, setAvailableUsers] = useState<Array<{id: string, name: string, email: string}>>([]);
+  const [availableUsers, setAvailableUsers] = useState<AvailableUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [formErrors, setFormErrors] = useState<{
     name?: string;
@@ -58,8 +60,7 @@ const Projects = () => {
           variant: "destructive"
         });
       }
-
-      return data || [];
+      return (data as Project[]) || [];
     }
   });
 
@@ -74,8 +75,8 @@ const Projects = () => {
           
         if (error) throw error;
 
-        setAvailableUsers(data || []);
-      } catch (error: any) {
+        setAvailableUsers((data as AvailableUser[]) || []);
+      } catch (error) {
         logger.error('Error fetching users:', error);
           toast({
             title: "Error loading users",
@@ -130,39 +131,35 @@ const Projects = () => {
           { 
             name: projectName, 
             description: projectDescription, 
-            created_by: user?.id 
+            created_by: user?.id || ''
           },
         ])
-        .select();
+        .select()
+        .single();
 
       if (projectError) throw projectError;
       
-      if (projectData && projectData.length > 0) {
-        const newProject = projectData[0];
+      const newProject = projectData as Project;
+      if (!newProject) throw new Error("Project creation did not return data.");
         
-        // Create project admin directly with the expected object structure
-        const { error: adminError } = await supabase
-          .from(Tables.project_users)
-          .insert({
-            project_id: newProject.id,
-            user_id: projectAdminId,
-            is_admin: true,
-            status: 'active',
-            invited_by: user?.id || '',
-            created_by: user?.id || null
-          });
-          
-        if (adminError) throw adminError;
-        
-        toast({
-          title: "Proyecto creado exitosamente",
-          description: "El proyecto y su administrador han sido configurados."
+      const { error: adminError } = await supabase
+        .from(Tables.project_users)
+        .insert({
+          project_id: newProject.id,
+          user_id: projectAdminId,
+          is_admin: true
         });
+          
+      if (adminError) throw adminError;
         
-        setOpen(false);
-        refetch();
-      }
-    } catch (error: any) {
+      toast({
+        title: "Proyecto creado exitosamente",
+        description: "El proyecto y su administrador han sido configurados."
+      });
+        
+      setOpen(false);
+      refetch();
+    } catch (error) {
       logger.error("Error al crear el proyecto:", error);
       toast({
         title: "Error al crear el proyecto",
@@ -176,36 +173,34 @@ const Projects = () => {
 
   const handleEditProject = async (project: Project) => {
       try {
-        // Get the current admin for this project
         const { data: adminData, error: adminError } = await supabase
           .from(Tables.project_users)
           .select('user_id')
           .eq('project_id', project.id)
           .eq('is_admin', true)
-          .eq('status', 'active')
           .maybeSingle();
         
         if (adminError && adminError.code !== 'PGRST116') {
-        logger.error("Error fetching project admin:", adminError);
-      }
+          logger.error("Error fetching project admin:", adminError);
+          throw adminError;
+        }
 
-      // Create an extended project with adminId property
-      const extendedProject: ExtendedProject = {
-        ...project,
-        adminId: adminData?.user_id
-      };
-      
-      setProjectToEdit(extendedProject);
-      setIsEditModalOpen(true);
-      
-    } catch (error) {
-      logger.error("Error preparing project edit:", error);
-      toast({
-        title: "Error",
-        description: "No se pudo cargar la información del proyecto para editar.",
-        variant: "destructive"
-      });
-    }
+        const extendedProject: ExtendedProject = {
+          ...project,
+          adminId: adminData?.user_id
+        };
+        
+        setProjectToEdit(extendedProject);
+        setIsEditModalOpen(true);
+        
+      } catch (error) {
+        logger.error("Error preparing project edit:", error);
+        toast({
+          title: "Error",
+          description: "No se pudo cargar la información del proyecto para editar.",
+          variant: "destructive"
+        });
+      }
   };
 
   const handleDeleteProject = (project: Project) => {
@@ -235,7 +230,7 @@ const Projects = () => {
           });
           refetch();
         }
-      } catch (error: any) {
+      } catch (error) {
         logger.error("Exception during project deletion:", error);
         toast({
           title: "Failed to delete project",

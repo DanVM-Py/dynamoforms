@@ -29,7 +29,6 @@ export type ProjectUser = DbTables<typeof Tables.project_users> & {
   full_name?: string;
   role_name?: string;
 };
-export type ProjectUserStatus = "active" | "pending" | "inactive" | "rejected";
 
 // Profiles & Roles
 export type Profile = DbTables<typeof Tables.profiles>;

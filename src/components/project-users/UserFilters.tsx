@@ -1,16 +1,13 @@
-
 import React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ProjectUserStatus } from "@/types/supabase";
-import { Role } from "@/types/supabase";
+import { Role } from '@/types/database-entities';
 
 type UserFiltersProps = {
   roles?: Role[];
   onRoleChange: (roleId: string | null) => void;
-  onStatusChange: (status: ProjectUserStatus | null) => void;
 };
 
-export const UserFilters = ({ roles, onRoleChange, onStatusChange }: UserFiltersProps) => {
+export const UserFilters = ({ roles, onRoleChange }: UserFiltersProps) => {
   return (
     <div className="flex flex-wrap gap-4 mt-4">
       <div>
@@ -27,24 +24,6 @@ export const UserFilters = ({ roles, onRoleChange, onStatusChange }: UserFilters
                 {role.name}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Select
-          onValueChange={(value: string) => 
-            onStatusChange(value === "all" ? null : value as ProjectUserStatus)
-          }
-        >
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filtrar por estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los Estados</SelectItem>
-            <SelectItem value="active">Activo</SelectItem>
-            <SelectItem value="pending">Pendiente</SelectItem>
-            <SelectItem value="inactive">Inactivo</SelectItem>
-            <SelectItem value="rejected">Rechazado</SelectItem>
           </SelectContent>
         </Select>
       </div>

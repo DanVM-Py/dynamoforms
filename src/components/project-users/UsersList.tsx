@@ -1,18 +1,15 @@
-
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ProjectUser, ProjectUserStatus } from "@/types/custom";
-import { UserStatusBadge } from "./UserStatusBadge";
+import { ProjectUser } from '@/types/database-entities';
 import { UserActionButtons } from "./UserActionButtons";
 import { useAuth } from '@/contexts/AuthContext';
 
 type UsersListProps = {
   users: ProjectUser[];
-  onStatusChange: (userId: string, status: ProjectUserStatus) => void;
   onAdminToggle?: (userId: string, isAdmin: boolean) => void;
 };
 
-export const UsersList = ({ users, onStatusChange, onAdminToggle }: UsersListProps) => {
+export const UsersList = ({ users, onAdminToggle }: UsersListProps) => {
   const { isGlobalAdmin, isProjectAdmin } = useAuth();
   const canToggleAdmin = isGlobalAdmin || isProjectAdmin;
   
@@ -23,7 +20,6 @@ export const UsersList = ({ users, onStatusChange, onAdminToggle }: UsersListPro
           <TableHead>Nombre</TableHead>
           <TableHead>Correo</TableHead>
           <TableHead>Rol</TableHead>
-          <TableHead>Estado</TableHead>
           <TableHead>Acciones</TableHead>
         </TableRow>
       </TableHeader>
@@ -34,12 +30,7 @@ export const UsersList = ({ users, onStatusChange, onAdminToggle }: UsersListPro
             <TableCell>{user.email}</TableCell>
             <TableCell>{user.is_admin ? "Administrador" : "Usuario"}</TableCell>
             <TableCell>
-              <UserStatusBadge status={user.status} />
-            </TableCell>
-            <TableCell>
-              <UserActionButtons 
-                status={user.status} 
-                onStatusChange={(status) => onStatusChange(user.user_id, status)}
+              <UserActionButtons
                 isAdmin={!!user.is_admin}
                 onAdminToggle={canToggleAdmin && onAdminToggle ? 
                   (isAdmin) => onAdminToggle(user.user_id, isAdmin) : 

@@ -74,8 +74,7 @@ export function useAdminOperations() {
         const { error: updateError } = await supabase
           .from(Tables.project_users)
           .update({ 
-            is_admin: makeAdmin,
-            status: 'active' 
+            is_admin: makeAdmin
           })
           .eq('id', existingUser.id);
           
@@ -87,10 +86,7 @@ export function useAdminOperations() {
           .insert({
             project_id: projectId,
             user_id: userId,
-            is_admin: makeAdmin,
-            status: 'active' as ProjectUserStatus,
-            invited_by: user.id,
-            created_by: user.id
+            is_admin: makeAdmin
           });
           
         if (insertError) throw insertError;

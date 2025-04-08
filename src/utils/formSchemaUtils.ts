@@ -3,7 +3,7 @@
  * 
  * This module provides helpers for validating and working with form schemas.
  */
-import { Json } from '@/types/supabase';
+import { Json } from '@/types/database-entities';
 import { logger } from '@/lib/logger';
 
 // Define a proper FormSchema interface to ensure type safety

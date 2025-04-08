@@ -84,7 +84,6 @@ export function useAuth() {
             .from(Tables.project_users)
             .select('project_id')
             .eq('user_id', currentUser.id)
-            .eq('status', 'active')
             .limit(1)
             .single();
           logger.debug('[useAuth DEBUG] Project fetch RESULT:', { projectUserData, projectUserError });

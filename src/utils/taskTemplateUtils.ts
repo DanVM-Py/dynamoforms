@@ -1,4 +1,4 @@
-import { Json } from "@/types/supabase";
+import { Json } from "@/types/database-entities";
 import { supabase } from "@/integrations/supabase/client";
 import { getValidFormSchema, safelyAccessFormSchema } from "@/utils/formSchemaUtils";
 import { Tables } from '@/config/environment';

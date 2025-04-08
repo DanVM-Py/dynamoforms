@@ -11,7 +11,7 @@ import { Plus, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { debugFormSchema } from "@/utils/formSchemaUtils";
-import { Json } from "@/types/supabase";
+import { Json } from "@/types/database-entities";
 import { CreateTaskTemplateModal } from "@/components/project/CreateTaskTemplateModal";
 import TaskTemplateList from "@/components/task-templates/TaskTemplateList";
 import TaskTemplateFilter from "@/components/task-templates/TaskTemplateFilter";

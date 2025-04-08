@@ -79,7 +79,6 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
         .select('user_id')
         .eq('project_id', project.id)
         .eq('is_admin', true)
-        .eq('status', 'active')
         .maybeSingle();
       
       if (error) throw error;
@@ -199,8 +198,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             const { error: promoteError } = await supabase
               .from(Tables.project_users)
               .update({
-                is_admin: true,
-                status: 'active' as ProjectUserStatus
+                is_admin: true
               })
               .eq('id', existingUser.id);
               
@@ -209,10 +207,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
             const projectUserObj = {
               project_id: project.id,
               user_id: adminId,
-              is_admin: true,
-              status: 'active' as ProjectUserStatus,
-              invited_by: user?.id || '',
-              created_by: user?.id || null
+              is_admin: true
             };
 
             const { error: insertError } = await supabase
@@ -225,10 +220,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
           const projectUserObj = {
             project_id: project.id,
             user_id: adminId,
-            is_admin: true,
-            status: 'active' as ProjectUserStatus,
-            invited_by: user?.id || '',
-            created_by: user?.id || null
+            is_admin: true
           };
 
           const { error: insertError } = await supabase

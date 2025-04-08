@@ -8,7 +8,7 @@ import GeneralTab from "./tabs/GeneralTab";
 import AssignmentTab from "./tabs/AssignmentTab";
 import InheritanceTab from "./tabs/InheritanceTab";
 import { AssignmentType, Form, TaskTemplate, User } from "@/utils/taskTemplateUtils";
-import { Json } from "@/types/supabase";
+import { Json } from "@/types/database-entities";
 
 interface EditTaskTemplateModalProps {
   open: boolean;

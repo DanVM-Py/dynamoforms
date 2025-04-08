@@ -84,7 +84,6 @@ export function useSidebarProjects() {
             .from(projectUsersTable)
             .select(`project: ${projectsTable}(id, name)`)
             .eq('user_id', user.id) // Usar user.id directamente
-            .eq('status', 'active');
         }
 
         const { data, error } = await query;

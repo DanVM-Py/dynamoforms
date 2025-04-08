@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { AssignmentType, User } from "@/utils/taskTemplateUtils";
-import { Json } from "@/types/supabase";
+import { Json } from "@/database-entities";
 import { getEmailFieldsFromForm } from "@/utils/taskTemplateUtils";
 
 interface AssignmentTabProps {

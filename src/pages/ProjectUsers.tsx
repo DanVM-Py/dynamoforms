@@ -197,8 +197,6 @@ const ProjectUsers = () => {
             project_id: projectId,
             user_id: userId,
             status: "pending" as ProjectUserStatus,
-            invited_by: user.id,
-            created_by: user.id,
             is_admin: values.isAdmin || false
           });
 
@@ -289,8 +287,7 @@ const ProjectUsers = () => {
       const { error } = await supabase
         .from(Tables.project_users)
         .update({ 
-          is_admin: isAdmin,
-          ...(isAdmin ? { status: 'active' as ProjectUserStatus } : {})
+          is_admin: isAdmin
         })
         .eq("user_id", userId)
         .eq("project_id", projectId);

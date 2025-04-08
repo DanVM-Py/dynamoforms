@@ -79,7 +79,6 @@ export function PrivateFormView() {
           .select('is_admin')
           .eq('project_id', formData.project_id)
           .eq('user_id', user.id)
-          .eq('status', 'active')
           .maybeSingle();
 
         if (projectUserError) {

@@ -168,7 +168,6 @@ const ProjectRoles = () => {
         .from(Tables.project_users)
         .select('user_id')
         .eq('project_id', projectId)
-        .eq('status', 'active');
         
       if (projectUsersError) throw projectUsersError;
       

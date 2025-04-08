@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { Json } from "@/types/supabase";
+import { Json } from "@/types/database-entities";
 import { areFieldTypesCompatible, getSourceFormFields, getTargetFormFields, FormField } from "@/utils/taskTemplateUtils";
 import { debugFormSchema } from "@/utils/formSchemaUtils";
 import { logger } from '@/lib/logger';

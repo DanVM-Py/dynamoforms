@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -18,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Role } from '@/types/database-entities';
 
 export const inviteFormSchema = z.object({
   email: z
@@ -31,7 +31,7 @@ export const inviteFormSchema = z.object({
 export type InviteFormValues = z.infer<typeof inviteFormSchema>;
 
 type InviteUserFormProps = {
-  roles?: { id: string; name: string }[];
+  roles?: Role[];
   isLoading: boolean;
   onSubmit: (values: InviteFormValues) => void;
   onCancel: () => void;
