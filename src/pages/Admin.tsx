@@ -3,7 +3,7 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EnvironmentBadge } from '@/components/environment/EnvironmentBadge';
-import { isDevelopment, Tables } from '@/config/environment';
+import { isDevelopment } from '@/config/environment';
 import { supabase, supabaseAdmin } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { 
@@ -50,8 +50,25 @@ import { useAdminOperations } from '@/hooks/use-admin-operations';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Project } from '@/types/supabase';
+import { Tables, Project, Profile } from '@/types/database-entities';
 import { logger } from '@/lib/logger';
+
+type ProjectUserRelation = {
+  project_id: string;
+  is_admin: boolean | null;
+  projects: Pick<Project, 'id' | 'name'> | null;
+};
+
+type UserWithProjects = Profile & {
+  project_users: ProjectUserRelation[];
+};
+
+type RemoveUserData = {
+  userId: string;
+  projectId: string;
+  userName: string;
+  projectName: string;
+};
 
 const passwordResetSchema = z.object({
   password: z.string()
@@ -64,13 +81,12 @@ const Admin = () => {
   const { 
     promoteToGlobalAdmin, 
     isLoading: operationLoading,
-    removeUserFromProject
   } = useAdminOperations();
   const { toast } = useToast();
   
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserWithProjects[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<UserWithProjects[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -80,7 +96,7 @@ const Admin = () => {
   const [selectedUserEmail, setSelectedUserEmail] = useState('');
 
   const [removeUserDialogOpen, setRemoveUserDialogOpen] = useState(false);
-  const [removeUserData, setRemoveUserData] = useState<any>(null);
+  const [removeUserData, setRemoveUserData] = useState<RemoveUserData | null>(null);
 
   const resetPasswordForm = useForm<z.infer<typeof passwordResetSchema>>({
     resolver: zodResolver(passwordResetSchema),
@@ -105,14 +121,15 @@ const Admin = () => {
             email,
             name,
             role,
-            project_users: ${Tables.project_users}(project_id, is_admin, projects: ${Tables.projects}(id, name))
+            project_users: ${Tables.project_users}!user_id(project_id, is_admin, projects: ${Tables.projects}(id, name))
           `);
           
         if (error) throw error;
         
-        setUsers(data || []);
-        setFilteredUsers(data || []);
-      } catch (error: any) {
+        const fetchedUsers = (data as UserWithProjects[]) || [];
+        setUsers(fetchedUsers);
+        setFilteredUsers(fetchedUsers);
+      } catch (error) {
         logger.error("Error fetching users:", error);
       } finally {
         setUsersLoading(false);
@@ -126,8 +143,8 @@ const Admin = () => {
           
         if (error) throw error;
         
-        setProjects(data || []);
-      } catch (error: any) {
+        setProjects((data as Project[]) || []);
+      } catch (error) {
         logger.error("Error fetching projects:", error);
       } finally {
         setProjectsLoading(false);
@@ -143,7 +160,7 @@ const Admin = () => {
       const lowerCaseSearch = searchTerm.toLowerCase();
       const filtered = users.filter(user => 
         user.name?.toLowerCase().includes(lowerCaseSearch) || 
-        user.email?.toLowerCase().includes(lowerCaseSearch)
+        user.email.toLowerCase().includes(lowerCaseSearch)
       );
       setFilteredUsers(filtered);
     } else {
@@ -158,7 +175,12 @@ const Admin = () => {
     setResetPasswordDialogOpen(true);
   };
   
-  const handleRemoveFromProjectClick = (user: any, project: any) => {
+  const handleRemoveFromProjectClick = (user: UserWithProjects, project: Pick<Project, 'id' | 'name'> | null) => {
+    if (!project) {
+      logger.error("Attempted to remove user from null project", { userId: user.id });
+      toast({ title: "Error", description: "No se puede remover de un proyecto desconocido.", variant: "destructive" });
+      return;
+    }
     setRemoveUserData({
       userId: user.id,
       projectId: project.id,
@@ -170,39 +192,34 @@ const Admin = () => {
 
   const handlePasswordReset = async (data: z.infer<typeof passwordResetSchema>) => {
     try {
-      // NOTA: setUserPassword no está disponible desde useAdminOperations ni definido localmente.
-      // Comentado para evitar error de linter. Se necesita implementar esta función.
-      // await setUserPassword(selectedUserId, data.password);
-      logger.warn('setUserPassword function is not available, password reset skipped.'); // Añadir advertencia
+      logger.warn('setUserPassword function is not available, password reset skipped.');
       setResetPasswordDialogOpen(false);
       toast({ title: "Funcionalidad incompleta", description: "La función para resetear contraseña no está implementada.", variant: "destructive"});
-      // toast({ title: "Contraseña actualizada", description: "La contraseña del usuario ha sido cambiada." });
     } catch (error) {
       logger.error("Error in password reset:", error);
       toast({ title: "Error", description: "No se pudo completar la acción.", variant: "destructive" });
-      // toast({ title: "Error", description: "No se pudo resetear la contraseña.", variant: "destructive" });
     }
   };
 
-  const getRoleBadge = (user: any) => {
+  const getRoleBadge = (user: UserWithProjects) => {
     if (user.role === 'global_admin') {
       return <Badge className="bg-purple-700 text-white hover:bg-purple-800"><Crown className="h-3 w-3 mr-1"/>Admin Global</Badge>;
     }
-    const isProjectAdminAny = user.project_users?.some((pu: any) => pu.is_admin);
+    const isProjectAdminAny = user.project_users?.some((pu: ProjectUserRelation) => pu.is_admin);
     if (isProjectAdminAny) {
       return <Badge className="bg-blue-600 text-white hover:bg-blue-700"><UserCog className="h-3 w-3 mr-1"/>Admin Proyecto</Badge>;
     }
     return <Badge variant="secondary"><UserCog className="h-3 w-3 mr-1"/>Usuario</Badge>;
   };
 
-  const renderUserProjects = (user: any) => {
+  const renderUserProjects = (user: UserWithProjects) => {
     if (!user.project_users || user.project_users.length === 0) {
       return <span className="text-gray-500 italic">Sin proyectos</span>;
     }
 
     return (
       <div className="space-y-1 max-w-md">
-        {user.project_users.map((pu: any) => (
+        {user.project_users.map((pu: ProjectUserRelation) => (
           <div key={`${pu.project_id}-${pu.is_admin}`} className="flex items-center justify-between bg-gray-50 p-1.5 rounded text-sm">
             <div className="flex items-center gap-1.5">
               <span className="font-medium">{pu.projects?.name || 'Unknown Project'}</span>
@@ -239,7 +256,7 @@ const Admin = () => {
       toast({ title: "Usuario removido", description: `${removeUserData.userName} ha sido removido de ${removeUserData.projectName}` });
       setRemoveUserDialogOpen(false);
       setRemoveUserData(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error("Error removing user from project:", error);
       toast({ title: "Error", description: "No se pudo remover al usuario del proyecto.", variant: "destructive" });
     }
@@ -330,7 +347,7 @@ const Admin = () => {
                       {filteredUsers.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={4} className="text-center py-8 text-gray-500">
-                            No se encontraron usuarios
+                            {searchTerm ? "No se encontraron usuarios con ese término" : "No hay usuarios registrados"}
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -360,8 +377,9 @@ const Admin = () => {
                                     disabled={operationLoading}
                                     className="flex items-center gap-1"
                                   >
+                                    {operationLoading && <Loader2 className="h-4 w-4 animate-spin mr-1"/>}
                                     <Crown className="h-4 w-4" />
-                                    <span>Promover a Admin</span>
+                                    <span>Promover</span>
                                   </Button>
                                 )}
                                 
@@ -373,7 +391,7 @@ const Admin = () => {
                                   disabled={operationLoading}
                                 >
                                   <KeyRound className="h-4 w-4" />
-                                  <span>Cambiar Contraseña</span>
+                                  <span>Contraseña</span>
                                 </Button>
                               </div>
                             </TableCell>

@@ -9,6 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      dev_form_attachments: {
+        Row: {
+          form_id: string
+          id: string
+          is_anonymous: boolean
+          response_data: Json
+          submitted_at: string
+          user_id: string | null
+        }
+        Insert: {
+          form_id: string
+          id?: string
+          is_anonymous?: boolean
+          response_data?: Json
+          submitted_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          form_id?: string
+          id?: string
+          is_anonymous?: boolean
+          response_data?: Json
+          submitted_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_form_attachments_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "dev_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_form_attachments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dev_form_responses: {
         Row: {
           form_id: string
@@ -560,6 +602,97 @@ export type Database = {
           },
         ]
       }
+      dev_user_roles: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          project_id: string
+          role_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          project_id: string
+          role_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          project_id?: string
+          role_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_user_roles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_user_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "dev_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      form_attachments: {
+        Row: {
+          form_id: string
+          id: string
+          is_anonymous: boolean
+          response_data: Json
+          submitted_at: string
+          user_id: string | null
+        }
+        Insert: {
+          form_id: string
+          id?: string
+          is_anonymous?: boolean
+          response_data?: Json
+          submitted_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          form_id?: string
+          id?: string
+          is_anonymous?: boolean
+          response_data?: Json
+          submitted_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_attachments_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_attachments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       form_responses: {
         Row: {
           form_id: string
@@ -1107,6 +1240,55 @@ export type Database = {
             columns: ["source_form_id"]
             isOneToOne: false
             referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          project_id: string
+          role_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          project_id: string
+          role_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          project_id?: string
+          role_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
