@@ -280,7 +280,6 @@ export type Database = {
           invited_at: string
           is_admin: boolean | null
           project_id: string
-          status: string
           user_id: string
         }
         Insert: {
@@ -291,7 +290,6 @@ export type Database = {
           invited_at?: string
           is_admin?: boolean | null
           project_id: string
-          status: string
           user_id: string
         }
         Update: {
@@ -302,7 +300,6 @@ export type Database = {
           invited_at?: string
           is_admin?: boolean | null
           project_id?: string
-          status?: string
           user_id?: string
         }
         Relationships: [
@@ -922,7 +919,6 @@ export type Database = {
           invited_at: string
           is_admin: boolean | null
           project_id: string
-          status: string
           user_id: string
         }
         Insert: {
@@ -933,7 +929,6 @@ export type Database = {
           invited_at?: string
           is_admin?: boolean | null
           project_id: string
-          status: string
           user_id: string
         }
         Update: {
@@ -944,7 +939,6 @@ export type Database = {
           invited_at?: string
           is_admin?: boolean | null
           project_id?: string
-          status?: string
           user_id?: string
         }
         Relationships: [
