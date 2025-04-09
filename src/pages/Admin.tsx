@@ -8,13 +8,8 @@ import { supabase, supabaseAdmin } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { 
   Loader2, 
-  CheckCircle, 
-  AlertCircle, 
-  Shield, 
   UserMinus, 
   UserX, 
-  KeyRound,
-  RefreshCw,
   Crown,
   UserCog,
   Search
@@ -23,16 +18,6 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose
-} from "@/components/ui/dialog";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -43,13 +28,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useAdminOperations } from '@/hooks/use-admin-operations';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Tables, Project, Profile } from '@/types/database-entities';
 import { logger } from '@/lib/logger';
 
@@ -70,12 +51,6 @@ type RemoveUserData = {
   projectName: string;
 };
 
-const passwordResetSchema = z.object({
-  password: z.string()
-    .min(8, { message: "La contraseña debe tener al menos 8 caracteres" })
-    .max(72, { message: "La contraseña no puede exceder 72 caracteres" })
-});
-
 const Admin = () => {
   const { isGlobalAdmin } = useAuth();
   const { 
@@ -90,20 +65,9 @@ const Admin = () => {
   const [usersLoading, setUsersLoading] = useState(true);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-
-  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState('');
-  const [selectedUserEmail, setSelectedUserEmail] = useState('');
-
+  
   const [removeUserDialogOpen, setRemoveUserDialogOpen] = useState(false);
   const [removeUserData, setRemoveUserData] = useState<RemoveUserData | null>(null);
-
-  const resetPasswordForm = useForm<z.infer<typeof passwordResetSchema>>({
-    resolver: zodResolver(passwordResetSchema),
-    defaultValues: {
-      password: "",
-    },
-  });
 
   useEffect(() => {
     if (!isGlobalAdmin) {
@@ -168,13 +132,6 @@ const Admin = () => {
     }
   }, [searchTerm, users]);
   
-  const handlePasswordResetClick = (userId: string, email: string) => {
-    setSelectedUserId(userId);
-    setSelectedUserEmail(email);
-    resetPasswordForm.reset({ password: "" });
-    setResetPasswordDialogOpen(true);
-  };
-  
   const handleRemoveFromProjectClick = (user: UserWithProjects, project: Pick<Project, 'id' | 'name'> | null) => {
     if (!project) {
       logger.error("Attempted to remove user from null project", { userId: user.id });
@@ -188,17 +145,6 @@ const Admin = () => {
       projectName: project.name
     });
     setRemoveUserDialogOpen(true);
-  };
-
-  const handlePasswordReset = async (data: z.infer<typeof passwordResetSchema>) => {
-    try {
-      logger.warn('setUserPassword function is not available, password reset skipped.');
-      setResetPasswordDialogOpen(false);
-      toast({ title: "Funcionalidad incompleta", description: "La función para resetear contraseña no está implementada.", variant: "destructive"});
-    } catch (error) {
-      logger.error("Error in password reset:", error);
-      toast({ title: "Error", description: "No se pudo completar la acción.", variant: "destructive" });
-    }
   };
 
   const getRoleBadge = (user: UserWithProjects) => {
@@ -382,17 +328,6 @@ const Admin = () => {
                                     <span>Promover</span>
                                   </Button>
                                 )}
-                                
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  className="flex items-center gap-1"
-                                  onClick={() => handlePasswordResetClick(user.id, user.email)}
-                                  disabled={operationLoading}
-                                >
-                                  <KeyRound className="h-4 w-4" />
-                                  <span>Contraseña</span>
-                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -431,58 +366,6 @@ const Admin = () => {
           </TabsContent>
         )}
       </Tabs>
-
-      <Dialog open={resetPasswordDialogOpen} onOpenChange={setResetPasswordDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Cambiar contraseña de usuario</DialogTitle>
-            <DialogDescription>
-              Ingresa una nueva contraseña para el usuario {selectedUserEmail}.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <Form {...resetPasswordForm}>
-            <form onSubmit={resetPasswordForm.handleSubmit(handlePasswordReset)} className="space-y-4">
-              <FormField
-                control={resetPasswordForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nueva contraseña</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="password" 
-                        placeholder="Ingresa la nueva contraseña" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setResetPasswordDialogOpen(false)}
-                  disabled={operationLoading}
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit"
-                  disabled={operationLoading}
-                  className="flex items-center gap-2"
-                >
-                  {operationLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Cambiar contraseña
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog open={removeUserDialogOpen} onOpenChange={setRemoveUserDialogOpen}>
         <AlertDialogContent>

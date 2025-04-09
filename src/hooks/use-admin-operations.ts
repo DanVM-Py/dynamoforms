@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { ProjectUserStatus } from '@/types/custom';
 import { Tables } from '@/config/environment';
 
 export function useAdminOperations() {
@@ -39,10 +38,10 @@ export function useAdminOperations() {
       });
       
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error de operación",
-        description: error.message || "No se pudo completar la operación",
+        description: error instanceof Error ? error.message : "No se pudo completar la operación",
         variant: "destructive",
       });
       throw error;
@@ -98,10 +97,10 @@ export function useAdminOperations() {
       });
       
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error de operación",
-        description: error.message || "No se pudo completar la operación",
+        description: error instanceof Error ? error.message : "No se pudo completar la operación",
         variant: "destructive",
       });
       throw error;
@@ -130,51 +129,10 @@ export function useAdminOperations() {
       });
       
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error de operación",
-        description: error.message || "No se pudo completar la operación",
-        variant: "destructive",
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  /**
-   * Directly sets a new password for a user (admin only)
-   */
-  const setUserPassword = async (userId: string, newPassword: string) => {
-    setIsLoading(true);
-    try {
-      checkGlobalAdminAccess();
-      
-      if (!user) throw new Error('No authenticated user found');
-      
-      // Call the edge function to reset the password
-      const { data, error } = await supabase.functions.invoke('admin-reset-password', {
-        body: {
-          userId,
-          password: newPassword,
-          requesterId: user.id
-        }
-      });
-      
-      if (error) throw error;
-      
-      if (data.error) throw new Error(data.error);
-      
-      toast({
-        title: "Contraseña actualizada",
-        description: "La contraseña del usuario ha sido actualizada exitosamente.",
-      });
-      
-      return true;
-    } catch (error: any) {
-      toast({
-        title: "Error al actualizar contraseña",
-        description: error.message || "No se pudo actualizar la contraseña",
+        description: error instanceof Error ? error.message : "No se pudo completar la operación",
         variant: "destructive",
       });
       throw error;
@@ -187,7 +145,6 @@ export function useAdminOperations() {
     isLoading,
     promoteToGlobalAdmin,
     toggleProjectAdmin,
-    removeUserFromProject,
-    setUserPassword
+    removeUserFromProject
   };
 }
