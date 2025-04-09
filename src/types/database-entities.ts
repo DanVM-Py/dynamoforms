@@ -24,10 +24,15 @@ export type FormAttachment = DbTables<typeof Tables.form_attachments>;
 
 // Projects
 export type Project = DbTables<typeof Tables.projects>;
-export type ProjectUser = DbTables<typeof Tables.project_users> & {
-  email?: string;
-  full_name?: string;
-  role_name?: string;
+export type ProjectUser = {
+  id: string; // uuid
+  project_id: string; // uuid
+  user_id: string; // uuid
+  invited_at: string; // timestamp with time zone
+  activated_at: string | null; // timestamp with time zone
+  created_at: string | null; // timestamp with time zone
+  is_admin: boolean | null; // boolean
+  access_level: string | null; // text
 };
 
 // Profiles & Roles

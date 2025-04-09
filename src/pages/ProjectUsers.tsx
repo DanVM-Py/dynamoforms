@@ -11,17 +11,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertCircle, FileSpreadsheet, UsersRound, UserPlus } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ProjectUserStatus } from "@/types/custom";
 import { logger } from "@/lib/logger";
-
-import { UserStatusBadge } from "@/components/project-users/UserStatusBadge";
-import { UserActionButtons } from "@/components/project-users/UserActionButtons";
 import { UserFilters } from "@/components/project-users/UserFilters";
 import { EmptyUsersList } from "@/components/project-users/EmptyUsersList";
 import { InviteUserForm, InviteFormValues } from "@/components/project-users/InviteUserForm";
 import { UsersList } from "@/components/project-users/UsersList";
 import { Tables } from "@/config/environment";
-
+import { ProjectUser } from "@/types/database-entities";
 const ProjectUsers = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const { toast } = useToast();
@@ -30,7 +26,6 @@ const ProjectUsers = () => {
   const queryClient = useQueryClient();
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<ProjectUserStatus | null>(null);
 
   const { data: project } = useQuery({
     queryKey: ["project", projectId],
@@ -60,19 +55,15 @@ const ProjectUsers = () => {
   });
 
   const { data: projectUsers, isLoading } = useQuery({
-    queryKey: ["projectUsers", projectId, roleFilter, statusFilter],
+    queryKey: ["projectUsers", projectId, roleFilter],
     queryFn: async () => {
       try {
         if (!user) return [];
         
-        let query = supabase
+        const query = supabase
           .from(Tables.project_users)
           .select("*")
           .eq("project_id", projectId);
-
-        if (statusFilter) {
-          query = query.eq("status", statusFilter);
-        }
 
         const { data: projectUsersData, error: projectUsersError } = await query;
         
@@ -117,11 +108,8 @@ const ProjectUsers = () => {
                 }
               }
 
-              const status = pu.status as ProjectUserStatus;
-
               return {
                 ...pu,
-                status,
                 email: profileData?.email || "Unknown email",
                 full_name: profileData?.name || "Unknown name",
                 role_name: roleName
@@ -130,7 +118,6 @@ const ProjectUsers = () => {
               logger.error("Error enriching user data:", profileError);
               return {
                 ...pu,
-                status: pu.status as ProjectUserStatus,
                 email: "Error loading email",
                 full_name: "Error loading name",
                 role_name: undefined
@@ -139,7 +126,7 @@ const ProjectUsers = () => {
           })
         );
 
-        return enrichedUsers.filter(Boolean) as any[];
+        return enrichedUsers.filter(Boolean) as ProjectUser[];
       } catch (error) {
         logger.error("Error in projectUsers query:", error);
         return [];
@@ -160,59 +147,81 @@ const ProjectUsers = () => {
           throw new Error("ID del proyecto es requerido");
         }
         
+        // 1. Verificar si el usuario existe en profiles
         const { data: existingUserProfile, error: userProfileError } = await supabase
           .from(Tables.profiles)
           .select("id, email")
-          .ilike("email", values.email);
+          .ilike("email", values.email)
+          .maybeSingle();
           
         if (userProfileError) {
-          logger.error("Error checking if user profile exists:", userProfileError);
-          throw new Error(`Error al verificar si el perfil de usuario existe: ${userProfileError.message}`);
+          logger.error("[InviteUser] Error al verificar perfil:", { error: userProfileError, email: values.email });
+          throw new Error("Ha ocurrido un error al verificar el perfil de usuario");
         }
         
-        if (!existingUserProfile || existingUserProfile.length === 0) {
-          throw new Error(`El usuario con correo ${values.email} no está registrado en el sistema. Solo se pueden invitar usuarios registrados.`);
+        if (!existingUserProfile) {
+          logger.info("[InviteUser] Usuario no encontrado:", { email: values.email });
+          throw new Error(`No se encontró ningún usuario registrado con el correo ${values.email}`);
         }
         
-        const userId = existingUserProfile[0].id;
-        
+        // 2. Verificar si ya está en project_users
         const { data: existingProjectUser, error: projectUserError } = await supabase
           .from(Tables.project_users)
           .select("*")
-          .eq("user_id", userId)
-          .eq("project_id", projectId);
+          .eq("user_id", existingUserProfile.id)
+          .eq("project_id", projectId)
+          .maybeSingle();
 
         if (projectUserError) {
           logger.error("Error checking project user existence:", projectUserError);
           throw new Error(`Error al comprobar si el usuario ya está en el proyecto: ${projectUserError.message}`);
         }
 
-        if (existingProjectUser && existingProjectUser.length > 0) {
-          throw new Error(`El usuario ${existingUserProfile[0].email} ya está asignado a este proyecto`);
+        if (existingProjectUser) {
+          throw new Error(`El usuario ${existingUserProfile.email} ya está asignado a este proyecto`);
         }
 
+        // 3. Si pasa las validaciones, crear el registro
         const { error: insertError } = await supabase
           .from(Tables.project_users)
           .insert({
             project_id: projectId,
-            user_id: userId,
-            status: "pending" as ProjectUserStatus,
-            is_admin: values.isAdmin || false
+            user_id: existingUserProfile.id,
+            is_admin: values.isAdmin || false,
+            invited_at: new Date().toISOString()
           });
 
         if (insertError) {
-          logger.error("Insert error:", insertError);
-          if (insertError.code === "23505") {
-            throw new Error(`El usuario ${values.email} ya está asignado a este proyecto`);
+          logger.error("[InviteUser] Error al insertar:", { 
+            error: insertError, 
+            projectId, 
+            userId: existingUserProfile.id 
+          });
+
+          // Manejar errores específicos
+          switch (insertError.code) {
+            case '23505': // Unique violation
+              throw new Error(`El usuario ${existingUserProfile.email} ya está registrado en este proyecto`);
+            case '23503': // Foreign key violation
+              if (insertError.message.includes('project_id_fkey')) {
+                logger.error("[InviteUser] Proyecto no encontrado:", { projectId });
+                throw new Error("El proyecto al que intentas invitar no existe");
+              }
+              if (insertError.message.includes('user_id_fkey')) {
+                logger.error("[InviteUser] Usuario no encontrado:", { userId: existingUserProfile.id });
+                throw new Error("El usuario al que intentas invitar ya no existe");
+              }
+              throw new Error("Error de referencia en la base de datos");
+            default:
+              throw new Error(`Error al añadir usuario al proyecto: ${insertError.message}`);
           }
-          throw new Error(`Error al añadir usuario al proyecto: ${insertError.message}`);
         }
 
         if (values.roleId) {
           const { error: roleError } = await supabase
             .from(Tables.user_roles)
             .insert({
-              user_id: userId,
+              user_id: existingUserProfile.id,
               role_id: values.roleId,
               project_id: projectId,
               created_by: user.id
@@ -229,7 +238,7 @@ const ProjectUsers = () => {
         }
 
         return { success: true, email: values.email };
-      } catch (error: any) {
+      } catch (error: unknown) {
         logger.error("Error in inviteUserMutation:", error);
         throw error;
       }
@@ -242,41 +251,11 @@ const ProjectUsers = () => {
       setInviteModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["projectUsers", projectId] });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       logger.error("Full invitation error:", error);
       toast({
         title: "Error al invitar usuario",
-        description: error.message || "Ocurrió un error inesperado",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateUserStatusMutation = useMutation({
-    mutationFn: async ({ userId, status }: { userId: string; status: ProjectUserStatus }) => {
-      const { error } = await supabase
-        .from(Tables.project_users)
-        .update({ 
-          status,
-          ...(status === "active" ? { activated_at: new Date().toISOString() } : {})
-        })
-        .eq("user_id", userId)
-        .eq("project_id", projectId);
-
-      if (error) throw error;
-      return { userId, status };
-    },
-    onSuccess: () => {
-      toast({
-        title: "Estado del usuario actualizado",
-        description: "El estado del usuario ha sido actualizado con éxito.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["projectUsers", projectId] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error al actualizar el estado del usuario",
-        description: error instanceof Error ? error.message : "Error desconocido",
+        description: error instanceof Error ? error.message : "Ocurrió un error inesperado",
         variant: "destructive",
       });
     },
@@ -304,7 +283,7 @@ const ProjectUsers = () => {
       });
       queryClient.invalidateQueries({ queryKey: ["projectUsers", projectId] });
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
       toast({
         title: "Error al actualizar el rol de administrador",
         description: error instanceof Error ? error.message : "Error desconocido",
@@ -315,10 +294,6 @@ const ProjectUsers = () => {
 
   const handleInviteUser = (values: InviteFormValues) => {
     inviteUserMutation.mutate(values);
-  };
-
-  const handleStatusChange = (userId: string, status: ProjectUserStatus) => {
-    updateUserStatusMutation.mutate({ userId, status });
   };
 
   const handleAdminToggle = (userId: string, isAdmin: boolean) => {
@@ -382,8 +357,7 @@ const ProjectUsers = () => {
               </CardDescription>
               <UserFilters 
                 roles={roles} 
-                onRoleChange={setRoleFilter} 
-                onStatusChange={setStatusFilter} 
+                onRoleChange={setRoleFilter}
               />
             </CardHeader>
             <CardContent>
@@ -392,7 +366,6 @@ const ProjectUsers = () => {
               ) : projectUsers && projectUsers.length > 0 ? (
                 <UsersList 
                   users={projectUsers} 
-                  onStatusChange={handleStatusChange} 
                   onAdminToggle={handleAdminToggle} 
                 />
               ) : (
