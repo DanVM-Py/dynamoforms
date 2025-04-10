@@ -602,7 +602,6 @@ export type Database = {
       dev_user_roles: {
         Row: {
           created_at: string
-          created_by: string
           id: string
           project_id: string
           role_id: string
@@ -610,7 +609,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          created_by: string
           id?: string
           project_id: string
           role_id: string
@@ -618,7 +616,6 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          created_by?: string
           id?: string
           project_id?: string
           role_id?: string
@@ -626,10 +623,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "dev_user_roles_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: "dev_user_roles_project_id_fkey"
+            columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "dev_profiles"
+            referencedRelation: "dev_projects"
             referencedColumns: ["id"]
           },
           {
@@ -1241,7 +1238,6 @@ export type Database = {
       user_roles: {
         Row: {
           created_at: string
-          created_by: string
           id: string
           project_id: string
           role_id: string
@@ -1249,7 +1245,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          created_by: string
           id?: string
           project_id: string
           role_id: string
@@ -1257,7 +1252,6 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          created_by?: string
           id?: string
           project_id?: string
           role_id?: string
@@ -1265,10 +1259,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "user_roles_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: "user_roles_project_id_fkey"
+            columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
