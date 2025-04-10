@@ -42,6 +42,7 @@ export type UserRole = DbTables<typeof Tables.user_roles> & {
   user_name?: string;
   user_email?: string;
   role_name?: string;
+  is_project_admin?: boolean;
 };
 
 // Tasks & Templates

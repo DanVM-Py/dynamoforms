@@ -163,17 +163,28 @@ const ProjectRoles = () => {
         .in('id', roleIds);
         
       if (rolesError) throw rolesError;
+
+      // Obtener información de project_users para is_admin
+      const { data: projectUsersData, error: projectUsersError } = await supabase
+        .from(Tables.project_users)
+        .select('user_id, is_admin')
+        .eq('project_id', projectId)
+        .in('user_id', userIds);
+        
+      if (projectUsersError) throw projectUsersError;
       
       // Transformar los datos
       const transformedData = userRolesData.map(userRole => {
         const profile = profilesData?.find(p => p.id === userRole.user_id);
         const role = rolesData?.find(r => r.id === userRole.role_id);
+        const projectUser = projectUsersData?.find(pu => pu.user_id === userRole.user_id);
         
         return {
           ...userRole,
           user_name: profile?.name || 'Usuario desconocido',
           user_email: profile?.email || 'Correo no disponible',
-          role_name: role?.name || 'Rol desconocido'
+          role_name: role?.name || 'Rol desconocido',
+          is_project_admin: projectUser?.is_admin || false
         };
       }) as UserRole[];
       
@@ -609,6 +620,7 @@ const ProjectRoles = () => {
                     <TableRow>
                       <TableHead>Usuario</TableHead>
                       <TableHead>Rol</TableHead>
+                      <TableHead>Administrador del Proyecto</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -623,6 +635,11 @@ const ProjectRoles = () => {
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary">{userRole.role_name}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={userRole.is_project_admin ? "default" : "outline"}>
+                            {userRole.is_project_admin ? "Sí" : "No"}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <AlertDialog>
