@@ -13,16 +13,6 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { Role, UserRole } from "@/types/supabase";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger, 
-  DialogFooter, 
-  DialogClose 
-} from "@/components/ui/dialog";
 import { 
   Select, 
   SelectContent, 
@@ -53,6 +43,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tables } from "@/config/environment";
+import { Role, UserRole } from "@/types/database-entities";
 import { logger } from '@/lib/logger';
 
 const ProjectRoles = () => {
@@ -142,8 +133,8 @@ const ProjectRoles = () => {
         .from(Tables.user_roles)
         .select(`
           *,
-          profiles!user_id(name, email),
-          roles!role_id(name)
+          ${Tables.profiles}!user_id(name, email),
+          ${Tables.roles}!role_id(name)
         `)
         .eq('project_id', projectId);
         
@@ -300,9 +291,7 @@ const ProjectRoles = () => {
         .insert({
           user_id: selectedUser,
           role_id: selectedRole,
-          project_id: projectId,
-          created_by: user?.id || '',
-          assigned_by: user?.id || ''
+          project_id: projectId
         })
         .select()
         .single();
