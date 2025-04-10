@@ -38,7 +38,11 @@ export type ProjectUser = {
 // Profiles & Roles
 export type Profile = DbTables<typeof Tables.profiles>;
 export type Role = DbTables<typeof Tables.roles>;
-export type UserRole = DbTables<typeof Tables.user_roles>;
+export type UserRole = DbTables<typeof Tables.user_roles> & {
+  user_name?: string;
+  user_email?: string;
+  role_name?: string;
+};
 
 // Tasks & Templates
 export type Task = DbTables<typeof Tables.tasks> & {

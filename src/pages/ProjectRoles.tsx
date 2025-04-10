@@ -129,27 +129,65 @@ const ProjectRoles = () => {
   
   const fetchUserRoles = async () => {
     try {
-      const { data, error } = await supabase
+      setLoading(true);
+      
+      // Primero obtener los user_roles
+      const { data: userRolesData, error: userRolesError } = await supabase
         .from(Tables.user_roles)
-        .select(`
-          *,
-          ${Tables.profiles}!user_id(name, email),
-          ${Tables.roles}!role_id(name)
-        `)
+        .select('*')
         .eq('project_id', projectId);
         
-      if (error) throw error;
+      if (userRolesError) throw userRolesError;
       
-      const transformedData = data.map(item => ({
-        ...item,
-        user_name: item.profiles?.name,
-        user_email: item.profiles?.email,
-        role_name: item.roles?.name
-      })) as UserRole[];
+      if (!userRolesData || userRolesData.length === 0) {
+        setUserRoles([]);
+        return;
+      }
+      
+      // Obtener los IDs de usuarios y roles
+      const userIds = userRolesData.map(ur => ur.user_id);
+      const roleIds = userRolesData.map(ur => ur.role_id);
+      
+      // Obtener información de perfiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from(Tables.profiles)
+        .select('id, name, email')
+        .in('id', userIds);
+        
+      if (profilesError) throw profilesError;
+      
+      // Obtener información de roles
+      const { data: rolesData, error: rolesError } = await supabase
+        .from(Tables.roles)
+        .select('id, name')
+        .in('id', roleIds);
+        
+      if (rolesError) throw rolesError;
+      
+      // Transformar los datos
+      const transformedData = userRolesData.map(userRole => {
+        const profile = profilesData?.find(p => p.id === userRole.user_id);
+        const role = rolesData?.find(r => r.id === userRole.role_id);
+        
+        return {
+          ...userRole,
+          user_name: profile?.name || 'Usuario desconocido',
+          user_email: profile?.email || 'Correo no disponible',
+          role_name: role?.name || 'Rol desconocido'
+        };
+      }) as UserRole[];
       
       setUserRoles(transformedData);
     } catch (error) {
-      logger.error('Error fetching user roles:', error);
+      logger.error('[ProjectRoles] Error al cargar roles de usuarios:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los roles asignados a los usuarios.",
+        variant: "destructive",
+      });
+      setUserRoles([]);
+    } finally {
+      setLoading(false);
     }
   };
   
