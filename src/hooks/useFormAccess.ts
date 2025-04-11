@@ -37,7 +37,7 @@ export const useFormAccess = () => {
         // Determinar permisos
         const canEdit = Boolean(isGlobalAdmin || (isProjectAdmin && currentProjectId));
         const canView = Boolean(true); // Todos los usuarios pueden ver formularios
-        const canDelete = Boolean(isGlobalAdmin);
+        const canDelete = Boolean(isGlobalAdmin || isProjectAdmin);
         const projectForms = forms?.map(form => form.id) || [];
 
         setAccessControl({
