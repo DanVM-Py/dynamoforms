@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ImageUploader } from "../ImageUploader";
+import { ImageUploader } from "../../ImageUploader";
 import { SignatureField } from "./SignatureField";
 import { LocationField } from "./LocationField";
 import { toast } from "@/components/ui/use-toast";
@@ -21,7 +21,7 @@ import { ChevronDown, ChevronUp, Loader2, AlertCircle } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { v4 as uuidv4 } from "uuid";
-import { FileUploader } from "../FileUploader";
+import { FileUploader } from "../../FileUploader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { isComponentRequired, isAboveMinValue } from "@/utils/formValidationUtils";
 import { Tables } from "@/config/environment";

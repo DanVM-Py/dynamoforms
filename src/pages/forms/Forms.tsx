@@ -1,6 +1,6 @@
 import React from 'react';
-import { FormProvider } from '../contexts/FormContext';
-import { OperationalView } from '../components/forms/OperationalView';
+import { FormProvider } from '../../contexts/FormContext';
+import { OperationalView } from '../../components/forms/OperationalView';
 import { PageContainer } from '@/components/layout/PageContainer';
 
 const Forms: React.FC = () => {

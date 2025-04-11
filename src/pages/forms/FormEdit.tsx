@@ -12,12 +12,11 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft, Save, Share2, Copy, Check, ExternalLink, Shield, Table, X } from "lucide-react";
-import { FormBuilder, FormSchema } from "@/components/form-builder/FormBuilder";
+import { FormBuilder, FormSchema } from "@/components/forms/form-builder/FormBuilder";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { FormRenderer } from "@/components/form-renderer/FormRenderer";
+import { FormRenderer } from "@/components/forms/form-renderer/FormRenderer";
 import { Switch } from "@/components/ui/switch";
-import { Role, FormRole, Project } from "@/types/database-entities";
 import {
   Select,
   SelectContent,
@@ -32,7 +31,7 @@ import { Tables } from "@/config/environment";
 import { logger } from '@/lib/logger';
 import { useSupabaseClientForFormEdit } from "@/hooks/useSupabaseClientForFormEdit";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from "@/components/ui/form";
-import { FormRoleManager } from "@/components/form-access/FormRoleManager";
+import { FormRoleManager } from "@/components/forms/form-access/FormRoleManager";
 
 const formEditSchema = z.object({
   title: z.string().min(1, "El título es obligatorio"),

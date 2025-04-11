@@ -1,7 +1,7 @@
 import React from 'react';
-import { FormProvider } from '../contexts/FormContext';
-import { FormManagementView } from '../components/forms/FormManagementView';
-import { useAuth } from '../contexts/AuthContext';
+import { FormProvider } from '../../contexts/FormContext';
+import { FormManagementView } from '../../components/forms/FormManagementView';
+import { useAuth } from '../../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 
 const FormsManagement: React.FC = () => {

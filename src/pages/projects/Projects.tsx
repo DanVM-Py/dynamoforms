@@ -14,8 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { Tables, Project, Profile } from '@/types/database-entities';
-import { EditProjectModal } from "@/components/projects/EditProjectModal";
-import ProjectCard from "@/components/projects/ProjectCard";
+import { EditProjectModal } from "@/components/project/EditProjectModal";
+import ProjectCard from "@/components/project/ProjectCard";
 import { logger } from '@/lib/logger';
 
 // Define extended project type that includes adminId, using the imported Project type

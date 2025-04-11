@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { FormRenderer } from '@/components/form-renderer/FormRenderer';
-import { FormResponseHandler } from '@/components/form-renderer/FormResponseHandler';
+import { FormRenderer } from '@/components/forms/form-renderer/FormRenderer';
+import { FormResponseHandler } from '@/components/forms/form-renderer/FormResponseHandler';
 import { useToast } from '@/components/ui/use-toast';
 import { processUploadFields } from '@/utils/fileUploadUtils';
 import { Button } from '@/components/ui/button';

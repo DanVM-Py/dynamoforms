@@ -14,8 +14,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { FormComponent } from "./FormBuilder";
 import { Button } from "@/components/ui/button";
-import { FileUploader } from "../FileUploader";
-import { ImageUploader } from "../ImageUploader";
+import { FileUploader } from "../../FileUploader";
+import { ImageUploader } from "../../ImageUploader";
 
 interface FormComponentPreviewProps {
   component: FormComponent;

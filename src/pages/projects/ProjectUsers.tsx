@@ -12,10 +12,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { AlertCircle, FileSpreadsheet, UsersRound, UserPlus } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { logger } from "@/lib/logger";
-import { UserFilters } from "@/components/project-users/UserFilters";
-import { EmptyUsersList } from "@/components/project-users/EmptyUsersList";
-import { InviteUserForm, InviteFormValues } from "@/components/project-users/InviteUserForm";
-import { UsersList } from "@/components/project-users/UsersList";
+import { UserFilters } from "@/components/project/project-users/UserFilters";
+import { EmptyUsersList } from "@/components/project/project-users/EmptyUsersList";
+import { InviteUserForm, InviteFormValues } from "@/components/project/project-users/InviteUserForm";
+import { UsersList } from "@/components/project/project-users/UsersList";
 import { Tables } from "@/config/environment";
 import { ProjectUser } from "@/types/database-entities";
 const ProjectUsers = () => {
