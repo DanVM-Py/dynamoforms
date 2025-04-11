@@ -3,6 +3,7 @@ import { FormProvider } from '../../contexts/FormContext';
 import { FormManagementView } from '../../components/forms/FormManagementView';
 import { useAuth } from '../../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 const FormsManagement: React.FC = () => {
   const { isGlobalAdmin, isProjectAdmin } = useAuth();
@@ -13,11 +14,11 @@ const FormsManagement: React.FC = () => {
   }
 
   return (
-    <FormProvider mode="management">
-      <div className="container mx-auto py-6">
+    <PageContainer title="">
+      <FormProvider mode="management">
         <FormManagementView />
-      </div>
-    </FormProvider>
+      </FormProvider>
+    </PageContainer>
   );
 };
 

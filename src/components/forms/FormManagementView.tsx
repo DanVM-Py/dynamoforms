@@ -82,58 +82,56 @@ export const FormManagementView: React.FC = () => {
         )}
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {(forms as FormManagement[]).map((form) => (
           <div
             key={form.id}
-            className="p-4 border rounded-lg shadow-sm hover:shadow-md transition-shadow"
+            className="p-4 border rounded-lg shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
           >
-            <div className="flex justify-between items-start">
-              <div>
+            <div>
+              <div className="flex justify-between items-start mb-6">
                 <h2 className="text-lg font-semibold">{form.title}</h2>
-                <p className="text-sm text-gray-600">{form.description}</p>
-                <div className="mt-2 text-sm text-gray-500">
-                  <span>Proyecto: {form.project?.name}</span>
-                  <span className="mx-2">•</span>
-                  <span>Respuestas: {form.responses_count}</span>
+                <div className="flex gap-4 flex-shrink-0">
+                  {form.canEdit && (
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      onClick={() => navigate(`/forms-management/${form.id}`)}
+                      title="Editar"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {form.canDelete && (
+                    <>
+                      <Button
+                        variant="destructive"
+                        size="icon-sm"
+                        onClick={() => handleDelete(form)}
+                        disabled={deleteFormMutation.isPending && formToDelete?.id === form.id}
+                        title="Eliminar"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      {formToDelete?.id === form.id && (
+                        <DeleteFormDialog
+                          open={!!formToDelete}
+                          onOpenChange={(open) => !open && setFormToDelete(null)}
+                          onConfirm={handleConfirmDelete}
+                          formTitle={formToDelete.title}
+                          isDeleting={deleteFormMutation.isPending}
+                        />
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
-              <div className="flex gap-2">
-                {form.canEdit && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate(`/forms-management/${form.id}`)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                )}
-                {form.canDelete && (
-                  <>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(form)}
-                      disabled={deleteFormMutation.isPending && formToDelete?.id === form.id}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    {formToDelete?.id === form.id && (
-                      <DeleteFormDialog
-                        open={!!formToDelete}
-                        onOpenChange={(open) => {
-                          if (!open) {
-                            setFormToDelete(null);
-                          }
-                        }}
-                        onConfirm={handleConfirmDelete}
-                        formTitle={formToDelete.title}
-                        isDeleting={deleteFormMutation.isPending}
-                      />
-                    )}
-                  </>
-                )}
-              </div>
+              <p className="text-sm text-gray-600 mb-2">{form.description || "Sin descripción"}</p>
+            </div>
+            <div className="mt-auto pt-2 border-t border-gray-100 text-xs text-gray-500">
+              <span>Proyecto: {form.project?.name || 'N/A'}</span>
+              <span className="mx-4">•</span>
+              <span>Respuestas: {form.responses_count}</span>
             </div>
           </div>
         ))}
