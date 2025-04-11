@@ -133,11 +133,11 @@ const NavItems = ({
         color: "text-gray-600",
       },
       {
-        title: "Editor de Formularios",
-        href: "/forms-editor",
+        title: "Gestión de Formularios",
+        href: "/forms-management",
         icon: Pencil,
-        requiredRoles: ["global_admin"],
-        section: 'administration',
+        requiredRoles: ["project_admin", "global_admin"],
+        section: 'project_administration',
         color: "text-gray-600",
       },
       {
@@ -227,7 +227,7 @@ const NavItems = ({
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.href || 
       (item.href === "/systems/monitoring" && location.pathname === "/systems/monitoring") ||
-      (item.href === "/forms-editor" && location.pathname === "/forms-editor");
+      (item.href === "/forms-management" && location.pathname === "/forms-management");
     
     return (
       <Button

@@ -6,7 +6,6 @@ import NotFound from "./pages/NotFound";
 import Projects from "./pages/Projects";
 import Forms from "./pages/Forms";
 import FormsManagement from "./pages/FormsManagement";
-import FormsEditor from "./pages/FormsEditor";
 import PrivateFormView from "./pages/PrivateFormView";
 import PublicFormView from "./pages/PublicFormView";
 import PublicFormSuccess from "./pages/PublicFormSuccess";
@@ -97,14 +96,6 @@ export const routes = createBrowserRouter([
         ),
       },
       {
-        path: "/forms-editor",
-        element: (
-          <ProtectedRoute requireProjectAdmin={true}>
-            <FormsEditor />
-          </ProtectedRoute>
-        ),
-      },
-      {
         path: "/forms-management",
         element: (
           <ProtectedRoute requireProjectAdmin={true}>
@@ -133,14 +124,6 @@ export const routes = createBrowserRouter([
         element: (
           <ProtectedRoute requireProjectAdmin={true}>
             <PrivateFormView />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/forms/:formId/edit",
-        element: (
-          <ProtectedRoute requireProjectAdmin={true}>
-            <FormEdit />
           </ProtectedRoute>
         ),
       },
