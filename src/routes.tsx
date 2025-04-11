@@ -11,6 +11,7 @@ import PrivateFormView from "./pages/PrivateFormView";
 import PublicFormView from "./pages/PublicFormView";
 import PublicFormSuccess from "./pages/PublicFormSuccess";
 import FormEdit from "./pages/FormEdit";
+import CreateForm from "./pages/CreateForm";
 import FormResponses from "./pages/FormResponses";
 import ProjectUsers from "./pages/ProjectUsers";
 import ProjectRoles from "./pages/ProjectRoles";
@@ -103,11 +104,19 @@ export const routes = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-            {
+      {
         path: "/forms-management",
         element: (
           <ProtectedRoute requireProjectAdmin={true}>
             <FormsManagement />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/forms-management/new",
+        element: (
+          <ProtectedRoute requireProjectAdmin={true}>
+            <CreateForm />
           </ProtectedRoute>
         ),
       },
