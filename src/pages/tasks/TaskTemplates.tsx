@@ -12,7 +12,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { debugFormSchema } from "@/utils/formSchemaUtils";
 import { Json } from "@/types/database-entities";
-import { CreateTaskTemplateModal } from "@/components/project/CreateTaskTemplateModal";
+import { CreateTaskTemplateModal } from "@/components/task-templates/CreateTaskTemplateModal";
 import TaskTemplateList from "@/components/task-templates/TaskTemplateList";
 import TaskTemplateFilter from "@/components/task-templates/TaskTemplateFilter";
 import EditTaskTemplateModal from "@/components/task-templates/EditTaskTemplateModal";

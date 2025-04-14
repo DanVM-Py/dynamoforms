@@ -78,7 +78,7 @@ const Admin = () => {
     const fetchUsers = async () => {
       try {
         setUsersLoading(true);
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
           .from(Tables.profiles)
           .select(`
             id,
@@ -103,7 +103,7 @@ const Admin = () => {
     const fetchProjects = async () => {
       try {
         setProjectsLoading(true);
-        const { data, error } = await supabase.from(Tables.projects).select('*');
+        const { data, error } = await supabaseAdmin.from(Tables.projects).select('*');
           
         if (error) throw error;
         
