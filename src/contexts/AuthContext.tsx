@@ -18,6 +18,7 @@ interface AuthContextType {
   signOut: () => Promise<boolean>;
   refreshUserProfile: () => Promise<void>;
   refreshAuthState: (fetchInitialProject?: boolean) => Promise<void>;
+  updateCurrentProject: (newProjectId: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,7 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: loading,
     currentProjectId,
     signOut,
-    refreshAuthState
+    refreshAuthState,
+    updateCurrentProject
   } = useAuthHook();
 
   const isApprover = userProfile?.role === 'approver' || false;
@@ -69,7 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isInitialized,
     signOut,
     refreshUserProfile,
-    refreshAuthState
+    refreshAuthState,
+    updateCurrentProject
   };
 
   logger.debug("[AuthContext DEBUG] AuthProvider rendering. isInitialized:", isInitialized);

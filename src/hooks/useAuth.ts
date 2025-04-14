@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, createContext } from 'react';
-import type { Session, User } from '@supabase/supabase-js';
+import type { Session, User, Subscription } from '@supabase/supabase-js';
 import { Tables } from '@/config/environment'; // Asumiendo existencia
 import { supabase } from '@/integrations/supabase/client'; // Para el listener
 import { authService as supabaseAuthService, UserProfile } from '@/services/authService';
@@ -14,8 +14,9 @@ export function useAuth() {
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckingInitialProject, setIsCheckingInitialProject] = useState(false);
+  const [isCheckingProjectAdmin, setIsCheckingProjectAdmin] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const authListenerRef = useRef<{ data: { subscription: any; } } | null>(null);
+  const authListenerRef = useRef<{ data: { subscription: Subscription } } | null>(null);
   const authService = supabaseAuthService;
 
   // useCallback para refreshAuthState
@@ -143,31 +144,26 @@ export function useAuth() {
     logger.info("[useAuth Initial Effect] Setting up auth listener.");
 
     const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      // Log inicial SIN el estado 'user' para evitar confusión sobre cuándo se lee
       logger.debug(`[useAuth] Auth state changed. Event: ${event}, Session exists: ${!!newSession}, isInitialized: ${isInitialized}`);
 
       switch (event) {
         case 'INITIAL_SESSION':
-          // Lógica robusta para la carga inicial
           if (newSession) {
             logger.debug("[useAuth DEBUG] Event: INITIAL_SESSION (user exists) -> Calling refreshAuthState(true) for full load.");
-            try { await refreshAuthState(true); } catch (e) { logger.error("Error during initial session refresh:", e); }
-            finally { setIsInitialized(true); } // Marcar inicializado DESPUÉS
+            try { 
+              await refreshAuthState(true); 
+            } catch (e) { 
+              logger.error("Error during initial session refresh:", e); 
+            }
           } else {
-            logger.debug("[useAuth DEBUG] Event: INITIAL_SESSION (no user) -> Setting final state.");
-            setIsLoading(false); setIsCheckingInitialProject(false);
-            setIsInitialized(true); // Estado conocido
+            logger.debug("[useAuth DEBUG] Event: INITIAL_SESSION (no user) -> Setting final loading state.");
+            setIsLoading(false); 
+            setIsCheckingInitialProject(false);
           }
           break;
 
         case 'SIGNED_IN':
-          // Simplificado: NO llamar a refreshAuthState aquí. LoginForm se encarga.
           logger.debug(`[useAuth DEBUG] Event: SIGNED_IN received. Taking no explicit action based on this event.`);
-          // Asegurar que esté inicializado
-          if (!isInitialized) {
-              logger.warn("[useAuth DEBUG] SIGNED_IN event occurred but isInitialized was false. Setting true now.");
-              setIsInitialized(true);
-          }
           break;
 
         case 'SIGNED_OUT':
@@ -178,17 +174,15 @@ export function useAuth() {
              localStorage.removeItem('isGlobalAdmin'); localStorage.removeItem('authState');
              sessionStorage.removeItem('isGlobalAdmin');
              setIsLoading(false); setIsCheckingInitialProject(false);
+             setIsCheckingProjectAdmin(false);
              break;
 
         case 'TOKEN_REFRESHED':
            logger.debug("[useAuth DEBUG] Event: TOKEN_REFRESHED. Taking no explicit action.");
-           // OPCIONAL: refreshAuthState(false);
            break;
 
         case 'USER_UPDATED':
            logger.debug("[useAuth DEBUG] Event: USER_UPDATED received. Taking no explicit action for now to prevent loops.");
-           // ANTERIOR: Llamaba a refreshAuthState(false). Comentado temporalmente.
-           // if (isInitialized && user) { await refreshAuthState(false); }
            break;
 
         case 'PASSWORD_RECOVERY':
@@ -207,7 +201,6 @@ export function useAuth() {
       authListenerRef.current?.data.subscription.unsubscribe();
       authListenerRef.current = null;
     };
-  // QUITAR 'user' de las dependencias para romper el ciclo.
   }, [refreshAuthState, isInitialized]);
 
   // Sign out function
@@ -237,32 +230,57 @@ export function useAuth() {
 
   // Efecto para verificar si es Project Admin cuando cambia el usuario o el projectId
   useEffect(() => {
-    // Solo ejecutar si tenemos usuario y projectId
+    let isMounted = true;
     if (user && currentProjectId) {
       logger.debug(`[useAuth] Checking project admin status for user ${user.id} and project ${currentProjectId}`);
-      let isMounted = true; // Flag para evitar actualizaciones en componente desmontado
+      setIsCheckingProjectAdmin(true);
       authService.isProjectAdmin(user.id, currentProjectId)
         .then(isAdmin => {
           if (isMounted) {
             logger.debug(`[useAuth] Project admin status: ${isAdmin}`);
             setIsProjectAdmin(isAdmin);
+            setIsCheckingProjectAdmin(false);
           }
         })
         .catch(error => {
            logger.error("[useAuth] Error checking project admin status:", error);
            if (isMounted) {
-             setIsProjectAdmin(false); // Asumir no admin en caso de error
+             setIsProjectAdmin(false);
+             setIsCheckingProjectAdmin(false);
            }
          });
-      return () => { isMounted = false; }; // Cleanup
     } else {
-      // Si no hay usuario o proyecto, no puede ser project admin
+      // Si no hay usuario o proyecto, no puede ser project admin y no estamos cargando
       setIsProjectAdmin(false);
+      setIsCheckingProjectAdmin(false);
     }
-  }, [user, currentProjectId, authService]); // Dependencias correctas
+    return () => { isMounted = false; };
+  }, [user, currentProjectId, authService]);
+
+  // --- Nueva Función para actualizar el proyecto actual --- 
+  const updateCurrentProject = useCallback((newProjectId: string | null) => {
+    logger.info(`[useAuth] Updating current project ID to: ${newProjectId}`);
+    setCurrentProjectId(newProjectId);
+    if (newProjectId) {
+      sessionStorage.setItem('currentProjectId', newProjectId);
+    } else {
+      sessionStorage.removeItem('currentProjectId');
+    }
+    // Nota: El useEffect anterior se disparará automáticamente para 
+    // recalcular isProjectAdmin debido al cambio en currentProjectId.
+  }, []); // No necesita dependencias externas directas
+
+  // --- NUEVO useEffect para controlar isInitialized --- 
+  useEffect(() => {
+    if (isInitialized) return;
+    if (!isLoading && !isCheckingInitialProject && !isCheckingProjectAdmin) {
+      logger.info("[useAuth] All initial loading complete. Setting isInitialized = true.");
+      setIsInitialized(true);
+    }
+  }, [isLoading, isCheckingInitialProject, isCheckingProjectAdmin, isInitialized]);
 
   // Estado de carga combinado para exportar
-  const combinedLoading = isLoading || isCheckingInitialProject;
+  const combinedLoading = isLoading || isCheckingInitialProject || isCheckingProjectAdmin;
 
   return {
     session,
@@ -270,13 +288,13 @@ export function useAuth() {
     userProfile,
     isGlobalAdmin,
     isProjectAdmin,
-    isLoading: combinedLoading, // Estado de carga para consumidores
-    isInitialized, // Estado de inicialización
+    isLoading: combinedLoading,
+    isInitialized,
     currentProjectId,
-    signOut, // Export the locally defined signOut function
+    signOut,
     refreshAuthState,
+    updateCurrentProject,
   };
 }
 
-// Nota: El hook `useAuthActions` y el contexto `AuthContext` / `AuthProvider` no se muestran aquí
-// pero se asume que usan los valores devueltos por `useAuth`.
+// Nota: El hook `

@@ -33,7 +33,7 @@ const ProtectedRoute = ({
   const shouldShowLoader = showLoading && (!isInitialized || combinedComponentLoading);
 
   logger.debug(
-    `[ProtectedRoute DEBUG] Render Check. Path: ${location.pathname}, isInitialized: ${isInitialized}, authLoading: ${authContextLoading}, projectsLoading: ${projectsLoading}, ShouldShowLoader: ${shouldShowLoader}, User: ${!!user}, isGlobalAdmin: ${isGlobalAdmin}, currentProjectId: ${currentProjectId}`
+    `[ProtectedRoute DEBUG] Render Check. Path: ${location.pathname}, isInitialized: ${isInitialized}, authLoading: ${authContextLoading}, projectsLoading: ${projectsLoading}, ShouldShowLoader: ${shouldShowLoader}, User: ${!!user}, isGlobalAdmin: ${isGlobalAdmin}, isProjectAdmin: ${isProjectAdmin}, currentProjectId: ${currentProjectId}`
   );
 
   if (shouldShowLoader) {
@@ -75,23 +75,30 @@ const ProtectedRoute = ({
     return <Navigate to="/" replace />;
   }
 
-  logger.debug(`[ProtectedRoute DEBUG] Project Admin Check. requireProjectAdmin: ${requireProjectAdmin}, isProjectAdmin: ${isProjectAdmin}, isGlobalAdmin: ${isEffectivelyGlobalAdmin}`);
+  logger.debug(`[ProtectedRoute DEBUG] Project Admin Check. requireProjectAdmin: ${requireProjectAdmin}, isProjectAdmin: ${isProjectAdmin}, isGlobalAdmin: ${isEffectivelyGlobalAdmin}, currentProjectId: ${currentProjectId}`);
 
-  if (requireProjectAdmin && !isProjectAdmin && !isEffectivelyGlobalAdmin) {
-    logger.warn("Project admin access required but user is not a project admin or global admin");
-    toast({ title: "Acceso Denegado", description: "Necesitas permisos de Administrador de Proyecto.", variant: "destructive" });
-    return <Navigate to="/" replace />;
-  }
-
-  const needsProjectCheck = requireProjectAccess && location.pathname !== '/projects';
-  logger.debug(`[ProtectedRoute DEBUG] Project Access Check Needed? ${needsProjectCheck} (requireProjectAccess: ${requireProjectAccess}, path: ${location.pathname})`);
-
-  if (needsProjectCheck && !currentProjectId) {
-    logger.info(`[ProtectedRoute] Project access required (requireProjectAccess=${requireProjectAccess}) but no currentProjectId (${currentProjectId}). Redirecting user (isGlobalAdmin: ${isEffectivelyGlobalAdmin}) to /no-project-access.`);
+  if (requireProjectAdmin && !isEffectivelyGlobalAdmin && !(isProjectAdmin && currentProjectId)) {
+    logger.warn(`Project admin access required. User isProjectAdmin=${isProjectAdmin}, currentProjectId=${currentProjectId}. Access denied.`);
+    toast({ title: "Acceso Denegado", description: "Necesitas ser Administrador del proyecto seleccionado.", variant: "destructive" });
     return <Navigate to="/no-project-access" replace />;
   }
 
-  logger.debug(`[ProtectedRoute] Access GRANTED for path: ${location.pathname}. User: ${user?.id}, isGlobalAdmin: ${isEffectivelyGlobalAdmin}, ProjectID: ${currentProjectId}`);
+  // --- Chequeo general de acceso a proyecto (si no se requiere admin específico) ---
+  // La declaración de needsProjectCheck se hace aquí una sola vez.
+  const needsProjectCheck = requireProjectAccess && 
+                            !requireGlobalAdmin && 
+                            !requireProjectAdmin && 
+                            location.pathname !== '/'; // Evitar chequeo en la ruta raíz si no se requiere admin
+                            
+  logger.debug(`[ProtectedRoute DEBUG] General Project Access Check Needed? ${needsProjectCheck} (requireProjectAccess: ${requireProjectAccess}, path: ${location.pathname})`);
+
+  if (needsProjectCheck && !currentProjectId) {
+    logger.info(`[ProtectedRoute] General project access required but no currentProjectId. Redirecting user to /no-project-access.`);
+    return <Navigate to="/no-project-access" replace />; 
+  }
+
+  // Si pasó todas las verificaciones, renderiza el contenido protegido
+  logger.debug(`[ProtectedRoute DEBUG] All checks passed for path: ${location.pathname}. Rendering children.`);
   return <>{children}</>;
 };
 
