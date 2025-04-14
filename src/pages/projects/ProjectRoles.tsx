@@ -253,6 +253,9 @@ const ProjectRoles = () => {
     
     logger.info(`[ProjectRoles] Inserting role with project_id: ${currentProjectId}`);
     
+    // Añadir log de depuración
+    logger.debug(`[ProjectRoles] Attempting to insert role. Name: "${newRoleName.trim()}", ProjectID: "${currentProjectId}", UserID: "${user?.id || 'undefined'}"`);
+    
     try {
       setSubmitting(true);
       

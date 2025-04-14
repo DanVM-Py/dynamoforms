@@ -92,19 +92,26 @@ const NavItems = ({
         section: 'operations',
         color: "text-gray-600",
       },
-      
-      {
-        title: "Plantillas de Tareas",
-        href: "/task-templates",
-        icon: Settings,
-        requiredRoles: ["project_admin", "global_admin"],
-        section: 'project_administration',
-        color: "text-gray-600",
-      }
     ];
     
     if (currentProjectId) {
       navItems.push(
+        {
+          title: "Gestión de Formularios",
+          href: "/forms-management",
+          icon: Pencil,
+          requiredRoles: ["project_admin", "global_admin"],
+          section: 'project_administration',
+          color: "text-gray-600",
+        },
+        {
+          title: "Plantillas de Tareas",
+          href: "/task-templates",
+          icon: Settings,
+          requiredRoles: ["project_admin", "global_admin"],
+          section: 'project_administration',
+          color: "text-gray-600",
+        },
         {
           title: "Roles del Proyecto",
           href: `/projects/${currentProjectId}/roles`,
@@ -131,14 +138,6 @@ const NavItems = ({
         icon: FolderKanban,
         requiredRoles: ["global_admin"],
         section: 'administration',
-        color: "text-gray-600",
-      },
-      {
-        title: "Gestión de Formularios",
-        href: "/forms-management",
-        icon: Pencil,
-        requiredRoles: ["project_admin", "global_admin"],
-        section: 'project_administration',
         color: "text-gray-600",
       },
       {
