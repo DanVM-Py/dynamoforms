@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { logger } from "@/lib/logger";
 
 interface NavItemsProps {
   collapsed: boolean;
@@ -253,16 +254,43 @@ const NavItems = ({
     }));
   };
 
+  const handleProjectChange = (newProjectId: string | null) => {
+    if (!newProjectId) return;
+
+    logger.info(`[NavItems] Project selection changed. Attempting to set currentProjectId via context to: ${newProjectId}`);
+    setCurrentProjectId(newProjectId);
+
+    const currentPath = location.pathname;
+    let newPath = "/";
+
+    const projectUrlPattern = /^\/(projects|forms-management)\/([a-f0-9-]+)(\/.*)?$/;
+    const match = currentPath.match(projectUrlPattern);
+
+    if (match) {
+      const section = match[1];
+      const restOfPath = match[3] || "";
+      newPath = `/${section}/${newProjectId}${restOfPath}`;
+      logger.info(`[NavItems] Navigating to related project page: ${newPath}`);
+    } else {
+      logger.info(`[NavItems] Current path (${currentPath}) not project-specific or pattern not matched. Navigating to root.`);
+      newPath = "/";
+    }
+
+    if (newPath !== currentPath) {
+        navigate(newPath);
+    }
+  };
+
   const renderProjectSelector = () => {
     if (!collapsed && (isProjectAdmin || isGlobalAdmin) && projects.length > 0) {
       return (
         <div className="mb-4 px-3">
           <label className="block text-sm font-medium text-gray-500 mb-1">Proyecto Actual</label>
-          <select 
+          <select
             className="w-full bg-white border border-gray-300 rounded-md py-1 px-2 text-sm"
             value={currentProjectId || ''}
             onChange={(e) => {
-              setCurrentProjectId(e.target.value);
+              handleProjectChange(e.target.value || null);
             }}
           >
             {projects.map((project) => (

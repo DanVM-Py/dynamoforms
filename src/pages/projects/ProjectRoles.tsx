@@ -47,10 +47,12 @@ import { Role, UserRole } from "@/types/database-entities";
 import { logger } from '@/lib/logger';
 
 const ProjectRoles = () => {
-  const { projectId } = useParams();
+  const { projectId: projectIdFromUrl } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, isGlobalAdmin, isProjectAdmin } = useAuth();
+  const { user, currentProjectId, isGlobalAdmin, isProjectAdmin } = useAuth();
+  
+  logger.info(`[ProjectRoles] Initializing. currentProjectId from context: ${currentProjectId}, projectId from URL: ${projectIdFromUrl}`);
   
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<{id: string, name: string} | null>(null);
@@ -65,11 +67,11 @@ const ProjectRoles = () => {
   const [submitting, setSubmitting] = useState(false);
   
   useEffect(() => {
-    if (projectId) {
-      fetchProject();
-      fetchRoles();
-      fetchUserRoles();
-      fetchUsers();
+    if (projectIdFromUrl) {
+      fetchProject(projectIdFromUrl);
+      fetchRoles(projectIdFromUrl);
+      fetchUserRoles(projectIdFromUrl);
+      fetchUsers(projectIdFromUrl);
     } else {
       logger.error("No project ID found in URL");
       toast({
@@ -79,14 +81,14 @@ const ProjectRoles = () => {
       });
       navigate("/projects");
     }
-  }, [projectId]);
+  }, [projectIdFromUrl]);
   
-  const fetchProject = async () => {
+  const fetchProject = async (id: string) => {
     try {
       const { data, error } = await supabase
         .from(Tables.projects)
         .select('id, name')
-        .eq('id', projectId)
+        .eq('id', id)
         .single();
         
       if (error) throw error;
@@ -102,14 +104,14 @@ const ProjectRoles = () => {
     }
   };
   
-  const fetchRoles = async () => {
+  const fetchRoles = async (id: string) => {
     try {
       setLoading(true);
       
       const { data, error } = await supabase
         .from(Tables.roles)
         .select('*')
-        .eq('project_id', projectId)
+        .eq('project_id', id)
         .order('name', { ascending: true });
         
       if (error) throw error;
@@ -127,7 +129,7 @@ const ProjectRoles = () => {
     }
   };
   
-  const fetchUserRoles = async () => {
+  const fetchUserRoles = async (id: string) => {
     try {
       setLoading(true);
       
@@ -135,7 +137,7 @@ const ProjectRoles = () => {
       const { data: userRolesData, error: userRolesError } = await supabase
         .from(Tables.user_roles)
         .select('*')
-        .eq('project_id', projectId);
+        .eq('project_id', id);
         
       if (userRolesError) throw userRolesError;
       
@@ -168,7 +170,7 @@ const ProjectRoles = () => {
       const { data: projectUsersData, error: projectUsersError } = await supabase
         .from(Tables.project_users)
         .select('user_id, is_admin')
-        .eq('project_id', projectId)
+        .eq('project_id', id)
         .in('user_id', userIds);
         
       if (projectUsersError) throw projectUsersError;
@@ -202,12 +204,12 @@ const ProjectRoles = () => {
     }
   };
   
-  const fetchUsers = async () => {
+  const fetchUsers = async (id: string) => {
     try {
       const { data: projectUsers, error: projectUsersError } = await supabase
         .from(Tables.project_users)
         .select('user_id')
-        .eq('project_id', projectId)
+        .eq('project_id', id)
         
       if (projectUsersError) throw projectUsersError;
       
@@ -238,14 +240,18 @@ const ProjectRoles = () => {
   };
   
   const handleCreateRole = async () => {
-    if (!newRoleName.trim() || !projectId) {
+    if (!newRoleName.trim() || !currentProjectId) {
       toast({
         title: "Error",
-        description: "Por favor ingresa un nombre para el rol.",
+        description: !currentProjectId
+          ? "No se ha seleccionado un proyecto activo."
+          : "Por favor ingresa un nombre para el rol.",
         variant: "destructive",
       });
       return;
     }
+    
+    logger.info(`[ProjectRoles] Inserting role with project_id: ${currentProjectId}`);
     
     try {
       setSubmitting(true);
@@ -254,7 +260,7 @@ const ProjectRoles = () => {
         .from(Tables.roles)
         .insert({
           name: newRoleName.trim(),
-          project_id: projectId,
+          project_id: currentProjectId,
           created_by: user?.id || ''
         })
         .select()
@@ -278,7 +284,7 @@ const ProjectRoles = () => {
         return;
       }
       
-      setRoles([...roles, data]);
+      fetchRoles(projectIdFromUrl!);
       setNewRoleName("");
       
       toast({
@@ -325,14 +331,18 @@ const ProjectRoles = () => {
   };
   
   const handleAssignRole = async () => {
-    if (!selectedUser || !selectedRole || !projectId) {
+    if (!selectedUser || !selectedRole || !currentProjectId) {
       toast({
         title: "Error",
-        description: "Por favor selecciona un usuario y un rol.",
+        description: !currentProjectId
+          ? "No se ha seleccionado un proyecto activo."
+          : "Por favor selecciona un usuario y un rol.",
         variant: "destructive",
       });
       return;
     }
+    
+    logger.info(`[ProjectRoles] Inserting user_role assignment with project_id: ${currentProjectId}`);
     
     try {
       const { data, error } = await supabase
@@ -340,7 +350,7 @@ const ProjectRoles = () => {
         .insert({
           user_id: selectedUser,
           role_id: selectedRole,
-          project_id: projectId
+          project_id: currentProjectId
         })
         .select()
         .single();
@@ -358,7 +368,7 @@ const ProjectRoles = () => {
         return;
       }
       
-      fetchUserRoles();
+      fetchUserRoles(projectIdFromUrl!);
       
       setSelectedUser("");
       setSelectedRole("");

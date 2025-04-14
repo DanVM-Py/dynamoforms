@@ -14,6 +14,7 @@ export function useSidebarProjects() {
     isProjectAdmin,
     updateCurrentProject
   } = useAuth();
+  logger.info(`[useSidebarProjects] Initializing. Received currentProjectId from useAuth: ${currentProjectId}`);
   
   const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);

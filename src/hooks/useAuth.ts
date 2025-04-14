@@ -94,7 +94,7 @@ export function useAuth() {
            }
 
           const initialProjectId = projectUserData?.project_id || null;
-          logger.debug(`[useAuth DEBUG] Determined initialProjectId: ${initialProjectId}`);
+          logger.info(`[useAuth] Initial Project ID determined: ${initialProjectId}`);
           setCurrentProjectId(initialProjectId);
           if (initialProjectId) {
              sessionStorage.setItem('currentProjectId', initialProjectId);
@@ -259,7 +259,7 @@ export function useAuth() {
 
   // --- Nueva Función para actualizar el proyecto actual --- 
   const updateCurrentProject = useCallback((newProjectId: string | null) => {
-    logger.info(`[useAuth] Updating current project ID to: ${newProjectId}`);
+    logger.info(`[useAuth] updateCurrentProject called. New ID: ${newProjectId}`);
     setCurrentProjectId(newProjectId);
     if (newProjectId) {
       sessionStorage.setItem('currentProjectId', newProjectId);
@@ -282,6 +282,7 @@ export function useAuth() {
   // Estado de carga combinado para exportar
   const combinedLoading = isLoading || isCheckingInitialProject || isCheckingProjectAdmin;
 
+  logger.info(`[useAuth] Returning context with currentProjectId: ${currentProjectId}`);
   return {
     session,
     user,
