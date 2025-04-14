@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseAdmin } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { Tables, Project, Profile } from '@/types/database-entities';
@@ -119,38 +119,62 @@ const Projects = () => {
 
   const handleCreateProject = async () => {
     if (!validateForm()) {
+      // Añade un log aquí si la validación falla (opcional)
+      logger.warn("[handleCreateProject] Validación falló. Errores:", formErrors);
       return;
     }
-    
+    // Si pasa la validación, loguea aquí:
+    logger.info("[handleCreateProject] Validación del formulario SUPERADA."); // <-- Log 1
+
     setIsLoading(true);
     
     try {
-      const { data: projectData, error: projectError } = await supabase
+      logger.info("[handleCreateProject] Intentando insertar en Tables.projects...");
+      logger.info(`[handleCreateProject] Using table name for projects: ${Tables.projects}`); // <-- Log del nombre de tabla
+
+      // --- Crear el objeto de datos a insertar ---
+      const projectInsertData = {
+        name: projectName,
+        description: projectDescription,
+        created_by: user?.id || '' // Asegúrate que user?.id no sea null si la columna es NOT NULL
+      };
+
+      // --- Loguear el objeto de datos ---
+      logger.info("[handleCreateProject] Data to be inserted into projects:", projectInsertData); // <-- Log de los datos
+
+      const { data: projectData, error: projectError } = await supabaseAdmin
         .from(Tables.projects)
-        .insert([
-          { 
-            name: projectName, 
-            description: projectDescription, 
-            created_by: user?.id || ''
-          },
-        ])
+        .insert([projectInsertData]) // <-- Usar la variable con los datos
         .select()
         .single();
 
-      if (projectError) throw projectError;
+      if (projectError) {
+         logger.error("[handleCreateProject] ERROR en insert de Tables.projects:", projectError);
+         throw projectError;
+      }
       
       const newProject = projectData as Project;
       if (!newProject) throw new Error("Project creation did not return data.");
         
-      const { error: adminError } = await supabase
+      logger.debug(`[handleCreateProject] Attempting to insert into project_users. Project ID: ${newProject.id}, User ID (Admin): ${projectAdminId}`);
+      logger.info(`[handleCreateProject] Using table name for project_users: ${Tables.project_users}`); // <-- Log nombre tabla project_users
+
+      const projectUserInsertData = {
+        project_id: newProject.id,
+        user_id: projectAdminId,
+        is_admin: true
+      };
+
+      logger.info("[handleCreateProject] Data to be inserted into project_users:", projectUserInsertData); // <-- Log datos project_users
+
+      const { error: adminError } = await supabaseAdmin
         .from(Tables.project_users)
-        .insert({
-          project_id: newProject.id,
-          user_id: projectAdminId,
-          is_admin: true
-        });
-          
-      if (adminError) throw adminError;
+        .insert([projectUserInsertData]); // <-- Usar variable
+
+      if (adminError) {
+        logger.error(`[handleCreateProject] Error inserting into project_users:`, adminError);
+        throw adminError;
+      }
         
       toast({
         title: "Proyecto creado exitosamente",
@@ -160,7 +184,8 @@ const Projects = () => {
       setOpen(false);
       refetch();
     } catch (error) {
-      logger.error("Error al crear el proyecto:", error);
+      // Este log es crucial si algo falla ANTES de tu logger.debug original
+      logger.error("Error al crear el proyecto (Bloque Catch General):", error); // <-- Log 5 (si falla en CUALQUIER try)
       toast({
         title: "Error al crear el proyecto",
         description: error?.message || "No se pudo crear el proyecto. Por favor, intenta de nuevo.",

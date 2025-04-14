@@ -7,7 +7,7 @@ type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error';
 // Determinar el nivel de log basado en el entorno
 // En desarrollo, mostramos todo desde DEBUG hacia arriba.
 // En producción, solo mostramos desde WARN hacia arriba.
-const activeLogLevel: LogLevel = isDevelopment ? 'debug' : 'warn';
+const activeLogLevel: LogLevel = isDevelopment ? 'trace' : 'warn';
 
 // Configurar el nivel de log activo
 log.setLevel(activeLogLevel);
