@@ -1286,32 +1286,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      dev_is_global_admin: {
-        Args: { user_uuid: string }
-        Returns: boolean
-      }
-      dev_is_global_project_admin: {
-        Args: { user_uuid: string }
-        Returns: boolean
-      }
-      dev_is_project_admin: {
-        Args: { user_uuid: string; project_uuid: string }
-        Returns: boolean
-      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
       is_global_admin: {
-        Args: { user_uuid: string }
-        Returns: boolean
-      }
-      is_global_project_admin: {
-        Args: { user_uuid: string }
+        Args: { user_uuid: string; is_production: boolean }
         Returns: boolean
       }
       is_project_admin: {
-        Args: { user_uuid: string; project_uuid: string }
+        Args: {
+          user_uuid: string
+          project_uuid: string
+          is_production: boolean
+        }
         Returns: boolean
       }
       user_has_form_access: {

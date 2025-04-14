@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { ProjectUser } from "@/types/custom";
 import { logger } from "@/lib/logger";
-import { Tables } from "@/config/environment";
+import { isProduction, Tables } from "@/config/environment";
 
 export function useAuthState() {
   const [session, setSession] = useState<Session | null>(null);
@@ -28,7 +28,10 @@ export function useAuthState() {
       // This bypasses RLS completely using SECURITY DEFINER
       setProfileFetchStage("checking_global_admin");
       const { data: isAdminData, error: isAdminError } = await supabase
-        .rpc('is_global_admin', { user_uuid: userId });
+        .rpc('is_global_admin', {
+          user_uuid: userId,
+          is_production: isProduction
+        });
         
       if (isAdminError) {
         logger.error("Error checking global admin status:", isAdminError);
@@ -116,7 +119,8 @@ export function useAuthState() {
         const { data: isProjectAdminData, error: isProjectAdminError } = await supabase
           .rpc('is_project_admin', { 
             user_uuid: userId,
-            project_uuid: currentProjectId 
+            project_uuid: currentProjectId,
+            is_production: isProduction
           });
           
         if (isProjectAdminError) {

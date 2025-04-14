@@ -2,6 +2,7 @@ import { supabase, cleanupAuthState } from "@/integrations/supabase/client";
 import { Session, User, AuthError } from "@supabase/supabase-js";
 import { logger } from '@/lib/logger';
 import { Tables } from "@/config/environment";
+import { isProduction } from '@/config/environment';
 
 // Interface for user profile data
 export interface UserProfile {
@@ -30,7 +31,10 @@ class AuthService {
     logger.debug('[authService DEBUG] Private isGlobalAdmin START for user:', userId);
     try {
       logger.debug("[authService DEBUG] Attempting RPC is_global_admin for user:", userId);
-      const { data, error } = await supabase.rpc('is_global_admin', { user_uuid: userId });
+      const { data, error } = await supabase.rpc('is_global_admin', { 
+        user_uuid: userId,
+        is_production: isProduction
+      });
       logger.debug("[authService DEBUG] RPC is_global_admin RESULT:", { data, error });
       
       if (error) {
@@ -121,7 +125,8 @@ class AuthService {
       const { data, error } = await supabase
         .rpc('is_project_admin', { 
           user_uuid: userId,
-          project_uuid: projectId 
+          project_uuid: projectId,
+          is_production: isProduction
         });
         
       if (error) {
