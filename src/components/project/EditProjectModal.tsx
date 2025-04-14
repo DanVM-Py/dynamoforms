@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ProjectUserStatus, ProjectErrors } from "@/types/custom";
+import { ProjectErrors } from "@/types/custom";
 import { Tables } from "@/config/environment";
 import { logger } from '@/lib/logger';
 
@@ -40,7 +40,6 @@ export interface EditProjectModalProps {
 
 export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated }: EditProjectModalProps) => {
   const { toast } = useToast();
-  const { user } = useAuth();
   const [name, setName] = useState(project?.name || "");
   const [description, setDescription] = useState(project?.description || "");
   const [adminId, setAdminId] = useState(project?.adminId || "");
@@ -86,7 +85,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
       if (data) {
         setAdminId(data.user_id);
       }
-    } catch (error: any) {
+    } catch (error) {
       logger.error('Error fetching current admin:', error);
       toast({
         title: "Error loading project admin",
@@ -109,7 +108,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
       if (data) {
         setUsers(data);
       }
-    } catch (error: any) {
+    } catch (error) {
       logger.error('Error fetching users:', error);
       toast({
         title: "Error loading users",
@@ -146,23 +145,24 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
+    if (!project || !validateForm()) return;
     setLoading(true);
+
     try {
-      const { error } = await supabase
+      const projectUpdateData = {
+        name,
+        description,
+      };
+
+      logger.info("Updating project with data:", projectUpdateData);
+
+      const { error: projectUpdateError } = await supabase
         .from(Tables.projects)
-        .update({ 
-          name, 
-          description 
-        })
+        .update(projectUpdateData)
         .eq('id', project.id);
-      
-      if (error) throw error;
-      
+
+      if (projectUpdateError) throw projectUpdateError;
+
       if (adminId) {
         const { data: existingAdmin, error: fetchError } = await supabase
           .from(Tables.project_users)
@@ -239,7 +239,7 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
       });
       
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error) {
       logger.error("Error updating project:", error);
       toast({
         title: "Error al actualizar",
