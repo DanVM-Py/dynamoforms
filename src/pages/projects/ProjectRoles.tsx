@@ -46,6 +46,19 @@ import { Tables } from "@/config/environment";
 import { Role, UserRole } from "@/types/database-entities";
 import { logger } from '@/lib/logger';
 
+// Define a type for the grouped structure
+type UserWithGroupedRoles = {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  isProjectAdmin: boolean;
+  roles: Array<{
+    roleId: string;
+    roleName: string;
+    userRoleId: string; // The ID of the specific user_roles entry
+  }>;
+};
+
 const ProjectRoles = () => {
   const { projectId: projectIdFromUrl } = useParams();
   const navigate = useNavigate();
@@ -69,6 +82,7 @@ const ProjectRoles = () => {
   const [deleteRoleId, setDeleteRoleId] = useState<string | null>(null);
   const [deleteUserRoleId, setDeleteUserRoleId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [usersWithGroupedRoles, setUsersWithGroupedRoles] = useState<UserWithGroupedRoles[]>([]);
   
   const fetchProject = useCallback(async (id: string) => {
      try {
@@ -107,23 +121,27 @@ const ProjectRoles = () => {
 
   const fetchUserRoles = useCallback(async (id: string) => {
     try {
-      logger.debug(`[ProjectRoles] Fetching user roles for project ID: ${id}`);
+      logger.debug(`[ProjectRoles] Fetching user roles complex data for project ID: ${id}`);
+      // Reset grouped state before fetching
+      setUsersWithGroupedRoles([]); 
+      
+      // Fetch raw data as before
       const { data: userRolesData, error: userRolesError } = await supabase
         .from(Tables.user_roles)
         .select('*')
         .eq('project_id', id);
-        
       if (userRolesError) throw userRolesError;
-      
+
       if (!userRolesData || userRolesData.length === 0) {
-        setUserRoles([]);
         logger.debug(`[ProjectRoles] No user roles found for project ID: ${id}`);
+        setUserRoles([]); // Clear original state too
+        setUsersWithGroupedRoles([]); // Ensure grouped state is empty
         return;
       }
       
       // Fetch related data efficiently
-      const userIds = [...new Set(userRolesData.map(ur => ur.user_id))]; // Unique IDs
-      const roleIds = [...new Set(userRolesData.map(ur => ur.role_id))]; // Unique IDs
+      const userIds = [...new Set(userRolesData.map(ur => ur.user_id))];
+      const roleIds = [...new Set(userRolesData.map(ur => ur.role_id))];
 
       const [profilesResult, rolesResult, projectUsersResult] = await Promise.all([
         supabase.from(Tables.profiles).select('id, name, email').in('id', userIds),
@@ -131,40 +149,53 @@ const ProjectRoles = () => {
         supabase.from(Tables.project_users).select('user_id, is_admin').eq('project_id', id).in('user_id', userIds)
       ]);
 
+      // Handle potential errors from Promise.all results
       if (profilesResult.error) throw profilesResult.error;
       if (rolesResult.error) throw rolesResult.error;
       if (projectUsersResult.error) throw projectUsersResult.error;
 
-      const profilesData = profilesResult.data;
-      const rolesData = rolesResult.data;
-      const projectUsersData = projectUsersResult.data;
+      const profilesData = profilesResult.data || [];
+      const rolesData = rolesResult.data || [];
+      const projectUsersData = projectUsersResult.data || [];
 
-      // Transform data carefully
-      const transformedData = userRolesData.map(userRole => {
-        const profile = profilesData?.find(p => p.id === userRole.user_id);
-        const role = rolesData?.find(r => r.id === userRole.role_id);
-        const projectUser = projectUsersData?.find(pu => pu.user_id === userRole.user_id);
+      // --- Grouping Logic ---
+      const groupedData: UserWithGroupedRoles[] = profilesData.map(profile => {
+        // Find all user_role assignments for this user
+        const currentUserRoles = userRolesData.filter(ur => ur.user_id === profile.id);
         
-        // Log if essential linked data is missing
-        if (!profile) logger.warn(`[ProjectRoles] Profile not found for user_id ${userRole.user_id} in user_role ${userRole.id}`);
-        if (!role) logger.warn(`[ProjectRoles] Role not found for role_id ${userRole.role_id} in user_role ${userRole.id}`);
+        // Find the project admin status for this user
+        const projectUser = projectUsersData.find(pu => pu.user_id === profile.id);
+        const isAdmin = projectUser?.is_admin || false;
         
+        // Map the roles for this user, including the user_role ID
+        const rolesForUser = currentUserRoles.map(userRole => {
+          const roleInfo = rolesData.find(r => r.id === userRole.role_id);
+          return {
+            roleId: userRole.role_id,
+            roleName: roleInfo?.name || `Rol ID: ${userRole.role_id.substring(0, 8)}...`,
+            userRoleId: userRole.id // Crucial: ID of the assignment itself
+          };
+        }).filter(r => r.roleName && !r.roleName.startsWith('Rol ID:')); // Filter out roles not found
+
         return {
-          ...userRole,
-          user_name: profile?.name || `Usuario ID: ${userRole.user_id.substring(0, 8)}...`, // Provide fallback
-          user_email: profile?.email || 'Correo no disponible',
-          role_name: role?.name || `Rol ID: ${userRole.role_id.substring(0, 8)}...`, // Provide fallback
-          is_project_admin: projectUser?.is_admin || false
+          userId: profile.id,
+          userName: profile.name || `Usuario ID: ${profile.id.substring(0, 8)}...`,
+          userEmail: profile.email || 'Correo no disponible',
+          isProjectAdmin: isAdmin,
+          roles: rolesForUser
         };
-      }).filter(ur => ur.role_name && !ur.role_name.startsWith('Rol ID:')); // Filter out entries where the role itself couldn't be found
-      
-      logger.debug(`[ProjectRoles] Transformed ${transformedData.length} valid user roles for project ID: ${id}`);
-      setUserRoles(transformedData as UserRole[]);
+      }).filter(user => user.roles.length > 0); // Only include users that have at least one valid role assigned
+
+      logger.debug(`[ProjectRoles] Transformed and grouped ${groupedData.length} users with roles for project ID: ${id}`);
+      setUsersWithGroupedRoles(groupedData);
+      // Maybe set original userRoles state too? Or remove it if no longer needed.
+      // setUserRoles(userRolesData); // If needed elsewhere
 
     } catch (error) {
-      logger.error(`[ProjectRoles] Error fetching user roles complex data for project ID: ${id}`, error);
+      logger.error(`[ProjectRoles] Error fetching/grouping user roles complex data for project ID: ${id}`, error);
       toast({ title: "Error", description: "No se pudieron cargar las asignaciones de roles.", variant: "destructive" });
-      setUserRoles([]);
+      setUserRoles([]); // Clear original state on error
+      setUsersWithGroupedRoles([]); // Clear grouped state on error
     }
   }, [toast]);
 
@@ -649,7 +680,7 @@ const ProjectRoles = () => {
                    </div>
                    <p className="mt-2 text-gray-600">Cargando asignaciones de roles...</p>
                  </div>
-              ) : userRoles.length === 0 ? (
+              ) : usersWithGroupedRoles.length === 0 ? (
                  <div className="text-center py-8 text-gray-500">
                    <div className="rounded-full bg-gray-100 p-3 w-12 h-12 inline-flex items-center justify-center mb-4">
                      <AlertCircle className="h-6 w-6 text-gray-400" />
@@ -664,63 +695,72 @@ const ProjectRoles = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Usuario</TableHead>
-                      <TableHead>Rol</TableHead>
+                      <TableHead>Roles</TableHead>
                       <TableHead>Admin Proyecto</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {userRoles.map((userRole) => (
-                      <TableRow key={userRole.id}>
+                    {usersWithGroupedRoles.map((user) => (
+                      <TableRow key={user.userId}>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{userRole.user_name}</div>
-                            {userRole.user_email !== 'Correo no disponible' && (
-                                <div className="text-sm text-gray-500">{userRole.user_email}</div>
+                            <div className="font-medium">{user.userName}</div>
+                            {user.userEmail !== 'Correo no disponible' && (
+                                <div className="text-sm text-gray-500">{user.userEmail}</div>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">{userRole.role_name}</Badge>
+                          <div className="flex flex-wrap gap-1 items-center">
+                            {user.roles.map((role) => (
+                              <div key={role.userRoleId} className="flex items-center gap-1 bg-gray-100 rounded px-1.5 py-0.5">
+                                <Badge variant="secondary" className="bg-transparent shadow-none p-0">
+                                  {role.roleName}
+                                </Badge>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="xs"
+                                      className="h-5 w-5 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                      onClick={() => setDeleteUserRoleId(role.userRoleId)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  {deleteUserRoleId === role.userRoleId && (
+                                      <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                          <AlertDialogTitle>¿Remover rol específico?</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                          Esta acción removerá únicamente el rol "{role.roleName}" del usuario {user.userName}.
+                                          </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                          <AlertDialogCancel onClick={() => setDeleteUserRoleId(null)}>Cancelar</AlertDialogCancel>
+                                          <AlertDialogAction 
+                                            className="bg-red-500 hover:bg-red-600"
+                                            onClick={() => handleRemoveUserRole(role.userRoleId)}
+                                          >
+                                            Remover Rol
+                                          </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                  )}
+                                </AlertDialog>
+                              </div>
+                            ))}
+                          </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={userRole.is_project_admin ? "default" : "outline"}>
-                            {userRole.is_project_admin ? "Sí" : "No"}
+                          <Badge variant={user.isProjectAdmin ? "default" : "outline"}>
+                            {user.isProjectAdmin ? "Sí" : "No"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => setDeleteUserRoleId(userRole.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            {deleteUserRoleId === userRole.id && (
-                                <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>¿Remover rol?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                    Esta acción removerá el rol "{userRole.role_name}" del usuario {userRole.user_name}. 
-                                    El usuario podría perder acceso a ciertos formularios. Esta acción no se puede deshacer directamente.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel onClick={() => setDeleteUserRoleId(null)}>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction 
-                                    className="bg-red-500 hover:bg-red-600"
-                                    onClick={() => handleRemoveUserRole(userRole.id)}
-                                    >
-                                    Remover Rol
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                                </AlertDialogContent>
-                            )}
-                          </AlertDialog>
+                          {/* Maybe add other actions per user later? For now, this cell might be empty or removed if all actions are per-role */}
+                          {/* Example: Edit user project settings? */}
                         </TableCell>
                       </TableRow>
                     ))}
