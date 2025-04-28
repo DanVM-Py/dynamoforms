@@ -25,7 +25,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useSidebarProjects } from "@/hooks/use-sidebar-projects";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tables } from "@/config/environment";
 import { logger } from '@/lib/logger';
@@ -47,8 +46,7 @@ const FormEdit = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { currentProjectId } = useSidebarProjects();
-  const { isGlobalAdmin } = useAuth();
+  const { user, isGlobalAdmin, currentProjectId } = useAuth();
   const supabaseClient = useSupabaseClientForFormEdit();
   
   const [activeTab, setActiveTab] = useState("basic-info");
@@ -86,20 +84,6 @@ const FormEdit = () => {
     enabled: !!formId,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
-  });
-
-  const { data: projects, isLoading: isLoadingProjects } = useQuery({
-    queryKey: ['projects'],
-    queryFn: async () => {
-      const { data, error } = await supabaseClient
-        .from(Tables.projects)
-        .select('id, name')
-        .order('name');
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: isGlobalAdmin,
-    staleTime: Infinity,
   });
 
   const saveFormMutation = useMutation({
@@ -154,6 +138,29 @@ const FormEdit = () => {
     },
   });
 
+  useEffect(() => {
+    if (formData) {
+      reset({
+        title: formData.title || '',
+        description: formData.description || '',
+        project_id: formData.project_id || '',
+        is_public: formData.is_public || false,
+      });
+      setFormSchemaState(formData.schema || { components: [], groups: [] });
+      setFormStatus(formData.status || 'draft');
+
+      if (currentProjectId && formData.project_id && formData.project_id !== currentProjectId) {
+        logger.warn(`[FormEdit] Mismatch: Form project ID (${formData.project_id}) vs Current context project ID (${currentProjectId}). Redirecting.`);
+        toast({ 
+          title: "Acceso denegado", 
+          description: "Este formulario pertenece a un proyecto diferente.", 
+          variant: "destructive" 
+        });
+        navigate('/forms-management', { replace: true });
+      }
+    }
+  }, [formData, reset, currentProjectId, navigate]);
+
   const onSubmit = (formData: FormEditData) => {
     saveFormMutation.mutate({ ...formData, schema: formSchemaState });
   };
@@ -206,7 +213,7 @@ const FormEdit = () => {
     }
   };
 
-  const isLoading = isLoadingForm || (isGlobalAdmin && isLoadingProjects);
+  const isLoading = isLoadingForm;
   const isProcessing = isSavingForm || toggleStatusMutation.isPending;
 
   if (isLoading) {
@@ -320,42 +327,6 @@ const FormEdit = () => {
                     <CardTitle>Información básica</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {isGlobalAdmin && (
-                      <FormField
-                        control={control}
-                        name="project_id"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel htmlFor="project-id">Proyecto</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value || ""}
-                              disabled={isLoadingProjects || isProcessing}
-                            >
-                              <FormControl>
-                                <SelectTrigger id="project-id">
-                                  <SelectValue placeholder="Seleccionar proyecto" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {isLoadingProjects ? (
-                                  <SelectItem value="loading" disabled>Cargando...</SelectItem>
-                                ) : (projects ?? []).map((project) => (
-                                  <SelectItem key={project.id} value={project.id}>
-                                    {project.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormDescription>
-                              El proyecto al que pertenece este formulario. Esto determina qué roles están disponibles para asignar.
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                  
                     <FormField
                       control={control}
                       name="title"
@@ -449,10 +420,10 @@ const FormEdit = () => {
                     />
                   </div>
                   
-                  {watchedIsPublic === false && (
+                  {watchedIsPublic === false && formData?.project_id && (
                     <FormRoleManager
                       formId={formId!}
-                      projectId={watchedProjectId}
+                      projectId={formData.project_id}
                       isProcessing={isProcessing}
                     />
                   )}

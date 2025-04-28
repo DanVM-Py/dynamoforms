@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { FormProvider } from '@/contexts/FormContext';
@@ -11,24 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FormManagement } from '@/types/forms';
 import { Pencil, Plus, FileText, Globe, Lock, Search, Filter } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-
-const FormsEditor: React.FC = () => {
-  const { isGlobalAdmin, isProjectAdmin } = useAuth();
-  const navigate = useNavigate();
-  
-  if (!isGlobalAdmin && !isProjectAdmin) {
-    navigate('/forms');
-    return null;
-  }
-
-  return (
-    <PageContainer title="Editor de Formularios">
-      <FormProvider mode="management">
-        <FormsEditorContent />
-      </FormProvider>
-    </PageContainer>
-  );
-};
+import { logger } from '@/utils/logger';
 
 const FormsEditorContent: React.FC = () => {
   const { forms, loading, error } = useFormContext();
@@ -36,12 +19,24 @@ const FormsEditorContent: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('title');
   const navigate = useNavigate();
+  const { currentProjectId } = useAuth();
+
+  // Log para depuración
+  useEffect(() => {
+    logger.debug('[FormsEditorContent] forms from context:', forms);
+    logger.debug('[FormsEditorContent] currentProjectId:', currentProjectId);
+  }, [forms, currentProjectId]);
 
   // Filter and sort the forms
   const filteredForms = React.useMemo(() => {
     let result = [...forms] as FormManagement[];
     
-    // Apply search filter
+    if (currentProjectId) {
+      result = result.filter(form => form.project_id === currentProjectId);
+    } else {
+      result = []; 
+    }
+
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       result = result.filter(form => 
@@ -51,12 +46,10 @@ const FormsEditorContent: React.FC = () => {
       );
     }
     
-    // Apply status filter
     if (statusFilter !== 'all') {
       result = result.filter(form => form.status === statusFilter);
     }
     
-    // Sort forms
     result.sort((a, b) => {
       if (sortBy === 'title') {
         return a.title.localeCompare(b.title);
@@ -72,11 +65,12 @@ const FormsEditorContent: React.FC = () => {
       return 0;
     });
     
+    logger.debug('[FormsEditorContent] Running filter. Result length:', result.length);
     return result;
-  }, [forms, searchTerm, statusFilter, sortBy]);
+  }, [forms, searchTerm, statusFilter, sortBy, currentProjectId]);
 
   const handleEditForm = (formId: string) => {
-    navigate(`/forms/${formId}/edit`);
+    navigate(`/forms-management/${formId}`);
   };
 
   const handleCreateForm = () => {
@@ -100,7 +94,7 @@ const FormsEditorContent: React.FC = () => {
     );
   }
 
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusBadgeVariant = (status: string): 'success' | 'secondary' | 'destructive' | 'default' => {
     switch (status) {
       case 'active': return 'success';
       case 'draft': return 'secondary';
@@ -174,11 +168,11 @@ const FormsEditorContent: React.FC = () => {
           <FileText className="h-12 w-12 text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900">No se encontraron formularios</h3>
           <p className="text-gray-500 mt-1">
-            {searchTerm || statusFilter !== 'all' 
-              ? 'Prueba con otros filtros de búsqueda' 
-              : 'Comienza creando tu primer formulario'}
+            {currentProjectId 
+             ? (searchTerm || statusFilter !== 'all' ? 'Prueba con otros filtros o revisa si hay formularios en este proyecto.' : 'No hay formularios en este proyecto. ¡Crea el primero!')
+             : 'Selecciona un proyecto para ver sus formularios.'}
           </p>
-          {!searchTerm && statusFilter === 'all' && (
+          {currentProjectId && !searchTerm && statusFilter === 'all' && (
             <Button onClick={handleCreateForm} className="mt-4">
               <Plus className="mr-2 h-4 w-4" />
               Crear formulario
@@ -204,13 +198,6 @@ const FormsEditorContent: React.FC = () => {
                 )}
                 
                 <div className="space-y-2 mt-auto">
-                  {form.project?.name && (
-                    <div className="flex items-center text-sm text-gray-500">
-                      <span className="font-medium">Proyecto:</span>
-                      <span className="ml-2">{form.project.name}</span>
-                    </div>
-                  )}
-                  
                   <div className="flex items-center text-sm text-gray-500">
                     <span className="font-medium">Respuestas:</span>
                     <span className="ml-2">{form.responses_count || 0}</span>
@@ -251,6 +238,24 @@ const FormsEditorContent: React.FC = () => {
         </div>
       )}
     </div>
+  );
+};
+
+const FormsEditor: React.FC = () => {
+  const { isGlobalAdmin, isProjectAdmin } = useAuth();
+  const navigate = useNavigate();
+  
+  if (!isGlobalAdmin && !isProjectAdmin) {
+    navigate('/forms');
+    return null;
+  }
+
+  return (
+    <PageContainer title="Editor de Formularios">
+      <FormProvider mode="management">
+        <FormsEditorContent />
+      </FormProvider>
+    </PageContainer>
   );
 };
 
