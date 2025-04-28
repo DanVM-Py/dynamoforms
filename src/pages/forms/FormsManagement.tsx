@@ -1,6 +1,6 @@
 import React from 'react';
 import { FormProvider } from '../../contexts/FormContext';
-import { FormManagementView } from '../../components/forms/FormManagementView';
+import FormsEditor from './FormsEditor';
 import { useAuth } from '../../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -14,9 +14,9 @@ const FormsManagement: React.FC = () => {
   }
 
   return (
-    <PageContainer title="">
+    <PageContainer title="Gestión de Formularios">
       <FormProvider mode="management">
-        <FormManagementView />
+        <FormsEditor />
       </FormProvider>
     </PageContainer>
   );

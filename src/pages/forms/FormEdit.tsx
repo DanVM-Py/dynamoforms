@@ -69,17 +69,46 @@ const FormEdit = () => {
   const watchedProjectId = watch("project_id");
   const watchedIsPublic = watch("is_public");
 
+  logger.debug(`[FormEdit Setup] formId value: ${formId}`);
+  logger.debug(`[FormEdit Setup] supabaseClient value: ${supabaseClient ? 'Defined' : 'UNDEFINED'}`);
+
   const { data: formData, isLoading: isLoadingForm, isError: isErrorForm, error: formError } = useQuery({
     queryKey: ['form', formId],
     queryFn: async () => {
-      if (!formId) return null;
-      const { data, error } = await supabaseClient
-        .from(Tables.forms)
-        .select('*')
-        .eq('id', formId)
-        .single();
-      if (error) throw error;
-      return data;
+      logger.debug(`[FormEdit Query] Running for formId: ${formId}`);
+      logger.debug(`[FormEdit Query] INSIDE queryFn - supabaseClient defined: ${supabaseClient ? 'Yes' : 'No'}`);
+      if (!formId) {
+        logger.warn("[FormEdit Query] No formId provided.");
+        return null;
+      }
+      try {
+        const client = supabaseClient;
+        logger.debug("[FormEdit Query] Using Supabase client:", client === supabase ? "Standard" : "Admin (if hook reverted)");
+        
+        logger.debug(`[FormEdit Query] Attempting to fetch from ${Tables.forms} with id: ${formId}`);
+        const { data, error } = await client 
+          .from(Tables.forms)
+          .select('*')
+          .eq('id', formId)
+          .single();
+
+        logger.debug("[FormEdit Query] Supabase call result - data:", data); 
+        logger.debug("[FormEdit Query] Supabase call result - error:", error); 
+
+        if (error && error.code !== 'PGRST116') {
+          logger.error("[FormEdit Query] Supabase query error (excluding PGRST116):", error);
+          throw error;
+        }
+        
+        if (!data) {
+           logger.warn(`[FormEdit Query] No data returned from Supabase for formId: ${formId}. Result was null/undefined (potentially RLS or non-existent ID).`);
+        }
+        
+        return data;
+      } catch (catchError: any) {
+         logger.error("[FormEdit Query] Error caught in queryFn:", catchError);
+         throw catchError;
+      }
     },
     enabled: !!formId,
     staleTime: 1000 * 60 * 5,
@@ -140,6 +169,7 @@ const FormEdit = () => {
 
   useEffect(() => {
     if (formData) {
+      logger.debug('[FormEdit] Populating form with formData:', formData);
       reset({
         title: formData.title || '',
         description: formData.description || '',
@@ -215,6 +245,10 @@ const FormEdit = () => {
 
   const isLoading = isLoadingForm;
   const isProcessing = isSavingForm || toggleStatusMutation.isPending;
+
+  logger.debug('[FormEdit] isLoadingForm:', isLoadingForm);
+  logger.debug('[FormEdit] isErrorForm:', isErrorForm);
+  logger.debug('[FormEdit] formData (before useEffect):', formData);
 
   if (isLoading) {
     return (

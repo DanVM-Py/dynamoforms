@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FormManagement } from '@/types/forms';
 import { Pencil, Plus, FileText, Globe, Lock, Search, Filter } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { logger } from '@/utils/logger';
+import { logger } from '@/lib/logger';
 
 const FormsEditorContent: React.FC = () => {
   const { forms, loading, error } = useFormContext();
@@ -244,18 +244,32 @@ const FormsEditorContent: React.FC = () => {
 const FormsEditor: React.FC = () => {
   const { isGlobalAdmin, isProjectAdmin } = useAuth();
   const navigate = useNavigate();
-  
-  if (!isGlobalAdmin && !isProjectAdmin) {
-    navigate('/forms');
+  const [shouldRedirect, setShouldRedirect] = useState(false);
+
+  useEffect(() => {
+    // Verificar permisos y marcar para redirección si es necesario
+    if (!isGlobalAdmin && !isProjectAdmin) {
+      setShouldRedirect(true);
+    }
+  }, [isGlobalAdmin, isProjectAdmin]);
+
+  useEffect(() => {
+    // Ejecutar la redirección si está marcada
+    if (shouldRedirect) {
+      navigate('/forms', { replace: true });
+    }
+  }, [shouldRedirect, navigate]);
+
+  // Si debe redirigir, retornar null temprano para evitar renderizar el resto
+  if (shouldRedirect) {
     return null;
   }
 
+  // Si tiene permisos, renderizar el contenido
   return (
-    <PageContainer title="Editor de Formularios">
-      <FormProvider mode="management">
-        <FormsEditorContent />
-      </FormProvider>
-    </PageContainer>
+    <FormProvider mode="management">
+      <FormsEditorContent />
+    </FormProvider>
   );
 };
 
