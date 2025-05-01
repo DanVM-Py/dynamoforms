@@ -11,6 +11,7 @@ import { Loader2, FileText, Lock, Globe } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/config/environment';
+import { checkPrivateFormRoleAccess } from '@/utils/accessControlUtils';
 
 // Define interface for the form data we fetch
 interface FormRole { // Assuming structure from FormRoleManager.tsx context
@@ -114,22 +115,15 @@ const OperationalFormsView: React.FC = () => {
       if (form.is_public) {
         allPublicForms.push(form);
       } else {
-        // Check access for private forms
-        // Ensure form_roles is definitely an array here before mapping
-        const requiredRoleIds = (form.form_roles || []).map(fr => fr.role_id); 
-        if (requiredRoleIds.length === 0) {
-          // No roles required, accessible by any project member (logged in)
+        // --- Use the utility function for private form access check ---
+        const hasAccess = checkPrivateFormRoleAccess(form.form_roles, userRolesData);
+        
+        if (hasAccess) {
           accessiblePrivateForms.push(form);
-          logger.debug(`[OperationalFormsView] Granting access to private form (no roles): ${form.title} (${form.id})`);
+          // Log details are now inside the utility function
         } else {
-          // Check if user has at least one required role
-          const hasAccess = requiredRoleIds.some(reqRoleId => userRoleIds.has(reqRoleId));
-          if (hasAccess) {
-            accessiblePrivateForms.push(form);
-            logger.debug(`[OperationalFormsView] Granting access to private form (role match): ${form.title} (${form.id})`);
-          } else {
-             logger.debug(`[OperationalFormsView] Denying access to private form (no role match): ${form.title} (${form.id}). Required: ${requiredRoleIds.join(', ')}`);
-          }
+          // Optional log: trace level might be better if logs become noisy
+          logger.trace(`[OperationalFormsView] Denying access to private form (checked by util): ${form.title} (${form.id})`);
         }
       }
     });

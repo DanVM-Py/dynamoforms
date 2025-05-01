@@ -432,10 +432,6 @@ const FormEdit = () => {
                   <CardTitle>Vista previa del formulario</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="mb-4">
-                    <h2 className="text-xl font-bold">{currentTitle}</h2>
-                    {watch("description") && (<p className="text-gray-600 mt-2">{watch("description")}</p>)}
-                  </div>
                   <div className="bg-white p-4 border rounded-md">
                     {(formSchemaState?.components?.length ?? 0) === 0 ? (
                       <div className="text-center py-8 text-gray-500">

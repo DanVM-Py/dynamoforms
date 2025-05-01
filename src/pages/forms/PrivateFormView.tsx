@@ -15,6 +15,7 @@ import { Tables } from '@/config/environment';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { logger } from '@/lib/logger';
 import { useQuery } from '@tanstack/react-query';
+import { checkPrivateFormRoleAccess } from '@/utils/accessControlUtils';
 
 // Define interface for user roles needed in this component
 interface UserProjectRole {
@@ -172,45 +173,37 @@ export function PrivateFormView() {
          }
          
         // Si es miembro del proyecto (no admin), verificar roles.
-        // userRolesData should be available here because the query is enabled by formProjectId
-        if (isProjectMember) {
+        if (isProjectMember && !isProjectAdmin) {
            if (isLoadingUserRoles) {
              // If user roles are still loading, keep the main loading state true
              logger.debug("[PrivateFormView] Waiting for user roles to load...");
              return; // Re-run useEffect when isLoadingUserRoles changes
            }
            
-           // Roles required by the form (already fetched)
-           const requiredRoleIds = (processedFormData.form_roles || []).map(fr => fr.role_id);
-           logger.trace("[PrivateFormView] Form requires roles:", requiredRoleIds);
+           // ---> Use the utility function here <---
+           // Replace the old logic block with this call
+           const hasRequiredRole = checkPrivateFormRoleAccess(
+              processedFormData.form_roles, // Roles from the form data
+              userRolesData // Roles from the user roles query
+           );
            
-           // Si el formulario no requiere roles específicos, el miembro tiene acceso
-           if (requiredRoleIds.length === 0) {
-              logger.debug("[PrivateFormView] Form requires no specific roles, project member access granted.");
-              setHasAccess(true);
-              setLoading(false);
-              return;
-            }
-            
-           // Si requiere roles, verificar si el usuario tiene alguno de ellos
-           // Use userRolesData from the useQuery hook
-           const userRoleIds = new Set((userRolesData || []).map(role => role.role_id));
-           const hasRequiredRole = requiredRoleIds.some(reqRoleId => userRoleIds.has(reqRoleId));
+           // Log details are now inside the utility function
+           logger.info(`[PrivateFormView] Role check result from util: ${hasRequiredRole}`);
            
-           logger.info(`[PrivateFormView] User roles check: User has roles [${Array.from(userRoleIds).join(', ')}]. Form requires [${requiredRoleIds.join(', ')}]. Access granted: ${hasRequiredRole}`);
-           
-           if (hasRequiredRole) {
-             logger.info("[PrivateFormView] User has required role, access granted.");
+           // Use the result from the utility function
+           if (hasRequiredRole) { 
+             logger.info("[PrivateFormView] Access granted based on role check util.");
              setHasAccess(true);
              setLoading(false);
              return;
            }
         }
 
-        // Si llegamos aquí, no es Global Admin, ni Project Admin, 
-        // ni miembro con el rol requerido (o no es miembro)
-        logger.warn("[PrivateFormView] Access Denied: User does not meet role requirements or is not a project member.");
-        throw new Error("No tienes permiso para acceder a este formulario. Verifica tus roles asignados o contacta al administrador del proyecto.");
+        // If we reach here, access is denied for non-admins/non-members/role-mismatch
+        if (!isGlobalAdmin && !isProjectAdmin) { // Ensure we only throw error if not admin
+            logger.warn("[PrivateFormView] Access Denied: User does not meet role requirements or is not a project member/admin.");
+            throw new Error("No tienes permiso para acceder a este formulario. Verifica tus roles asignados o contacta al administrador del proyecto.");
+        }
 
       } catch (error: any) {
         logger.error("[PrivateFormView] Access check failed:", error);
@@ -228,13 +221,12 @@ export function PrivateFormView() {
     }
 
     // Ejecutar chequeo de acceso si el usuario está listo y hay formId
-    // UseEffect will re-run if userRolesData loading state changes
     if (!authLoading && user && formId) {
       checkFormAccess();
     }
-    
-  // Update dependencies: Add userRolesData loading state
-  }, [formId, user, authLoading, isGlobalAdmin, navigate, isLoadingUserRoles, userRolesData]); 
+
+  // ---> CORRECTED Dependencies: Removed isLoadingUserRoles and userRolesData <---
+  }, [formId, user, authLoading, isGlobalAdmin, navigate]); // Only react to primary input changes
 
   const handleFormSubmit = async (submissionData: any) => {
     if (!formId || !user) return;
