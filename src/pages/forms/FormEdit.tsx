@@ -437,7 +437,7 @@ const FormEdit = () => {
                     {watch("description") && (<p className="text-gray-600 mt-2">{watch("description")}</p>)}
                   </div>
                   <div className="bg-white p-4 border rounded-md">
-                    {formSchemaState.components.length === 0 ? (
+                    {(formSchemaState?.components?.length ?? 0) === 0 ? (
                       <div className="text-center py-8 text-gray-500">
                          <p>Este formulario aún no tiene componentes.</p>
                          <p className="text-sm mt-2">Agrega componentes en la pestaña "Editor de Componentes".</p>
