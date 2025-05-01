@@ -189,27 +189,43 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
   };
 
   const handleSaveComponent = (component: FormComponent) => {
-    const updatedComponents = [...formSchema.components];
-    const existingIndex = updatedComponents.findIndex(c => c.id === component.id);
+    // Ensure we are working with an array
+    const currentComponents = formSchema.components || [];
     
-    if (existingIndex >= 0) {
-      updatedComponents[existingIndex] = component;
+    // Encontrar el índice del componente editado in the array actual
+    const componentIndex = currentComponents.findIndex(
+      comp => comp.id === component.id
+    );
+
+    let updatedComponents;
+    if (componentIndex > -1) {
+      // Componente existente, actualizarlo
+      updatedComponents = [
+        ...currentComponents.slice(0, componentIndex),
+        component,
+        ...currentComponents.slice(componentIndex + 1)
+      ];
     } else {
-      updatedComponents.push(component);
+      // Es un componente nuevo (aunque este flujo podría no darse aquí, es seguro manejarlo)
+      // Lo añadimos al final. Si tiene groupId, se mostrará en su grupo.
+      updatedComponents = [...currentComponents, component];
     }
-    
+
     onChange({
       ...formSchema,
       components: updatedComponents
     });
-    
     setEditingComponent(null);
     setShowComponentEditor(false);
   };
 
   const handleDeleteComponent = (componentId: string) => {
+    // Ensure we are working with an array
+    const currentComponents = formSchema.components || [];
+    const updatedComponents = currentComponents.filter(comp => comp.id !== componentId);
+
     // Primero, necesitamos eliminar cualquier dependencia condicional que otros componentes tengan en este
-    const updatedComponents = formSchema.components.map(component => {
+    const updatedComponentsWithConditions = updatedComponents.map(component => {
       if (component.conditionalDisplay?.controlledBy === componentId) {
         // Si este componente está siendo controlado por el que se elimina, quitamos la condición
         const { conditionalDisplay, ...rest } = component;
@@ -221,7 +237,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
     // Luego eliminamos el componente
     onChange({
       ...formSchema,
-      components: updatedComponents.filter(c => c.id !== componentId)
+      components: updatedComponentsWithConditions
     });
   };
 
