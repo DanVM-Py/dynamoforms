@@ -9,25 +9,73 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FormManagement } from '@/types/forms';
-import { Pencil, Plus, FileText, Globe, Lock, Search, Filter } from 'lucide-react';
+import { Pencil, Plus, FileText, Globe, Lock, Search, Filter, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { logger } from '@/lib/logger';
+import { useToast } from '@/components/ui/use-toast';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Tables } from '@/config/environment';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 const FormsEditorContent: React.FC = () => {
-  const { forms, loading, error } = useFormContext();
+  const { forms, loading, error, refreshForms } = useFormContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('title');
   const navigate = useNavigate();
   const { currentProjectId } = useAuth();
+  const [formToDelete, setFormToDelete] = useState<FormManagement | null>(null);
+  const { toast } = useToast();
 
-  // Log para depuración
+  const deleteFormMutation = useMutation({
+    mutationFn: async (formId: string) => {
+      if (!formId) throw new Error("Form ID no está disponible para eliminar.");
+
+      const { error } = await supabase
+        .from(Tables.forms)
+        .delete()
+        .eq('id', formId);
+      
+      if (error) {
+        logger.error('Error al eliminar formulario:', error);
+        throw new Error(error.message || "Error desconocido al eliminar");
+      }
+    },
+    onSuccess: () => {
+      toast({
+        title: "Formulario eliminado",
+        description: "El formulario ha sido eliminado exitosamente."
+      });
+      
+      refreshForms?.();
+      setFormToDelete(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al eliminar",
+        description: error.message || "No se pudo eliminar el formulario.",
+        variant: "destructive"
+      });
+      setFormToDelete(null);
+    }
+  });
+
   useEffect(() => {
     logger.debug('[FormsEditorContent] forms from context:', forms);
     logger.debug('[FormsEditorContent] currentProjectId:', currentProjectId);
   }, [forms, currentProjectId]);
 
-  // Filter and sort the forms
   const filteredForms = React.useMemo(() => {
     let result = [...forms] as FormManagement[];
     
@@ -75,6 +123,13 @@ const FormsEditorContent: React.FC = () => {
 
   const handleCreateForm = () => {
     navigate('/forms-management/new');
+  };
+
+  const handleConfirmDelete = () => {
+    if (formToDelete) {
+      logger.info(`Confirmando eliminación del formulario: ${formToDelete.title} (ID: ${formToDelete.id})`);
+      deleteFormMutation.mutate(formToDelete.id);
+    }
   };
 
   if (loading) {
@@ -182,58 +237,91 @@ const FormsEditorContent: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredForms.map((form) => (
-            <Card key={form.id} className="flex flex-col h-full hover:shadow-md transition-shadow">
-              <CardContent className="p-4 flex-grow">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-lg font-semibold line-clamp-1">{form.title}</h3>
-                  <Badge variant={getStatusBadgeVariant(form.status)}>
-                    {getStatusLabel(form.status)}
-                  </Badge>
-                </div>
-                
-                {form.description && (
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                    {form.description}
-                  </p>
-                )}
-                
-                <div className="space-y-2 mt-auto">
-                  <div className="flex items-center text-sm text-gray-500">
-                    <span className="font-medium">Respuestas:</span>
-                    <span className="ml-2">{form.responses_count || 0}</span>
+            <AlertDialog key={form.id}>
+              <Card className="flex flex-col h-full hover:shadow-md transition-shadow">
+                <CardContent className="p-4 flex-grow">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-lg font-semibold line-clamp-1">{form.title}</h3>
+                    <Badge variant={getStatusBadgeVariant(form.status)}>
+                      {getStatusLabel(form.status)}
+                    </Badge>
                   </div>
                   
-                  <div className="flex items-center text-sm text-gray-500">
-                    <span className="font-medium">Acceso:</span>
-                    <span className="ml-2 flex items-center">
-                      {form.is_public ? (
-                        <>
-                          <Globe className="h-3.5 w-3.5 text-green-500 mr-1" />
-                          Público
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="h-3.5 w-3.5 text-gray-500 mr-1" />
-                          Privado
-                        </>
-                      )}
-                    </span>
+                  {form.description && (
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                      {form.description}
+                    </p>
+                  )}
+                  
+                  <div className="space-y-2 mt-auto">
+                    <div className="flex items-center text-sm text-gray-500">
+                      <span className="font-medium">Respuestas:</span>
+                      <span className="ml-2">{form.responses_count || 0}</span>
+                    </div>
+                    
+                    <div className="flex items-center text-sm text-gray-500">
+                      <span className="font-medium">Acceso:</span>
+                      <span className="ml-2 flex items-center">
+                        {form.is_public ? (
+                          <>
+                            <Globe className="h-3.5 w-3.5 text-green-500 mr-1" />
+                            Público
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="h-3.5 w-3.5 text-gray-500 mr-1" />
+                            Privado
+                          </>
+                        )}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
+                </CardContent>
+                
+                <CardFooter className="p-4 pt-0 flex justify-between items-center">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 mr-2"
+                    onClick={() => handleEditForm(form.id)}
+                    disabled={!form.canEdit}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Editar formulario
+                  </Button>
+                  
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
+                      onClick={() => setFormToDelete(form)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Eliminar formulario</span>
+                    </Button>
+                  </AlertDialogTrigger>
+                </CardFooter>
+              </Card>
               
-              <CardFooter className="p-4 pt-0 border-t">
-                <Button 
-                  variant="outline" 
-                  className="w-full" 
-                  onClick={() => handleEditForm(form.id)}
-                  disabled={!form.canEdit}
-                >
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Editar formulario
-                </Button>
-              </CardFooter>
-            </Card>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción no se puede deshacer. Esto eliminará permanentemente el formulario "{formToDelete?.title}".
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setFormToDelete(null)}>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction 
+                     className="bg-red-500 hover:bg-red-600"
+                     onClick={handleConfirmDelete}
+                     disabled={deleteFormMutation.isPending}
+                   >
+                    {deleteFormMutation.isPending ? 'Eliminando...' : 'Eliminar'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           ))}
         </div>
       )}
@@ -247,25 +335,21 @@ const FormsEditor: React.FC = () => {
   const [shouldRedirect, setShouldRedirect] = useState(false);
 
   useEffect(() => {
-    // Verificar permisos y marcar para redirección si es necesario
     if (!isGlobalAdmin && !isProjectAdmin) {
       setShouldRedirect(true);
     }
   }, [isGlobalAdmin, isProjectAdmin]);
 
   useEffect(() => {
-    // Ejecutar la redirección si está marcada
     if (shouldRedirect) {
       navigate('/forms', { replace: true });
     }
   }, [shouldRedirect, navigate]);
 
-  // Si debe redirigir, retornar null temprano para evitar renderizar el resto
   if (shouldRedirect) {
     return null;
   }
 
-  // Si tiene permisos, renderizar el contenido
   return (
     <FormProvider mode="management">
       <FormsEditorContent />
