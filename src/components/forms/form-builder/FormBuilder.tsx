@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import { Separator } from "@/components/ui/separator";
 
 export interface FormComponent {
   id: string;
@@ -364,13 +365,13 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
   };
 
   // Filtrar componentes que no pertenecen a ningún grupo
-  const ungroupedComponents = formSchema.components.filter(
+  const ungroupedComponents = (formSchema.components || []).filter(
     comp => !comp.groupId
   );
 
   // Renderizar los componentes del grupo
   const renderGroupComponents = (groupId: string) => {
-    const groupComponents = formSchema.components.filter(
+    const groupComponents = (formSchema.components || []).filter(
       comp => comp.groupId === groupId
     );
 
@@ -480,11 +481,11 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
           </div>
         </CardHeader>
         <CardContent>
-          {formSchema.components.length === 0 && formSchema.groups.length === 0 ? (
+          {(formSchema.components || []).length === 0 && (formSchema.groups || []).length === 0 ? (
             <EmptyState onAddComponent={handleEmptyStateAddComponent} />
           ) : (
             <DragDropContext onDragEnd={handleDragEnd}>
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* Permitir reorganizar grupos */}
                 <Droppable droppableId="form-groups" type="group">
                   {(provided) => (
@@ -494,7 +495,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
                       className="space-y-4"
                     >
                       {/* Renderizar grupos */}
-                      {formSchema.groups.map((group, index) => (
+                      {(formSchema.groups || []).map((group, index) => (
                         <Draggable 
                           key={group.id} 
                           draggableId={group.id} 
@@ -555,15 +556,15 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
                                 </div>
                                 <CollapsibleContent>
                                   <div className="p-4">
-                                    <Droppable droppableId={group.id}>
-                                      {(providedDroppable) => (
+                                    <Droppable droppableId={group.id} type="component">
+                                      {(providedDroppableComponents) => (
                                         <div
-                                          ref={providedDroppable.innerRef}
-                                          {...providedDroppable.droppableProps}
+                                          ref={providedDroppableComponents.innerRef}
+                                          {...providedDroppableComponents.droppableProps}
                                           className="min-h-[80px]"
                                         >
                                           {renderGroupComponents(group.id)}
-                                          {providedDroppable.placeholder}
+                                          {providedDroppableComponents.placeholder}
                                           <Button 
                                             variant="outline" 
                                             size="sm" 
@@ -588,85 +589,97 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
                   )}
                 </Droppable>
 
+                {/* Separador visual para componentes sin grupo */}
+                {(formSchema.groups || []).length > 0 && ungroupedComponents.length > 0 && (
+                   <Separator className="my-4" />
+                )}
+
                 {/* Renderizar componentes sin grupo */}
-                <Droppable droppableId="form-components">
-                  {(provided) => (
+                <Droppable droppableId="form-components" type="component">
+                  {(providedUngrouped) => (
                     <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className="space-y-3"
+                      ref={providedUngrouped.innerRef}
+                      {...providedUngrouped.droppableProps}
+                      className="min-h-[100px] rounded-md border border-dashed border-gray-300 p-4 bg-gray-50"
                     >
-                      {ungroupedComponents.map((component, index) => (
-                        <Draggable 
-                          key={component.id} 
-                          draggableId={component.id} 
-                          index={index}
-                        >
-                          {(provided) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className="bg-white border rounded-md overflow-hidden"
-                            >
-                              <div className="flex items-center p-3 border-b bg-gray-50">
-                                <div 
-                                  {...provided.dragHandleProps} 
-                                  className="mr-2 cursor-move"
-                                >
-                                  <GripVertical className="h-5 w-5 text-gray-400" />
-                                </div>
-                                <div className="flex-1">
-                                  <span className="text-sm font-medium">
-                                    {component.label}
-                                  </span>
-                                  <span className="ml-2 text-xs text-gray-500">
-                                    ({component.type})
-                                  </span>
-                                  {component.required && (
-                                    <span className="ml-2 text-xs text-red-500">
-                                      (Obligatorio)
+                      <h4 className="text-sm font-medium mb-3 text-gray-600">Componentes sin Grupo</h4>
+                      {ungroupedComponents.length === 0 ? (
+                         <div className="text-center text-gray-500 italic">
+                            No hay componentes fuera de los grupos.
+                         </div>
+                      ) : (
+                         ungroupedComponents.map((component, index) => (
+                          <Draggable
+                            key={component.id}
+                            draggableId={component.id}
+                            index={index}
+                          >
+                            {(providedDraggableUngrouped) => (
+                              <div
+                                ref={providedDraggableUngrouped.innerRef}
+                                {...providedDraggableUngrouped.draggableProps}
+                                className="bg-white border rounded-md overflow-hidden mb-3"
+                              >
+                                <div className="flex items-center p-3 border-b bg-gray-50">
+                                  <div 
+                                    {...providedDraggableUngrouped.dragHandleProps} 
+                                    className="mr-2 cursor-move"
+                                  >
+                                    <GripVertical className="h-5 w-5 text-gray-400" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <span className="text-sm font-medium">
+                                      {component.label}
                                     </span>
-                                  )}
-                                  {component.conditionalDisplay && (
-                                    <span className="ml-2 text-xs text-blue-500">
-                                      (Condicional)
+                                    <span className="ml-2 text-xs text-gray-500">
+                                      ({component.type})
                                     </span>
-                                  )}
+                                    {component.required && (
+                                      <span className="ml-2 text-xs text-red-500">
+                                        (Obligatorio)
+                                      </span>
+                                    )}
+                                    {component.conditionalDisplay && (
+                                      <span className="ml-2 text-xs text-blue-500">
+                                        (Condicional)
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex space-x-2">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      onClick={() => handleCopyComponent(component)}
+                                      title="Duplicar componente"
+                                    >
+                                      <Copy className="h-4 w-4" />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      onClick={() => handleEditComponent(component)}
+                                    >
+                                      Editar
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      onClick={() => handleDeleteComponent(component.id)}
+                                      className="text-red-500 hover:text-red-700"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </div>
-                                <div className="flex space-x-2">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => handleCopyComponent(component)}
-                                    title="Duplicar componente"
-                                  >
-                                    <Copy className="h-4 w-4" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => handleEditComponent(component)}
-                                  >
-                                    Editar
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => handleDeleteComponent(component.id)}
-                                    className="text-red-500 hover:text-red-700"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                <div className="p-4">
+                                  <FormComponentPreview component={component} />
                                 </div>
                               </div>
-                              <div className="p-4">
-                                <FormComponentPreview component={component} />
-                              </div>
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
+                            )}
+                          </Draggable>
+                        ))
+                      )}
+                      {providedUngrouped.placeholder}
                     </div>
                   )}
                 </Droppable>
