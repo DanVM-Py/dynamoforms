@@ -86,19 +86,22 @@ export const EditProjectModal = ({ open, onOpenChange, project, onProjectUpdated
         .select(`
           user_id,
           is_admin,
-          profiles:user_id (id, name, email)
+          profiles: ${Tables.profiles} (id, name, email)
         `)
         .eq('project_id', project.id)
         .eq('is_admin', true);
       
-      if (error) throw error;
+      if (error) {
+        logger.error(`Error fetching admins for project ${project.id} with query using ${Tables.profiles}:`, error);
+        throw error;
+      }
       
+      logger.info('Datos de fetchProjectAdmins (con alias):', JSON.stringify(data, null, 2));
       setProjectAdmins(data || []);
     } catch (error) {
-      logger.error(`Error fetching admins for project ${project.id}:`, error);
       toast({
         title: "Error al cargar administradores",
-        description: error?.message || "No se pudo cargar la información de los administradores.",
+        description: error?.message || `No se pudo cargar la información de los administradores desde ${Tables.profiles}.`,
         variant: "destructive",
       });
       setProjectAdmins([]);
