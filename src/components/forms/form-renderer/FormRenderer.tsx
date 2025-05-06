@@ -509,6 +509,24 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
     }
   };
 
+  const renderGroup = (group: any) => (
+    <Collapsible key={group.id} defaultOpen={true} className="border rounded-md mb-4">
+      <CollapsibleTrigger className="flex justify-between items-center w-full p-4 bg-gray-50 hover:bg-gray-100 rounded-t-md">
+        <div>
+          <h3 className="font-medium">{group.title}</h3>
+          {group.description && <p className="text-sm text-gray-500">{group.description}</p>}
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="p-4 pt-4 border-t">
+        <div className="space-y-4">
+          {schema.components
+            .filter((component: any) => component.groupId === group.id)
+            .map((component: any) => renderComponent(component))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {schema.title && (
@@ -529,19 +547,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
       )}
       
       {schema.groups && schema.groups.length > 0 ? (
-        schema.groups.map((group: any) => (
-          <Collapsible key={group.id} className="w-full">
-            <CollapsibleTrigger className="flex items-center justify-between py-2 px-4 w-full text-lg font-semibold text-left rounded-md shadow-sm bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1">
-              {group.title}
-              <ChevronDown className="h-4 w-4 shrink-0 ml-2 transition-transform duration-200 peer-data-[state=open]:rotate-180" />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pl-4 space-y-4">
-              {schema.components
-                .filter((component: any) => component.groupId === group.id)
-                .map((component: any) => renderComponent(component))}
-            </CollapsibleContent>
-          </Collapsible>
-        ))
+        schema.groups.map((group: any) => renderGroup(group))
       ) : (
         schema.components.map((component: any) => renderComponent(component))
       )}
