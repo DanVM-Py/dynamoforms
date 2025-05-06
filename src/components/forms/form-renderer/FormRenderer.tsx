@@ -546,10 +546,10 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
         </Alert>
       )}
       
-      {schema.groups && schema.groups.length > 0 ? (
-        schema.groups.map((group: any) => renderGroup(group))
+      {(schema.groups && schema.groups.length > 0) ? (
+        (schema.groups || []).map((group: any) => renderGroup(group))
       ) : (
-        schema.components.map((component: any) => renderComponent(component))
+        (schema.components || []).map((component: any) => renderComponent(component))
       )}
 
       {!readOnly && (

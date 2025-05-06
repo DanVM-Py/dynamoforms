@@ -142,21 +142,32 @@ export function PublicFormView() {
     );
   }
 
-  if (!formData) {
+  if (!formData || !formData.schema) {
     return (
       <div className="container mx-auto py-8 px-4 text-center">
-        <h1 className="text-2xl font-bold mb-4">Formulario no encontrado</h1>
-        <p className="mb-6">El formulario que buscas no existe o no está disponible públicamente.</p>
+        <h1 className="text-2xl font-bold mb-4">Formulario no encontrado o inválido</h1>
+        <p className="mb-6">El formulario que buscas no existe, no está disponible públicamente, no está activo o su estructura interna es inválida.</p>
         <Button onClick={() => navigate('/')}>Volver al inicio</Button>
       </div>
     );
   }
 
+  // Define the schema object to pass, including title and description from formData
+  const schemaToRender = {
+    // Use title/description from the main formData record
+    title: formData.title, 
+    description: formData.description,
+    // Use components/groups from the nested schema column, providing fallbacks
+    components: formData.schema?.components || [], 
+    groups: formData.schema?.groups || [] 
+  };
+
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="max-w-4xl mx-auto">
         <FormRenderer
-          schema={formData}
+          // Pass the correctly structured schema object
+          schema={schemaToRender} 
           onSubmit={submitForm}
           formId={formId || ''}
           readOnly={false}

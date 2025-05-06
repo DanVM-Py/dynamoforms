@@ -238,7 +238,6 @@ export function PrivateFormView() {
           form_id: formId,
           user_id: user.id,
           response_data: submissionData,
-          project_id: formData?.project_id
         })
         .select('id')
         .single();
