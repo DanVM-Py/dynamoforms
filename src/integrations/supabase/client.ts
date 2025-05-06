@@ -2,6 +2,7 @@
 import { createClient, SupabaseClientOptions } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { config } from '@/config/environment';
+import { logger } from '@/lib/logger';
 
 // Define service constants for microservice identification
 export enum SERVICES {
@@ -46,7 +47,7 @@ const getClientOptions = (customHeaders = {}, storageKey = AUTH_STORAGE_KEY): Su
 // Singleton getter for primary Supabase client
 export const getSupabase = () => {
   if (!supabaseInstance) {
-    console.log("Creating new primary Supabase client instance");
+    logger.info("Creating new primary Supabase client instance");
     supabaseInstance = createClient<Database>(
       config.supabaseUrl,
       config.supabaseAnonKey,
@@ -59,14 +60,43 @@ export const getSupabase = () => {
 // Singleton getter for admin client
 export const getSupabaseAdmin = () => {
   if (!supabaseAdminInstance) {
-    console.log("Creating new admin Supabase client instance");
+    // Validate that required keys are present
+    if (!config.supabaseUrl || !config.supabaseServiceRoleKey) {
+      logger.info('Supabase URL or Service Role Key is missing in environment config for admin client.');
+      // Depending on your app's needs, you might throw an error or return null/handle gracefully
+      // For now, let's throw an error to make the configuration issue explicit.
+      throw new Error('Missing Supabase configuration for admin client.');
+    }
+    
+    logger.info("Creating new admin Supabase client instance with Service Role Key");
     supabaseAdminInstance = createClient<Database>(
       config.supabaseUrl,
-      config.supabaseAnonKey,
-      getClientOptions({
-        'X-Client-Info': 'admin-client',
-        'X-Admin-Access': 'true'
-      })
+      // Use the Service Role Key for admin privileges
+      config.supabaseServiceRoleKey,
+      // Provide specific options for the admin client, DO NOT use getClientOptions
+      {
+        auth: {
+          // Crucially disable session persistence for service role clients
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false // Not needed for service roles
+        },
+        global: {
+          // Keep custom headers if needed for backend identification
+          headers: {
+            'X-Client-Info': 'admin-client',
+            'X-Admin-Access': 'true' // This is custom, ensure your backend uses it if needed
+          },
+          // Keep fetch with timeout if desired
+          fetch: (url, options) => {
+            return fetch(url, {
+              ...options,
+              signal: options?.signal || AbortSignal.timeout(60000)
+            });
+          }
+        }
+        // db: { schema: "public" } // Can often be omitted if using the default
+      }
     );
   }
   return supabaseAdminInstance;
@@ -75,13 +105,33 @@ export const getSupabaseAdmin = () => {
 // Singleton getter for public/anonymous client
 export const getCustomSupabase = () => {
   if (!customSupabaseInstance) {
-    console.log("Creating new custom Supabase client instance");
+    if (!config.supabaseUrl || !config.supabaseAnonKey) {
+      logger.error('Supabase URL or Anon Key for custom client is missing.');
+      throw new Error('Supabase URL or Anon Key for custom client is missing.');
+    }
+    logger.debug("Creating new custom Supabase client instance");
     customSupabaseInstance = createClient<Database>(
       config.supabaseUrl,
       config.supabaseAnonKey,
-      getClientOptions({
-        'X-Client-Info': 'dynamo-system'
-      }, PUBLIC_STORAGE_KEY)
+      {
+        auth: {
+          storageKey: PUBLIC_STORAGE_KEY,
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false
+        },
+        global: {
+          headers: {
+            'X-Client-Info': 'dynamo-system'
+          },
+          fetch: (url, options) => {
+            return fetch(url, {
+              ...options,
+              signal: options?.signal || AbortSignal.timeout(60000)
+            });
+          }
+        }
+      }
     );
   }
   return customSupabaseInstance;
@@ -98,17 +148,17 @@ export const supabaseApiUrl = config.supabaseUrl;
 // Centralized function to get current session
 export const getCurrentSession = async () => {
   try {
-    console.log("Requesting current session...");
+    logger.debug("Requesting current session...");
     const { data, error } = await supabase.auth.getSession();
     
     if (error) {
-      console.error("Error getting current session:", error);
+      logger.error("Error getting current session:", error);
       return null;
     }
     
     return data.session;
   } catch (e) {
-    console.error("Error getting current session:", e);
+    logger.error("Error getting current session:", e);
     return null;
   }
 };
@@ -121,7 +171,7 @@ export const isAuthenticated = async () => {
 
 // Centralized function to clean up auth state
 export const cleanupAuthState = () => {
-  console.log("Cleaning up auth state across the application");
+  logger.info("Cleaning up auth state across the application");
   
   // Clear local/session storage items
   localStorage.removeItem('currentProjectId');
@@ -145,7 +195,7 @@ export const cleanupAuthState = () => {
   const storageKeys = Object.keys(localStorage);
   const supabaseKeys = storageKeys.filter(key => key.startsWith('sb-'));
   supabaseKeys.forEach(key => {
-    console.log("Clearing supabase storage key:", key);
+    logger.debug("Clearing supabase storage key:", key);
     localStorage.removeItem(key);
     sessionStorage.removeItem(key);
   });

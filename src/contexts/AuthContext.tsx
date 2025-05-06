@@ -1,9 +1,9 @@
-
-import { createContext, useContext, ReactNode, useEffect } from "react";
+import { createContext, useContext, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth as useAuthHook } from "@/hooks/useAuth";
 import { UserProfile } from "@/services/authService";
+import { logger } from "@/lib/logger";
 
 interface AuthContextType {
   session: Session | null;
@@ -14,9 +14,11 @@ interface AuthContextType {
   isProjectAdmin: boolean;
   isApprover: boolean;
   currentProjectId: string | null;
+  isInitialized: boolean;
   signOut: () => Promise<boolean>;
   refreshUserProfile: () => Promise<void>;
-  verifyAuthentication: () => void;
+  refreshAuthState: (fetchInitialProject?: boolean) => Promise<void>;
+  updateCurrentProject: (newProjectId: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,37 +32,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userProfile,
     isGlobalAdmin,
     isProjectAdmin,
+    isInitialized,
     isLoading: loading,
     currentProjectId,
     signOut,
     refreshAuthState,
-    verifyAuthentication
+    updateCurrentProject
   } = useAuthHook();
 
-  // Add isApprover state (defaulting to false)
   const isApprover = userProfile?.role === 'approver' || false;
-  
-  // Setup a verification heartbeat to ensure auth state stays valid
-  useEffect(() => {
-    // Verify authentication at key moments (first load, window focus)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log("Window became visible, verifying auth state");
-        verifyAuthentication();
-      }
-    };
-    
-    // Setup verification on window focus
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Do an initial verification
-    verifyAuthentication();
-    
-    // Cleanup
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [verifyAuthentication]);
 
   const refreshUserProfile = async () => {
     try {
@@ -70,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "La información de tu perfil ha sido actualizada."
       });
     } catch (error) {
-      console.error("Error refreshing user profile:", error);
+      logger.error("Error refreshing user profile:", error);
       toast({
         title: "Error",
         description: "No se pudo actualizar la información del perfil.",
@@ -79,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const value = {
+  const value: AuthContextType = {
     session,
     user,
     userProfile,
@@ -88,10 +68,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isProjectAdmin,
     isApprover,
     currentProjectId,
+    isInitialized,
     signOut,
     refreshUserProfile,
-    verifyAuthentication
+    refreshAuthState,
+    updateCurrentProject
   };
+
+  logger.debug("[AuthContext DEBUG] AuthProvider rendering. isInitialized:", isInitialized);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

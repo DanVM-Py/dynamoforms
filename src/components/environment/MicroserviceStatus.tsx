@@ -5,6 +5,7 @@ import { customSupabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { logger } from "@/lib/logger";
 
 interface ServiceMetric {
   service_id: string;
@@ -90,14 +91,14 @@ export const MicroserviceStatus = () => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log("Fetching metrics data...");
+      logger.info("Fetching metrics data...");
       
       const { data, error } = await customSupabase.functions.invoke('collect-metrics', {
         method: 'GET'
       });
       
       if (error) {
-        console.error("Error fetching metrics:", error);
+        logger.info("Error fetching metrics:", error);
         setError(`Error fetching metrics: ${error.message}`);
         toast({
           title: "Error fetching metrics",
@@ -108,10 +109,10 @@ export const MicroserviceStatus = () => {
         return;
       }
       
-      console.log("Metrics data received:", data);
+      logger.info("Metrics data received:", data);
       
       if (data?.error) {
-        console.error("Error in metrics data:", data.error);
+        logger.error("Error in metrics data:", data.error);
         setError(data.error);
         toast({
           title: "No metrics available",
@@ -123,7 +124,7 @@ export const MicroserviceStatus = () => {
       }
       
       if (!data || !data.metrics || data.metrics.length === 0) {
-        console.log("No metrics data available");
+        logger.info("No metrics data available");
         setError("No metrics data available. Please click 'Refresh' to collect current metrics.");
         toast({
           title: "No metrics available",
@@ -148,7 +149,7 @@ export const MicroserviceStatus = () => {
         return acc;
       }, {});
       
-      console.log("Latest metrics by service:", latestMetricsByService);
+      logger.info("Latest metrics by service:", latestMetricsByService);
       
       const updatedServices = services.map(service => {
         const serviceId = Object.entries(SERVICE_NAMES).find(
@@ -174,7 +175,7 @@ export const MicroserviceStatus = () => {
       setLastUpdated(new Date());
       setIsLoading(false);
     } catch (error) {
-      console.error("Error in fetchCurrentMetrics:", error);
+      logger.error("Error in fetchCurrentMetrics:", error);
       setError(`Failed to fetch metrics: ${error.message || "Unknown error"}`);
       toast({
         title: "Error",
@@ -189,7 +190,7 @@ export const MicroserviceStatus = () => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log("Triggering metrics collection");
+      logger.info("Triggering metrics collection");
       
       toast({
         title: "Refreshing metrics",
@@ -206,7 +207,7 @@ export const MicroserviceStatus = () => {
       });
       
       if (error) {
-        console.error("Error triggering metrics collection:", error);
+        logger.error("Error triggering metrics collection:", error);
         setError(`Error refreshing metrics: ${error.message}`);
         toast({
           title: "Error refreshing metrics",
@@ -215,10 +216,9 @@ export const MicroserviceStatus = () => {
         });
         setIsLoading(false);
         throw error;
-      }
-      
+      }      
       if (data?.error) {
-        console.error("Error in metrics collection:", data.error);
+        logger.error("Error in metrics collection:", data.error);
         setError(data.error);
         toast({
           title: "Error collecting metrics",
@@ -228,8 +228,8 @@ export const MicroserviceStatus = () => {
         setIsLoading(false);
         return;
       }
-      
-      console.log("Metrics collection triggered successfully:", data);
+
+      logger.info("Metrics collection triggered successfully:", data);
       
       if (data?.developmentMode !== undefined) {
         setDevelopmentMode(data.developmentMode);
@@ -278,13 +278,13 @@ export const MicroserviceStatus = () => {
         });
       } else {
         // Fall back to fetching stored metrics if collection doesn't return data
-        console.log("No data in collection response, fetching stored metrics...");
+        logger.debug("No data in collection response, fetching stored metrics...");
         await fetchCurrentMetrics();
       }
       
       setIsLoading(false);
     } catch (error) {
-      console.error("Error triggering metrics collection:", error);
+      logger.error("Error triggering metrics collection:", error);
       setError(`Failed to refresh metrics: ${error.message || "Unknown error"}`);
       toast({
         title: "Error",

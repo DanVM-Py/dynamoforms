@@ -1,6 +1,5 @@
-import { Database } from './supabase';
+import { Form as BaseForm, FormStatus as BaseFormStatus } from './database-entities';
 
-export type FormStatus = 'draft' | 'published' | 'closed' | 'active';
 export type FormMode = 'operational' | 'management';
 
 export interface FormBase {
@@ -8,7 +7,7 @@ export interface FormBase {
   title: string;
   description: string | null;
   project_id: string | null;
-  status: FormStatus;
+  status: BaseFormStatus;
   created_at: string;
   updated_at: string;
   created_by: string;
@@ -38,6 +37,6 @@ export interface FormAccessControl {
 }
 
 // Tipos de Supabase
-export type SupabaseForm = Database['public']['Tables']['forms']['Row'];
-export type SupabaseFormInsert = Database['public']['Tables']['forms']['Insert'];
-export type SupabaseFormUpdate = Database['public']['Tables']['forms']['Update']; 
+export type SupabaseForm = BaseForm;
+export type SupabaseFormInsert = BaseForm & { /* campos específicos de insert */ };
+export type SupabaseFormUpdate = Partial<BaseForm> & { /* campos específicos de update */ }; 

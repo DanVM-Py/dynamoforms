@@ -4,10 +4,13 @@ import { useSidebarProjects } from './use-sidebar-projects';
 import { FormAccessControl } from '../types/forms';
 import { supabase, supabaseAdmin } from '../integrations/supabase/client';
 import { Tables } from '../config/environment';
+import { logger } from "@/lib/logger";
 
 export const useFormAccess = () => {
   const { isGlobalAdmin, isProjectAdmin, user } = useAuth();
   const { currentProjectId } = useSidebarProjects();
+  logger.info(`[useFormAccess] Hook initialized/re-evaluated. currentProjectId: ${currentProjectId}, isGlobalAdmin: ${isGlobalAdmin}, isProjectAdmin: ${isProjectAdmin}`);
+  
   const [accessControl, setAccessControl] = useState<FormAccessControl>({
     canEdit: false,
     canView: false,
@@ -18,6 +21,7 @@ export const useFormAccess = () => {
   useEffect(() => {
     const fetchAccessControl = async () => {
       if (!user?.id) return;
+      logger.info(`[useFormAccess] Fetching forms. Filtering by project ID: ${!isGlobalAdmin && currentProjectId ? currentProjectId : 'None (Global Admin or no project selected)'}`);
 
       try {
         const client = isGlobalAdmin ? supabaseAdmin : supabase;
@@ -36,7 +40,7 @@ export const useFormAccess = () => {
         // Determinar permisos
         const canEdit = Boolean(isGlobalAdmin || (isProjectAdmin && currentProjectId));
         const canView = Boolean(true); // Todos los usuarios pueden ver formularios
-        const canDelete = Boolean(isGlobalAdmin);
+        const canDelete = Boolean(isGlobalAdmin || isProjectAdmin);
         const projectForms = forms?.map(form => form.id) || [];
 
         setAccessControl({
@@ -46,7 +50,7 @@ export const useFormAccess = () => {
           projectForms
         });
       } catch (error) {
-        console.error('Error fetching form access control:', error);
+        logger.error('Error fetching form access control:', error);
       }
     };
 

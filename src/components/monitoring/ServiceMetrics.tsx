@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,8 @@ import { Area, AreaChart, Bar, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { Tables } from '@/config/environment';
+import { logger } from '@/lib/logger';
 
 interface ServiceMetric {
   id: string;
@@ -93,7 +95,7 @@ const serviceConfig = [
 
 const mapServiceMetrics = (metricsData: ServiceMetric[]): ServiceHealth[] => {
   if (!metricsData || !Array.isArray(metricsData) || metricsData.length === 0) {
-    console.log("No hay datos de métricas disponibles o formato incorrecto", metricsData);
+    logger.warn("No hay datos de métricas disponibles o formato incorrecto", metricsData);
     return serviceConfig.map(service => ({
       id: service.id,
       name: service.name,
@@ -119,7 +121,7 @@ const mapServiceMetrics = (metricsData: ServiceMetric[]): ServiceHealth[] => {
     }));
   }
 
-  console.log("Mapeando métricas de servicios:", metricsData);
+  logger.debug("Mapeando métricas de servicios:", metricsData);
   
   const latestMetricsByService = metricsData.reduce((acc, metric) => {
     if (!acc[metric.service_id] || 
@@ -133,7 +135,7 @@ const mapServiceMetrics = (metricsData: ServiceMetric[]): ServiceHealth[] => {
     const serviceMetric = latestMetricsByService[service.id];
     
     if (!serviceMetric) {
-      console.log(`No se encontraron métricas para el servicio: ${service.id}`);
+      logger.debug(`No se encontraron métricas para el servicio: ${service.id}`);
       return {
         id: service.id,
         name: service.name,
@@ -186,7 +188,7 @@ const mapServiceMetrics = (metricsData: ServiceMetric[]): ServiceHealth[] => {
 };
 
 const fetchServiceMetrics = async (): Promise<ServiceHealth[]> => {
-  console.log("Obteniendo métricas de servicios...");
+  logger.info("Obteniendo métricas de servicios...");
   
   try {
     const { data, error } = await supabase.functions.invoke('collect-metrics', {
@@ -194,32 +196,32 @@ const fetchServiceMetrics = async (): Promise<ServiceHealth[]> => {
     });
 
     if (error) {
-      console.error('Error fetching service metrics:', error);
+      logger.error('Error fetching service metrics:', error);
       throw error;
     }
 
-    console.log('Received metrics data:', data);
+    logger.debug('Received metrics data:', data);
     
     if (!data || !data.metrics) {
-      console.warn('Formato de datos de métricas no válido recibido', data);
+      logger.warn('Formato de datos de métricas no válido recibido', data);
       return [];
     }
     
     const metricsArray = Array.isArray(data.metrics) ? data.metrics : [];
     
     if (metricsArray.length === 0) {
-      console.warn('No se recibieron métricas de servicios');
+      logger.warn('No se recibieron métricas de servicios');
     }
 
     return mapServiceMetrics(metricsArray);
   } catch (error) {
-    console.error('Error al obtener métricas:', error);
+    logger.error('Error al obtener métricas:', error);
     throw error;
   }
 };
 
 const refreshServiceMetrics = async (): Promise<ServiceHealth[]> => {
-  console.log("Actualizando métricas de servicios con limpieza previa...");
+  logger.info("Actualizando métricas de servicios con limpieza previa...");
   
   try {
     const { data, error } = await supabase.functions.invoke('collect-metrics', {
@@ -231,26 +233,26 @@ const refreshServiceMetrics = async (): Promise<ServiceHealth[]> => {
     });
 
     if (error) {
-      console.error('Error refreshing service metrics:', error);
+      logger.error('Error refreshing service metrics:', error);
       throw error;
     }
 
-    console.log('Refreshed metrics data:', data);
+    logger.debug('Refreshed metrics data:', data);
     
     if (!data || !data.metrics) {
-      console.warn('Formato de datos de métricas no válido recibido', data);
+      logger.warn('Formato de datos de métricas no válido recibido', data);
       return [];
     }
     
     const metricsArray = Array.isArray(data.metrics) ? data.metrics : [];
     
     if (metricsArray.length === 0) {
-      console.warn('No se recibieron métricas nuevas de servicios');
+      logger.warn('No se recibieron métricas nuevas de servicios');
     }
 
     return mapServiceMetrics(metricsArray);
   } catch (error) {
-    console.error('Error al actualizar métricas:', error);
+    logger.error('Error al actualizar métricas:', error);
     throw error;
   }
 };
@@ -277,7 +279,7 @@ export function ServiceMetrics() {
         description: "Obteniendo datos en tiempo real..."
       });
       
-      console.log("Iniciando actualización manual de métricas");
+      logger.info("Iniciando actualización manual de métricas");
       await refreshServiceMetrics();
       await refetch();
       
@@ -286,7 +288,7 @@ export function ServiceMetrics() {
         description: "Los datos de los servicios han sido actualizados correctamente."
       });
     } catch (error) {
-      console.error('Error refreshing metrics:', error);
+      logger.error('Error refreshing metrics:', error);
       toast({
         title: "Error al actualizar métricas",
         description: "No se pudieron actualizar los datos de los servicios.",

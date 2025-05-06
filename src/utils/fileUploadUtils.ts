@@ -1,6 +1,7 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
+import { logger } from '@/lib/logger';
+import { Tables } from "@/config/environment";
 
 /**
  * Uploads a file to the Supabase storage and returns the URL
@@ -20,24 +21,25 @@ export const uploadFileToStorage = async (
     
     // Upload the file to the Supabase storage
     const { data, error } = await supabase.storage
-      .from("form_attachments")
+      .from(Tables.form_attachments)
       .upload(fullPath, file, {
         cacheControl: "3600",
         upsert: false,
       });
     
     if (error) {
+      logger.error("Error uploading file:", error);
       throw error;
     }
     
     // Get the public URL of the uploaded file
     const { data: publicUrlData } = supabase.storage
-      .from("form_attachments")
+      .from(Tables.form_attachments)
       .getPublicUrl(data.path);
     
     return publicUrlData.publicUrl;
   } catch (error) {
-    console.error("Error uploading file:", error);
+    logger.error("Error uploading file:", error);
     throw new Error("No se pudo subir el archivo. Por favor, inténtelo de nuevo.");
   }
 };
@@ -78,7 +80,7 @@ export const uploadBase64Image = async (
     const file = dataURLtoFile(dataUrl, `signature-${Date.now()}.png`);
     return await uploadFileToStorage(file, folderPath);
   } catch (error) {
-    console.error("Error uploading base64 image:", error);
+    logger.error("Error uploading base64 image:", error);
     throw new Error("No se pudo subir la imagen. Por favor, inténtelo de nuevo.");
   }
 };

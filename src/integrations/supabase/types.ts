@@ -9,6 +9,684 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      dev_form_attachments: {
+        Row: {
+          form_id: string
+          id: string
+          is_anonymous: boolean
+          response_data: Json
+          submitted_at: string
+          user_id: string | null
+        }
+        Insert: {
+          form_id: string
+          id?: string
+          is_anonymous?: boolean
+          response_data?: Json
+          submitted_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          form_id?: string
+          id?: string
+          is_anonymous?: boolean
+          response_data?: Json
+          submitted_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_form_attachments_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "dev_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_form_attachments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_form_responses: {
+        Row: {
+          form_id: string
+          id: string
+          is_anonymous: boolean
+          response_data: Json
+          submitted_at: string
+          user_id: string | null
+        }
+        Insert: {
+          form_id: string
+          id?: string
+          is_anonymous?: boolean
+          response_data?: Json
+          submitted_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          form_id?: string
+          id?: string
+          is_anonymous?: boolean
+          response_data?: Json
+          submitted_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_form_responses_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "dev_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_form_responses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_form_roles: {
+        Row: {
+          created_at: string
+          created_by: string
+          form_id: string
+          id: string
+          role_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          form_id: string
+          id?: string
+          role_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          form_id?: string
+          id?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_form_roles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_form_roles_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "dev_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_form_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "dev_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_forms: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_public: boolean
+          project_id: string | null
+          schema: Json
+          status: Database["public"]["Enums"]["form_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          project_id?: string | null
+          schema?: Json
+          status?: Database["public"]["Enums"]["form_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean
+          project_id?: string | null
+          schema?: Json
+          status?: Database["public"]["Enums"]["form_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_forms_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_forms_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "dev_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          metadata: Json | null
+          project_id: string | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["notification_status"]
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          metadata?: Json | null
+          project_id?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          metadata?: Json | null
+          project_id?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
+          title?: string
+          type?: Database["public"]["Enums"]["notification_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_notifications_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "dev_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          name: string
+          role?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          role?: string
+        }
+        Relationships: []
+      }
+      dev_project_users: {
+        Row: {
+          access_level: string | null
+          activated_at: string | null
+          created_at: string | null
+          id: string
+          invited_at: string
+          is_admin: boolean | null
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          access_level?: string | null
+          activated_at?: string | null
+          created_at?: string | null
+          id?: string
+          invited_at?: string
+          is_admin?: boolean | null
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          access_level?: string | null
+          activated_at?: string | null
+          created_at?: string | null
+          id?: string
+          invited_at?: string
+          is_admin?: boolean | null
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_project_users_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "dev_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_project_users_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_projects: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_roles: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_roles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "dev_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_roles_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "dev_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_service_metrics: {
+        Row: {
+          checked_at: string
+          cpu_usage: number
+          error_rate: number
+          id: string
+          memory_usage: number
+          message: string | null
+          metrics_data: Json | null
+          request_count: number
+          response_time: number
+          service_id: string
+          status: string
+          trends: Json | null
+        }
+        Insert: {
+          checked_at?: string
+          cpu_usage: number
+          error_rate: number
+          id?: string
+          memory_usage: number
+          message?: string | null
+          metrics_data?: Json | null
+          request_count: number
+          response_time: number
+          service_id: string
+          status: string
+          trends?: Json | null
+        }
+        Update: {
+          checked_at?: string
+          cpu_usage?: number
+          error_rate?: number
+          id?: string
+          memory_usage?: number
+          message?: string | null
+          metrics_data?: Json | null
+          request_count?: number
+          response_time?: number
+          service_id?: string
+          status?: string
+          trends?: Json | null
+        }
+        Relationships: []
+      }
+      dev_task_templates: {
+        Row: {
+          assignee_form_field: string | null
+          assignment_type: string
+          created_at: string
+          default_assignee: string | null
+          description: string | null
+          due_days: number | null
+          id: string
+          inheritance_mapping: Json | null
+          is_active: boolean
+          min_days: number | null
+          project_id: string | null
+          source_form_id: string
+          target_form_id: string
+          title: string
+        }
+        Insert: {
+          assignee_form_field?: string | null
+          assignment_type: string
+          created_at?: string
+          default_assignee?: string | null
+          description?: string | null
+          due_days?: number | null
+          id?: string
+          inheritance_mapping?: Json | null
+          is_active?: boolean
+          min_days?: number | null
+          project_id?: string | null
+          source_form_id: string
+          target_form_id: string
+          title: string
+        }
+        Update: {
+          assignee_form_field?: string | null
+          assignment_type?: string
+          created_at?: string
+          default_assignee?: string | null
+          description?: string | null
+          due_days?: number | null
+          id?: string
+          inheritance_mapping?: Json | null
+          is_active?: boolean
+          min_days?: number | null
+          project_id?: string | null
+          source_form_id?: string
+          target_form_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_task_templates_default_assignee_fkey"
+            columns: ["default_assignee"]
+            isOneToOne: false
+            referencedRelation: "dev_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_task_templates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "dev_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_task_templates_source_form_id_fkey"
+            columns: ["source_form_id"]
+            isOneToOne: false
+            referencedRelation: "dev_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_task_templates_target_form_id_fkey"
+            columns: ["target_form_id"]
+            isOneToOne: false
+            referencedRelation: "dev_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_tasks: {
+        Row: {
+          assigned_to: string
+          created_at: string
+          description: string | null
+          due_date: string | null
+          form_id: string | null
+          form_response_id: string | null
+          id: string
+          priority: string | null
+          project_id: string | null
+          source_form_id: string | null
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          form_id?: string | null
+          form_response_id?: string | null
+          id?: string
+          priority?: string | null
+          project_id?: string | null
+          source_form_id?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          form_id?: string | null
+          form_response_id?: string | null
+          id?: string
+          priority?: string | null
+          project_id?: string | null
+          source_form_id?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "dev_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_tasks_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "dev_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_tasks_form_response_id_fkey"
+            columns: ["form_response_id"]
+            isOneToOne: false
+            referencedRelation: "dev_form_responses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "dev_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_tasks_source_form_id_fkey"
+            columns: ["source_form_id"]
+            isOneToOne: false
+            referencedRelation: "dev_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dev_user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          role_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          role_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          role_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dev_user_roles_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "dev_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_user_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "dev_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "dev_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      form_attachments: {
+        Row: {
+          form_id: string
+          id: string
+          is_anonymous: boolean
+          response_data: Json
+          submitted_at: string
+          user_id: string | null
+        }
+        Insert: {
+          form_id: string
+          id?: string
+          is_anonymous?: boolean
+          response_data?: Json
+          submitted_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          form_id?: string
+          id?: string
+          is_anonymous?: boolean
+          response_data?: Json
+          submitted_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_attachments_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_attachments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       form_responses: {
         Row: {
           form_id: string
@@ -234,56 +912,33 @@ export type Database = {
           access_level: string | null
           activated_at: string | null
           created_at: string | null
-          created_by: string | null
           id: string
           invited_at: string
-          invited_by: string
           is_admin: boolean | null
           project_id: string
-          status: string
           user_id: string
         }
         Insert: {
           access_level?: string | null
           activated_at?: string | null
           created_at?: string | null
-          created_by?: string | null
           id?: string
           invited_at?: string
-          invited_by: string
           is_admin?: boolean | null
           project_id: string
-          status: string
           user_id: string
         }
         Update: {
           access_level?: string | null
           activated_at?: string | null
           created_at?: string | null
-          created_by?: string | null
           id?: string
           invited_at?: string
-          invited_by?: string
           is_admin?: boolean | null
           project_id?: string
-          status?: string
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "project_users_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_users_invited_by_fkey"
-            columns: ["invited_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "project_users_project_id_fkey"
             columns: ["project_id"]
@@ -582,47 +1237,27 @@ export type Database = {
       }
       user_roles: {
         Row: {
-          assigned_at: string
-          assigned_by: string
-          created_by: string | null
+          created_at: string
           id: string
           project_id: string
           role_id: string
           user_id: string
         }
         Insert: {
-          assigned_at?: string
-          assigned_by: string
-          created_by?: string | null
+          created_at?: string
           id?: string
           project_id: string
           role_id: string
           user_id: string
         }
         Update: {
-          assigned_at?: string
-          assigned_by?: string
-          created_by?: string | null
+          created_at?: string
           id?: string
           project_id?: string
           role_id?: string
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "user_roles_assigned_by_fkey"
-            columns: ["assigned_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_roles_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "user_roles_project_id_fkey"
             columns: ["project_id"]
@@ -656,23 +1291,19 @@ export type Database = {
         Returns: string
       }
       is_global_admin: {
-        Args: {
-          user_uuid: string
-        }
+        Args: { user_uuid: string; is_production: boolean }
         Returns: boolean
       }
       is_project_admin: {
         Args: {
           user_uuid: string
           project_uuid: string
+          is_production: boolean
         }
         Returns: boolean
       }
       user_has_form_access: {
-        Args: {
-          user_uuid: string
-          form_uuid: string
-        }
+        Args: { user_uuid: string; form_uuid: string }
         Returns: boolean
       }
     }
@@ -696,27 +1327,29 @@ export type Database = {
   }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
+type DefaultSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -724,20 +1357,22 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -745,20 +1380,22 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -766,21 +1403,23 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
     | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
+    | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof Database },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof Database
@@ -789,6 +1428,26 @@ export type CompositeTypes<
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
   ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      form_status: ["draft", "active", "closed"],
+      notification_status: ["sent", "failed", "retrying"],
+      notification_type: ["email", "whatsapp"],
+      service_status: ["healthy", "degraded", "down"],
+      task_status: ["pending", "in_progress", "completed"],
+      user_role: ["global_admin", "project_admin", "user", "approver"],
+      user_role_old: [
+        "admin",
+        "user",
+        "approver",
+        "global_admin",
+        "project_admin",
+      ],
+    },
+  },
+} as const

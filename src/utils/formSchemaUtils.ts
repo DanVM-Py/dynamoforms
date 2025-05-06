@@ -3,7 +3,8 @@
  * 
  * This module provides helpers for validating and working with form schemas.
  */
-import { Json } from '@/types/supabase';
+import { Json } from '@/types/database-entities';
+import { logger } from '@/lib/logger';
 
 // Define a proper FormSchema interface to ensure type safety
 export interface FormSchema {
@@ -28,30 +29,30 @@ export interface FormSchema {
  */
 export const isValidFormSchema = (schema: any): schema is FormSchema => {
   if (!schema) {
-    console.warn("[FormSchemaUtils] Schema is null or undefined");
+    logger.warn("[FormSchemaUtils] Schema is null or undefined");
     return false;
   }
   
   // Handle string serialized JSON
   if (typeof schema === 'string') {
     try {
-      console.log("[FormSchemaUtils] Schema is a string, trying to parse as JSON:", 
+      logger.info("[FormSchemaUtils] Schema is a string, trying to parse as JSON:", 
         schema.substring(0, 100) + (schema.length > 100 ? "..." : ""));
       const parsedSchema = JSON.parse(schema);
       return isValidFormSchema(parsedSchema);
     } catch (e) {
-      console.error("[FormSchemaUtils] Failed to parse schema string:", e);
+      logger.error("[FormSchemaUtils] Failed to parse schema string:", e);
       return false;
     }
   }
   
   // Check for Json array type from Supabase (this is crucial for type safety)
   if (Array.isArray(schema)) {
-    console.warn("[FormSchemaUtils] Schema is an array, not an object with components");
+    logger.warn("[FormSchemaUtils] Schema is an array, not an object with components");
     
     // Intenta verificar si es un array que contiene un objeto válido
     if (schema.length > 0 && typeof schema[0] === 'object') {
-      console.log("[FormSchemaUtils] Attempting to use first item of array");
+      logger.info("[FormSchemaUtils] Attempting to use first item of array");
       return isValidFormSchema(schema[0]);
     }
     
@@ -65,16 +66,16 @@ export const isValidFormSchema = (schema: any): schema is FormSchema => {
                 Array.isArray(schema.components);
                 
   if (!isValid) {
-    console.warn("[FormSchemaUtils] Schema is not valid:", 
+    logger.warn("[FormSchemaUtils] Schema is not valid:", 
       typeof schema === 'object' ? 
         JSON.stringify(schema).substring(0, 200) + "..." : 
         `Not an object: ${typeof schema}`);
     
     if (typeof schema === 'object') {
-      console.warn("[FormSchemaUtils] Schema keys:", Object.keys(schema));
+      logger.warn("[FormSchemaUtils] Schema keys:", Object.keys(schema));
     }
   } else {
-    console.log("[FormSchemaUtils] Valid schema with", schema.components.length, "components");
+    logger.info("[FormSchemaUtils] Valid schema with", schema.components.length, "components");
   }
   return isValid;
 };
@@ -85,7 +86,7 @@ export const isValidFormSchema = (schema: any): schema is FormSchema => {
  */
 export const getValidFormSchema = (formSchema: any): FormSchema | null => {
   if (!formSchema) {
-    console.warn("[FormSchemaUtils] Schema is empty or null");
+    logger.warn("[FormSchemaUtils] Schema is empty or null");
     return null;
   }
   
@@ -93,17 +94,17 @@ export const getValidFormSchema = (formSchema: any): FormSchema | null => {
   let schema = formSchema;
   if (typeof formSchema === 'string') {
     try {
-      console.log("[FormSchemaUtils] Parsing string schema of length:", formSchema.length);
+      logger.info("[FormSchemaUtils] Parsing string schema of length:", formSchema.length);
       schema = JSON.parse(formSchema);
     } catch (e) {
-      console.error("[FormSchemaUtils] Failed to parse schema string:", e);
+      logger.error("[FormSchemaUtils] Failed to parse schema string:", e);
       return null;
     }
   }
   
   // Handle Json type from Supabase
   if (Array.isArray(schema)) {
-    console.warn("[FormSchemaUtils] Schema is an array, not an object with components");
+    logger.warn("[FormSchemaUtils] Schema is an array, not an object with components");
     return null;
   }
   
@@ -111,7 +112,7 @@ export const getValidFormSchema = (formSchema: any): FormSchema | null => {
     return schema as FormSchema;
   }
   
-  console.warn("[FormSchemaUtils] Schema validation failed");
+  logger.warn("[FormSchemaUtils] Schema validation failed");
   return null;
 };
 
@@ -119,10 +120,10 @@ export const getValidFormSchema = (formSchema: any): FormSchema | null => {
  * Extract fields from a form schema by type
  */
 export const getFieldsByType = (formSchema: any, fieldType: string): Array<{key: string, label: string}> => {
-  console.log(`[FormSchemaUtils] Getting fields of type "${fieldType}"`);
+  logger.info(`[FormSchemaUtils] Getting fields of type "${fieldType}"`);
   const schema = getValidFormSchema(formSchema);
   if (!schema) {
-    console.warn(`[FormSchemaUtils] No valid schema for getFieldsByType`);
+    logger.warn(`[FormSchemaUtils] No valid schema for getFieldsByType`);
     return [];
   }
   
@@ -133,7 +134,7 @@ export const getFieldsByType = (formSchema: any, fieldType: string): Array<{key:
       label: component.label || component.key
     }));
   
-  console.log(`[FormSchemaUtils] Found ${fields.length} fields of type "${fieldType}"`);
+  logger.info(`[FormSchemaUtils] Found ${fields.length} fields of type "${fieldType}"`);
   return fields;
 };
 
@@ -141,10 +142,10 @@ export const getFieldsByType = (formSchema: any, fieldType: string): Array<{key:
  * Get all form fields excluding buttons
  */
 export const getAllFormFields = (formSchema: any): Array<{key: string, label: string, type: string}> => {
-  console.log(`[FormSchemaUtils] Getting all fields`);
+  logger.info(`[FormSchemaUtils] Getting all fields`);
   const schema = getValidFormSchema(formSchema);
   if (!schema) {
-    console.warn(`[FormSchemaUtils] No valid schema for getAllFormFields`);
+    logger.warn(`[FormSchemaUtils] No valid schema for getAllFormFields`);
     return [];
   }
   
@@ -156,7 +157,7 @@ export const getAllFormFields = (formSchema: any): Array<{key: string, label: st
       type: component.type
     }));
   
-  console.log(`[FormSchemaUtils] Found ${fields.length} fields (excluding buttons)`);
+  logger.log(`[FormSchemaUtils] Found ${fields.length} fields (excluding buttons)`);
   return fields;
 };
 
@@ -184,44 +185,44 @@ export const debugFormSchema = (formSchema: any, label: string = "Form Schema De
   console.group(label);
   
   if (!formSchema) {
-    console.warn("Schema is null or undefined");
+    logger.warn("Schema is null or undefined");
     console.groupEnd();
     return;
   }
   
   if (typeof formSchema === 'string') {
-    console.log("Schema is a string (length: " + formSchema.length + ")");
+    logger.info("Schema is a string (length: " + formSchema.length + ")");
     try {
       const parsed = JSON.parse(formSchema);
-      console.log("Parsed successfully to:", typeof parsed);
+      logger.info("Parsed successfully to:", typeof parsed);
       if (typeof parsed === 'object') {
-        console.log("Keys:", Object.keys(parsed));
+        logger.info("Keys:", Object.keys(parsed));
         if (Array.isArray(parsed.components)) {
-          console.log("Components:", parsed.components.length);
-          console.log("Component types:", parsed.components.map(c => c.type).slice(0, 10));
+          logger.info("Components:", parsed.components.length);
+          logger.info("Component types:", parsed.components.map(c => c.type).slice(0, 10));
         } else {
-          console.warn("No valid components array");
+          logger.warn("No valid components array");
         }
       }
     } catch (e) {
-      console.error("Failed to parse as JSON:", e);
-      console.log("First 200 chars:", formSchema.substring(0, 200));
+      logger.error("Failed to parse as JSON:", e);
+      logger.info("First 200 chars:", formSchema.substring(0, 200));
     }
   } else if (Array.isArray(formSchema)) {
-    console.warn("Schema is an array, not an object with components");
-    console.log("Array length:", formSchema.length);
-    console.log("First item type:", typeof formSchema[0]);
+    logger.warn("Schema is an array, not an object with components");
+    logger.info("Array length:", formSchema.length);
+    logger.info("First item type:", typeof formSchema[0]);
   } else if (typeof formSchema === 'object') {
-    console.log("Schema is an object");
-    console.log("Keys:", Object.keys(formSchema));
+    logger.info("Schema is an object");
+    logger.info("Keys:", Object.keys(formSchema));
     if (Array.isArray(formSchema.components)) {
-      console.log("Components:", formSchema.components.length);
-      console.log("Component types:", formSchema.components.map(c => c.type).slice(0, 10));
+      logger.info("Components:", formSchema.components.length);
+      logger.info("Component types:", formSchema.components.map(c => c.type).slice(0, 10));
     } else {
-      console.warn("No valid components array");
+      logger.warn("No valid components array");
     }
   } else {
-    console.warn("Schema is of type:", typeof formSchema);
+    logger.warn("Schema is of type:", typeof formSchema);
   }
   
   console.groupEnd();
@@ -232,28 +233,28 @@ export const debugFormSchema = (formSchema: any, label: string = "Form Schema De
  */
 export const sanitizeFormSchema = (schema: any): FormSchema | null => {
   if (!schema) {
-    console.warn("[FormSchemaUtils] Schema is null or undefined in sanitizeFormSchema");
+    logger.warn("[FormSchemaUtils] Schema is null or undefined in sanitizeFormSchema");
     return null;
   }
   
   // Handle string input
   if (typeof schema === 'string') {
     try {
-      console.log("[FormSchemaUtils] Parsing string schema in sanitizeFormSchema");
+      logger.info("[FormSchemaUtils] Parsing string schema in sanitizeFormSchema");
       schema = JSON.parse(schema);
     } catch (e) {
-      console.error("[FormSchemaUtils] Failed to parse schema in sanitizeFormSchema:", e);
+      logger.error("[FormSchemaUtils] Failed to parse schema in sanitizeFormSchema:", e);
       return null;
     }
   }
   
   // Handle Json array type from Supabase
   if (Array.isArray(schema)) {
-    console.warn("[FormSchemaUtils] Schema is an array in sanitizeFormSchema");
+    logger.warn("[FormSchemaUtils] Schema is an array in sanitizeFormSchema");
     
     // Si es un array y tiene elementos, intentamos utilizar el primero
     if (schema.length > 0) {
-      console.log("[FormSchemaUtils] Trying first element of array in sanitizeFormSchema");
+      logger.info("[FormSchemaUtils] Trying first element of array in sanitizeFormSchema");
       return sanitizeFormSchema(schema[0]);
     }
     
@@ -262,24 +263,24 @@ export const sanitizeFormSchema = (schema: any): FormSchema | null => {
   
   // Ensure we have an object
   if (typeof schema !== 'object' || schema === null) {
-    console.warn("[FormSchemaUtils] Schema is not an object in sanitizeFormSchema, type:", typeof schema);
+    logger.warn("[FormSchemaUtils] Schema is not an object in sanitizeFormSchema, type:", typeof schema);
     return null;
   }
   
   // Si no tiene components pero tiene schema, usamos ese
   if (!schema.components && schema.schema) {
-    console.log("[FormSchemaUtils] Using nested schema property");
+    logger.info("[FormSchemaUtils] Using nested schema property");
     return sanitizeFormSchema(schema.schema);
   }
   
   // Ensure components is an array
   if (!Array.isArray(schema.components)) {
-    console.warn("[FormSchemaUtils] Schema has no components array in sanitizeFormSchema");
-    console.log("[FormSchemaUtils] Schema keys:", Object.keys(schema));
+    logger.warn("[FormSchemaUtils] Schema has no components array in sanitizeFormSchema");
+    logger.info("[FormSchemaUtils] Schema keys:", Object.keys(schema));
     
     // Si no tiene components pero tiene display.components, usamos ese
     if (schema.display && Array.isArray(schema.display.components)) {
-      console.log("[FormSchemaUtils] Using display.components instead");
+      logger.info("[FormSchemaUtils] Using display.components instead");
       schema.components = schema.display.components;
     } else {
       // Si no hay una forma de recuperar los componentes, creamos un array vacío
@@ -309,31 +310,31 @@ export const sanitizeFormSchema = (schema: any): FormSchema | null => {
  */
 export const safelyAccessFormSchema = (schema: Json | null): FormSchema | null => {
   if (!schema) {
-    console.warn("[FormSchemaUtils] Schema is null or undefined in safelyAccessFormSchema");
+    logger.warn("[FormSchemaUtils] Schema is null or undefined in safelyAccessFormSchema");
     return null;
   }
   
-  console.log("[FormSchemaUtils] Processing schema in safelyAccessFormSchema, type:", typeof schema);
+  logger.info("[FormSchemaUtils] Processing schema in safelyAccessFormSchema, type:", typeof schema);
   
   // Handle string input (common when retrieving from DB)
   if (typeof schema === 'string') {
     try {
-      console.log("[FormSchemaUtils] Parsing string schema in safelyAccessFormSchema");
+      logger.info("[FormSchemaUtils] Parsing string schema in safelyAccessFormSchema");
       const parsed = JSON.parse(schema);
       return sanitizeFormSchema(parsed);
     } catch (e) {
-      console.error("[FormSchemaUtils] Failed to parse schema string in safelyAccessFormSchema:", e);
+      logger.error("[FormSchemaUtils] Failed to parse schema string in safelyAccessFormSchema:", e);
       return null;
     }
   }
   
   // Handle Json array type from Supabase
   if (Array.isArray(schema)) {
-    console.warn("[FormSchemaUtils] Schema is an array in safelyAccessFormSchema");
+    logger.warn("[FormSchemaUtils] Schema is an array in safelyAccessFormSchema");
     
     // Si es un array, intentamos ver si el primer elemento es un esquema válido
     if (schema.length > 0) {
-      console.log("[FormSchemaUtils] Trying first element of array in safelyAccessFormSchema");
+      logger.info("[FormSchemaUtils] Trying first element of array in safelyAccessFormSchema");
       return safelyAccessFormSchema(schema[0] as Json);
     }
     
@@ -342,17 +343,17 @@ export const safelyAccessFormSchema = (schema: Json | null): FormSchema | null =
   
   // Verificar si schema.display existe y contiene un componente schema
   if (typeof schema === 'object' && schema !== null && 'display' in schema) {
-    console.log("[FormSchemaUtils] Schema has display property, checking if it contains the actual schema");
+    logger.info("[FormSchemaUtils] Schema has display property, checking if it contains the actual schema");
     const display = (schema as any).display;
     if (typeof display === 'object' && display !== null && 'components' in display) {
-      console.log("[FormSchemaUtils] Using schema.display as schema");
+      logger.info("[FormSchemaUtils] Using schema.display as schema");
       return sanitizeFormSchema(display as Json);
     }
   }
   
   // Si es un objeto y existe un campo schema, intentamos usarlo
   if (typeof schema === 'object' && schema !== null && 'schema' in schema) {
-    console.log("[FormSchemaUtils] Found schema property, using it instead");
+    logger.info("[FormSchemaUtils] Found schema property, using it instead");
     return safelyAccessFormSchema((schema as any).schema as Json);
   }
   

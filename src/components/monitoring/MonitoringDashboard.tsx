@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { logger } from '@/lib/logger';
 
 // Interface for log entries
 interface LogEntry {
@@ -66,7 +67,7 @@ const fetchSystemLogs = async (): Promise<LogEntry[]> => {
       return logs;
     }).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   } catch (error) {
-    console.error('Error fetching system logs:', error);
+    logger.error('Error fetching system logs:', error);
     return generateMockLogs();
   }
 };
@@ -122,14 +123,14 @@ const triggerMetricsCollection = async (): Promise<boolean> => {
     });
     
     if (error) {
-      console.error('Error triggering metrics collection:', error);
+      logger.error('Error triggering metrics collection:', error);
       throw error;
     }
     
-    console.log('Metrics collection triggered successfully:', data);
+    logger.info('Metrics collection triggered successfully:', data);
     return true;
   } catch (error) {
-    console.error('Failed to trigger metrics collection:', error);
+    logger.error('Failed to trigger metrics collection:', error);
     throw error;
   }
 };
@@ -259,7 +260,7 @@ export function MonitoringDashboard() {
         description: "Información de microservicios actualizada correctamente."
       });
     } catch (error) {
-      console.error("Error refreshing monitoring data:", error);
+      logger.error("Error refreshing monitoring data:", error);
       toast({
         title: "Error",
         description: "No se pudo actualizar la información de microservicios",
@@ -325,3 +326,4 @@ export function MonitoringDashboard() {
     </PageContainer>
   );
 }
+

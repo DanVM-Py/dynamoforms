@@ -5,6 +5,7 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { FolderLock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { logger } from '@/lib/logger';
 
 const NoProjectAccess = () => {
   const [loading, setLoading] = useState(false);
@@ -21,7 +22,7 @@ const NoProjectAccess = () => {
     const storageKeys = Object.keys(localStorage);
     const supabaseKeys = storageKeys.filter(key => key.startsWith('sb-'));
     supabaseKeys.forEach(key => {
-      console.log("Clearing supabase storage key:", key);
+      logger.debug("Clearing supabase storage key:", key);
       localStorage.removeItem(key);
     });
   }, []);
@@ -32,7 +33,7 @@ const NoProjectAccess = () => {
     
     try {
       setLoading(true);
-      console.log("NoProjectAccess: User manually triggered sign out");
+      logger.info("NoProjectAccess: User manually triggered sign out");
       
       toast({
         title: "Cerrando sesión",
@@ -50,7 +51,7 @@ const NoProjectAccess = () => {
         window.location.href = '/auth?error=signout_failed';
       }
     } catch (error) {
-      console.error("Error during sign out:", error);
+      logger.error("Error during sign out:", error);
       
       toast({
         title: "Error",

@@ -3,31 +3,21 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EnvironmentBadge } from '@/components/environment/EnvironmentBadge';
-import { isDevelopment, Tables } from '@/config/environment';
-import { supabase } from '@/integrations/supabase/client';
+import { isDevelopment } from '@/config/environment';
+import { supabase, supabaseAdmin } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { 
   Loader2, 
-  CheckCircle, 
-  AlertCircle, 
-  Shield, 
   UserMinus, 
   UserX, 
-  KeyRound,
-  RefreshCw
+  Crown,
+  UserCog,
+  Search
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -38,112 +28,88 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useAdminOperations } from '@/hooks/use-admin-operations';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { Tables, Project, Profile } from '@/types/database-entities';
+import { logger } from '@/lib/logger';
 
-const passwordResetSchema = z.object({
-  password: z.string()
-    .min(8, { message: "La contraseña debe tener al menos 8 caracteres" })
-    .max(72, { message: "La contraseña no puede exceder 72 caracteres" })
-});
+type ProjectUserRelation = {
+  project_id: string;
+  is_admin: boolean | null;
+  projects: Pick<Project, 'id' | 'name'> | null;
+};
+
+type UserWithProjects = Profile & {
+  project_users: ProjectUserRelation[];
+};
+
+type RemoveUserData = {
+  userId: string;
+  projectId: string;
+  userName: string;
+  projectName: string;
+};
 
 const Admin = () => {
-  const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [projectsLoading, setProjectsLoading] = useState(true);
-  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState("");
-  const [selectedUserEmail, setSelectedUserEmail] = useState("");
-  const [removeUserDialogOpen, setRemoveUserDialogOpen] = useState(false);
-  const [removeUserData, setRemoveUserData] = useState<{userId: string, projectId: string, userName: string, projectName: string} | null>(null);
+  const { isGlobalAdmin } = useAuth();
+  const { 
+    promoteToGlobalAdmin, 
+    isLoading: operationLoading,
+  } = useAdminOperations();
   const { toast } = useToast();
-  const { refreshUserProfile } = useAuth();
-  const { isLoading: actionLoading, promoteToGlobalAdmin, removeUserFromProject, setUserPassword } = useAdminOperations();
   
-  const resetPasswordForm = useForm<z.infer<typeof passwordResetSchema>>({
-    resolver: zodResolver(passwordResetSchema),
-    defaultValues: {
-      password: "",
-    },
-  });
+  const [users, setUsers] = useState<UserWithProjects[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<UserWithProjects[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const [removeUserDialogOpen, setRemoveUserDialogOpen] = useState(false);
+  const [removeUserData, setRemoveUserData] = useState<RemoveUserData | null>(null);
 
   useEffect(() => {
+    if (!isGlobalAdmin) {
+      logger.error("Access Denied: Admin page requires global admin privileges.");
+      return;
+    }
+
     const fetchUsers = async () => {
       try {
-        setLoading(true);
-        
-        const { data: profiles, error: profilesError } = await supabase
+        setUsersLoading(true);
+        const { data, error } = await supabaseAdmin
           .from(Tables.profiles)
-          .select('*');
+          .select(`
+            id,
+            email,
+            name,
+            role,
+            project_users: ${Tables.project_users}!user_id(project_id, is_admin, projects: ${Tables.projects}(id, name))
+          `);
           
-        if (profilesError) {
-          throw profilesError;
-        }
+        if (error) throw error;
         
-        const { data: projectUsers, error: projectUsersError } = await supabase
-          .from(Tables.project_users)
-          .select(`*, ${Tables.projects}(name)`);
-        if (projectUsersError) {
-          throw projectUsersError;
-        }
-        
-        const projectAdmins = projectUsers.filter((pu: any) => pu.is_admin === true);
-        
-        const enrichedUsers = profiles.map((profile: any) => {
-          const userProjects = projectUsers.filter((pu: any) => pu.user_id === profile.id && !pu.is_admin)
-            .map((pu: any) => ({
-              id: pu.project_id,
-              name: pu.projects?.name || 'Unknown Project',
-              role: 'user',
-              relationId: pu.id
-            }));
-            
-          const adminProjects = projectUsers.filter((pu: any) => pu.user_id === profile.id && pu.is_admin === true)
-            .map((pu: any) => ({
-              id: pu.project_id,
-              name: pu.projects?.name || 'Unknown Project',
-              role: 'project_admin',
-              relationId: pu.id
-            }));
-          
-          const allProjects = [...userProjects, ...adminProjects];
-          
-          return {
-            ...profile,
-            projectCount: allProjects.length,
-            isProjectAdmin: adminProjects.length > 0,
-            projects: allProjects
-          };
-        });
-        
-        setUsers(enrichedUsers);
-      } catch (error: any) {
-        console.error("Error fetching users:", error);
-        setError(error.message);
+        const fetchedUsers = (data as UserWithProjects[]) || [];
+        setUsers(fetchedUsers);
+        setFilteredUsers(fetchedUsers);
+      } catch (error) {
+        logger.error("Error fetching users:", error);
       } finally {
-        setLoading(false);
+        setUsersLoading(false);
       }
     };
     
     const fetchProjects = async () => {
       try {
         setProjectsLoading(true);
-        const { data, error } = await supabase.from(Tables.projects).select('*');
+        const { data, error } = await supabaseAdmin.from(Tables.projects).select('*');
+          
+        if (error) throw error;
         
-        if (error) {
-          throw error;
-        }
-        
-        setProjects(data || []);
-      } catch (error: any) {
-        console.error("Error fetching projects:", error);
+        setProjects((data as Project[]) || []);
+      } catch (error) {
+        logger.error("Error fetching projects:", error);
       } finally {
         setProjectsLoading(false);
       }
@@ -151,16 +117,27 @@ const Admin = () => {
     
     fetchUsers();
     fetchProjects();
-  }, []);
+  }, [isGlobalAdmin]);
   
-  const handlePasswordResetClick = (userId: string, email: string) => {
-    setSelectedUserId(userId);
-    setSelectedUserEmail(email);
-    resetPasswordForm.reset({ password: "" });
-    setResetPasswordDialogOpen(true);
-  };
+  useEffect(() => {
+    if (searchTerm) {
+      const lowerCaseSearch = searchTerm.toLowerCase();
+      const filtered = users.filter(user => 
+        user.name?.toLowerCase().includes(lowerCaseSearch) || 
+        user.email.toLowerCase().includes(lowerCaseSearch)
+      );
+      setFilteredUsers(filtered);
+    } else {
+      setFilteredUsers(users);
+    }
+  }, [searchTerm, users]);
   
-  const handleRemoveFromProjectClick = (user: any, project: any) => {
+  const handleRemoveFromProjectClick = (user: UserWithProjects, project: Pick<Project, 'id' | 'name'> | null) => {
+    if (!project) {
+      logger.error("Attempted to remove user from null project", { userId: user.id });
+      toast({ title: "Error", description: "No se puede remover de un proyecto desconocido.", variant: "destructive" });
+      return;
+    }
     setRemoveUserData({
       userId: user.id,
       projectId: project.id,
@@ -170,39 +147,29 @@ const Admin = () => {
     setRemoveUserDialogOpen(true);
   };
 
-  const handlePasswordReset = async (data: z.infer<typeof passwordResetSchema>) => {
-    try {
-      await setUserPassword(selectedUserId, data.password);
-      setResetPasswordDialogOpen(false);
-    } catch (error) {
-      console.error("Error in password reset:", error);
+  const getRoleBadge = (user: UserWithProjects) => {
+    if (user.role === 'global_admin') {
+      return <Badge className="bg-purple-700 text-white hover:bg-purple-800"><Crown className="h-3 w-3 mr-1"/>Admin Global</Badge>;
     }
+    const isProjectAdminAny = user.project_users?.some((pu: ProjectUserRelation) => pu.is_admin);
+    if (isProjectAdminAny) {
+      return <Badge className="bg-blue-600 text-white hover:bg-blue-700"><UserCog className="h-3 w-3 mr-1"/>Admin Proyecto</Badge>;
+    }
+    return <Badge variant="secondary"><UserCog className="h-3 w-3 mr-1"/>Usuario</Badge>;
   };
 
-  const getRoleBadge = (role: string, isProjectAdmin: boolean) => {
-    if (role === 'global_admin') {
-      return <Badge className="bg-purple-700">Administrador Global</Badge>;
-    } else if (isProjectAdmin) {
-      return <Badge className="bg-blue-600">Administrador de Proyecto</Badge>;
-    } else if (role === 'approver') {
-      return <Badge className="bg-green-600">Aprobador</Badge>;
-    } else {
-      return <Badge className="bg-gray-500">Usuario</Badge>;
-    }
-  };
-
-  const renderUserProjects = (user: any) => {
-    if (!user.projects || user.projects.length === 0) {
+  const renderUserProjects = (user: UserWithProjects) => {
+    if (!user.project_users || user.project_users.length === 0) {
       return <span className="text-gray-500 italic">Sin proyectos</span>;
     }
 
     return (
       <div className="space-y-1 max-w-md">
-        {user.projects.map((project: any) => (
-          <div key={`${project.id}-${project.role}`} className="flex items-center justify-between bg-gray-50 p-1.5 rounded text-sm">
+        {user.project_users.map((pu: ProjectUserRelation) => (
+          <div key={`${pu.project_id}-${pu.is_admin}`} className="flex items-center justify-between bg-gray-50 p-1.5 rounded text-sm">
             <div className="flex items-center gap-1.5">
-              <span className="font-medium">{project.name}</span>
-              {project.role === 'project_admin' && 
+              <span className="font-medium">{pu.projects?.name || 'Unknown Project'}</span>
+              {pu.is_admin && 
                 <Badge variant="outline" className="text-xs border-blue-300 text-blue-700">Admin</Badge>
               }
             </div>
@@ -211,10 +178,10 @@ const Admin = () => {
               variant="ghost" 
               size="sm"
               className="h-7 text-gray-600 hover:text-red-600 hover:bg-red-50"
-              disabled={actionLoading}
-              onClick={() => handleRemoveFromProjectClick(user, project)}
+              disabled={operationLoading}
+              onClick={() => handleRemoveFromProjectClick(user, pu.projects)}
             >
-              {project.role === 'project_admin' ? <UserX className="h-3.5 w-3.5" /> : <UserMinus className="h-3.5 w-3.5" />}
+              {pu.is_admin ? <UserX className="h-3.5 w-3.5" /> : <UserMinus className="h-3.5 w-3.5" />}
             </Button>
           </div>
         ))}
@@ -222,6 +189,53 @@ const Admin = () => {
     );
   };
 
+  const handleRemoveFromProject = async () => {
+    if (!removeUserData) return;
+    try {
+      const { error } = await supabaseAdmin
+        .from(Tables.project_users)
+        .delete()
+        .match({ user_id: removeUserData.userId, project_id: removeUserData.projectId });
+
+      if (error) throw error;
+
+      toast({ title: "Usuario removido", description: `${removeUserData.userName} ha sido removido de ${removeUserData.projectName}` });
+      setRemoveUserDialogOpen(false);
+      setRemoveUserData(null);
+    } catch (error: unknown) {
+      logger.error("Error removing user from project:", error);
+      toast({ title: "Error", description: "No se pudo remover al usuario del proyecto.", variant: "destructive" });
+    }
+  };
+
+  const handlePromote = async (userId: string) => {
+    try {
+      await promoteToGlobalAdmin(userId);
+    } catch (error) { /* handled in hook */ }
+  };
+
+  if (!isGlobalAdmin && !usersLoading) {
+    return (
+      <PageContainer>
+        <div className="text-center py-10">
+          <h1 className="text-2xl font-bold text-red-600">Acceso Denegado</h1>
+          <p>Necesitas ser Administrador Global para acceder a esta página.</p>
+        </div>
+      </PageContainer>
+    );
+  }
+  
+  if (usersLoading || projectsLoading) {
+    return (
+      <PageContainer>
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-dynamo-600" />
+          <p className="ml-2">Cargando datos de administración...</p>
+        </div>
+      </PageContainer>
+    );
+  }
+  
   return (
     <PageContainer title="Administración del Sistema">
       <div className="flex items-center justify-between mb-4">
@@ -246,16 +260,23 @@ const Admin = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {loading ? (
+              <div className="mb-4">
+                <Label htmlFor="search-users">Buscar Usuarios</Label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    id="search-users"
+                    type="search" 
+                    placeholder="Buscar por nombre o email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8 w-full md:w-1/3"
+                  />
+                </div>
+              </div>
+              {usersLoading ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-                </div>
-              ) : error ? (
-                <div className="bg-red-50 border border-red-200 rounded-md p-4 text-red-700">
-                  <p className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5" />
-                    <span>Error al cargar usuarios: {error}</span>
-                  </p>
                 </div>
               ) : (
                 <div className="overflow-auto max-h-[70vh]">
@@ -269,14 +290,14 @@ const Admin = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users.length === 0 ? (
+                      {filteredUsers.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={4} className="text-center py-8 text-gray-500">
-                            No se encontraron usuarios
+                            {searchTerm ? "No se encontraron usuarios con ese término" : "No hay usuarios registrados"}
                           </TableCell>
                         </TableRow>
                       ) : (
-                        users.map(user => (
+                        filteredUsers.map(user => (
                           <TableRow key={user.id}>
                             <TableCell>
                               <div className="space-y-1">
@@ -284,7 +305,7 @@ const Admin = () => {
                                 <p className="text-sm text-gray-500">{user.email}</p>
                               </div>
                             </TableCell>
-                            <TableCell>{getRoleBadge(user.role, user.isProjectAdmin)}</TableCell>
+                            <TableCell>{getRoleBadge(user)}</TableCell>
                             <TableCell>
                               {projectsLoading ? (
                                 <span className="text-gray-400">Cargando...</span>
@@ -298,25 +319,15 @@ const Admin = () => {
                                   <Button 
                                     variant="outline" 
                                     size="sm"
-                                    onClick={() => promoteToGlobalAdmin(user.id)}
-                                    disabled={actionLoading}
+                                    onClick={() => handlePromote(user.id)}
+                                    disabled={operationLoading}
                                     className="flex items-center gap-1"
                                   >
-                                    <Shield className="h-4 w-4" />
-                                    <span>Promover a Admin</span>
+                                    {operationLoading && <Loader2 className="h-4 w-4 animate-spin mr-1"/>}
+                                    <Crown className="h-4 w-4" />
+                                    <span>Promover</span>
                                   </Button>
                                 )}
-                                
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  className="flex items-center gap-1"
-                                  onClick={() => handlePasswordResetClick(user.id, user.email)}
-                                  disabled={actionLoading}
-                                >
-                                  <KeyRound className="h-4 w-4" />
-                                  <span>Cambiar Contraseña</span>
-                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -356,58 +367,6 @@ const Admin = () => {
         )}
       </Tabs>
 
-      <Dialog open={resetPasswordDialogOpen} onOpenChange={setResetPasswordDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Cambiar contraseña de usuario</DialogTitle>
-            <DialogDescription>
-              Ingresa una nueva contraseña para el usuario {selectedUserEmail}.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <Form {...resetPasswordForm}>
-            <form onSubmit={resetPasswordForm.handleSubmit(handlePasswordReset)} className="space-y-4">
-              <FormField
-                control={resetPasswordForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nueva contraseña</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="password" 
-                        placeholder="Ingresa la nueva contraseña" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setResetPasswordDialogOpen(false)}
-                  disabled={actionLoading}
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit"
-                  disabled={actionLoading}
-                  className="flex items-center gap-2"
-                >
-                  {actionLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Cambiar contraseña
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
       <AlertDialog open={removeUserDialogOpen} onOpenChange={setRemoveUserDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -423,20 +382,13 @@ const Admin = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={actionLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={operationLoading}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (removeUserData) {
-                  removeUserFromProject(
-                    removeUserData.userId,
-                    removeUserData.projectId
-                  );
-                }
-              }}
-              disabled={actionLoading}
+              onClick={handleRemoveFromProject}
+              disabled={operationLoading}
               className="bg-red-600 hover:bg-red-700 flex items-center gap-2"
             >
-              {actionLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+              {operationLoading && <Loader2 className="h-4 w-4 animate-spin" />}
               Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>

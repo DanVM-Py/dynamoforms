@@ -1,7 +1,8 @@
-import { Json } from "@/types/supabase";
+import { Json } from "@/types/database-entities";
 import { supabase } from "@/integrations/supabase/client";
 import { getValidFormSchema, safelyAccessFormSchema } from "@/utils/formSchemaUtils";
 import { Tables } from '@/config/environment';
+import { logger } from '@/lib/logger';
 
 export type TaskTemplate = {
   id: string;
@@ -75,7 +76,7 @@ export const getProjectUsers = async (projectId: string): Promise<User[]> => {
     .eq('project_id', projectId);
 
   if (projectUsersError) {
-    console.error("Error fetching project users:", projectUsersError);
+    logger.error("Error fetching project users:", projectUsersError);
     return [];
   }
 
@@ -87,7 +88,7 @@ export const getProjectUsers = async (projectId: string): Promise<User[]> => {
     .in('id', userIds);
 
   if (usersError) {
-    console.error("Error fetching users:", usersError);
+    logger.error("Error fetching users:", usersError);
     return [];
   }
 
@@ -97,20 +98,20 @@ export const getProjectUsers = async (projectId: string): Promise<User[]> => {
 // Función para obtener los campos del formulario de origen
 export const getSourceFormFields = (formSchema: Json | null): FormField[] => {
   if (!formSchema) {
-    console.error("[taskTemplateUtils] No form schema provided for getSourceFormFields");
+    logger.error("[taskTemplateUtils] No form schema provided for getSourceFormFields");
     return [];
   }
   
   // Usar las funciones de formSchemaUtils para un procesamiento más robusto
   const schema = safelyAccessFormSchema(formSchema);
   if (!schema) {
-    console.error("[taskTemplateUtils] Invalid schema structure in getSourceFormFields");
+    logger.error("[taskTemplateUtils] Invalid schema structure in getSourceFormFields");
     return [];
   }
   
   // Extract and transform fields from the valid schema
   try {
-    console.log("[taskTemplateUtils] Processing source form components:", schema.components.length);
+    logger.info("[taskTemplateUtils] Processing source form components:", schema.components.length);
     
     return schema.components
       .filter(component => 
@@ -127,7 +128,7 @@ export const getSourceFormFields = (formSchema: Json | null): FormField[] => {
       }));
       
   } catch (error) {
-    console.error("[taskTemplateUtils] Error processing source form schema:", error);
+    logger.error("[taskTemplateUtils] Error processing source form schema:", error);
     return [];
   }
 };
@@ -135,20 +136,20 @@ export const getSourceFormFields = (formSchema: Json | null): FormField[] => {
 // Función para obtener los campos del formulario de destino
 export const getTargetFormFields = (formSchema: Json | null): FormField[] => {
   if (!formSchema) {
-    console.error("[taskTemplateUtils] No form schema provided for getTargetFormFields");
+    logger.error("[taskTemplateUtils] No form schema provided for getTargetFormFields");
     return [];
   }
   
   // Usar las funciones de formSchemaUtils para un procesamiento más robusto
   const schema = safelyAccessFormSchema(formSchema);
   if (!schema) {
-    console.error("[taskTemplateUtils] Invalid schema structure in getTargetFormFields");
+    logger.error("[taskTemplateUtils] Invalid schema structure in getTargetFormFields");
     return [];
   }
   
   // Extract and transform fields from the valid schema
   try {
-    console.log("[taskTemplateUtils] Processing target form components:", schema.components.length);
+    logger.info("[taskTemplateUtils] Processing target form components:", schema.components.length);
     
     return schema.components
       .filter(component => 
@@ -165,7 +166,7 @@ export const getTargetFormFields = (formSchema: Json | null): FormField[] => {
       }));
       
   } catch (error) {
-    console.error("[taskTemplateUtils] Error processing target form schema:", error);
+    logger.error("[taskTemplateUtils] Error processing target form schema:", error);
     return [];
   }
 };
@@ -192,7 +193,7 @@ export const getEmailFieldsFromForm = (formSchema: Json | null): FormField[] => 
 
   const schema = safelyAccessFormSchema(formSchema);
   if (!schema) {
-    console.error("[taskTemplateUtils] Invalid schema structure in getEmailFieldsFromForm");
+    logger.error("[taskTemplateUtils] Invalid schema structure in getEmailFieldsFromForm");
     return [];
   }
 
@@ -210,7 +211,7 @@ export const getEmailFieldsFromForm = (formSchema: Json | null): FormField[] => 
       }));
 
   } catch (error) {
-    console.error("[taskTemplateUtils] Error processing form schema in getEmailFieldsFromForm:", error);
+    logger.error("[taskTemplateUtils] Error processing form schema in getEmailFieldsFromForm:", error);
     return [];
   }
 };

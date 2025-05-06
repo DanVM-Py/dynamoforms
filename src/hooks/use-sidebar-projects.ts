@@ -3,103 +3,86 @@ import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tables } from '@/config/environment';
+import { logger } from "@/lib/logger";
 
 export function useSidebarProjects() {
-  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const { 
+    user, 
+    isGlobalAdmin, 
+    currentProjectId,
+    loading: authLoading, 
+    isProjectAdmin,
+    updateCurrentProject
+  } = useAuth();
+  logger.info(`[useSidebarProjects] Initializing. Received currentProjectId from useAuth: ${currentProjectId}`);
+  
   const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
+  const [loading, setLoading] = useState(true);
   const location = useLocation();
-  const { user, isProjectAdmin, isGlobalAdmin } = useAuth();
 
-  // First effect - get project ID from storage or URL
   useEffect(() => {
-    const getProjectIdFromStorage = () => {
-      return sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
-    };
-    
-    const getProjectIdFromUrl = () => {
-      const projectMatch = location.pathname.match(/\/projects\/([^/]+)/);
-      return projectMatch ? projectMatch[1] : null;
-    };
-    
-    const urlProjectId = getProjectIdFromUrl();
-    const storedProjectId = getProjectIdFromStorage();
-    
-    const projectId = urlProjectId || storedProjectId;
-    
-    if (projectId) {
-      sessionStorage.setItem('currentProjectId', projectId);
-      setCurrentProjectId(projectId);
+    logger.debug(`[Sidebar DEBUG] Effect 2 TRIGGERED. User available: ${!!user}, isGlobalAdmin: ${isGlobalAdmin}`);
+    if (!user) {
+      logger.debug(`[Sidebar DEBUG] Effect 2 SKIPPING fetchProjects: No user.`);
+      setProjects([]);
+      setLoading(false);
+      return;
     }
-  }, [location.pathname]);
 
-  // Second effect - fetch projects
-  useEffect(() => {
     const fetchProjects = async () => {
-      if (!user) {
-        return;
-      }
-      
+      logger.debug(`[Sidebar DEBUG] Effect 2 fetchProjects STARTING. User ID: ${user.id}, isGlobalAdmin: ${isGlobalAdmin}`);
+      setLoading(true);
       try {
+        const projectUsersTable = Tables.project_users;
+        const projectsTable = Tables.projects;
         let query;
-        
         if (isGlobalAdmin) {
-          // Global admins can see all projects
           query = supabase
-            .from(Tables.projects)
+            .from(projectsTable)
             .select('id, name')
             .order('name', { ascending: true });
         } else {
-          // Regular users and project admins see projects they belong to
           query = supabase
-            .from(Tables.project_users)
-            .select('project_id, projects(id, name)')
-            .eq('user_id', user.id)
-            .eq('status', 'active')
-            .order('projects(name)', { ascending: true });
+            .from(projectUsersTable)
+            .select(`project: ${projectsTable}(id, name)`)
+            .eq('user_id', user.id);
         }
-        
-        if (query) {
-          const { data, error } = await query;
-          
-          if (error) {
-            console.error('Error fetching projects:', error);
-            return;
-          }
-          
-          if (data && data.length > 0) {
-            let projectsData;
-            
-            if (isGlobalAdmin) {
-              projectsData = data;
-            } else {
-              projectsData = data.map((item: any) => item.projects).filter(Boolean);
-            }
-            
-            setProjects(projectsData);
-            
-            if (projectsData.length > 0 && !currentProjectId) {
-              const firstProjectId = projectsData[0].id;
-              setCurrentProjectId(firstProjectId);
-              sessionStorage.setItem('currentProjectId', firstProjectId);
-            }
+        const { data, error } = await query;
+        if (error) {
+          logger.error('Error fetching projects:', error);
+          setProjects([]);
+          return;
+        }
+        let projectsData: { id: string; name: string }[] = [];
+        if (data) {
+          if (isGlobalAdmin) {
+            projectsData = data as { id: string; name: string }[];
+          } else {
+            type ProjectSelectItem = { project: { id: string; name: string } | null };
+            projectsData = data
+              .map((item: ProjectSelectItem) => item.project)
+              .filter((p): p is { id: string; name: string } => p !== null && p.id !== null && p.name !== null)
+              .sort((a, b) => a.name.localeCompare(b.name));
           }
         }
+        setProjects(projectsData);
       } catch (error) {
-        console.error('Error fetching projects:', error);
+        logger.error('Error processing fetched projects:', error);
+        setProjects([]);
+      } finally {
+        logger.debug('[Sidebar DEBUG] Effect 2 fetchProjects FINALLY block. Setting internal loading=false.');
+        setLoading(false);
       }
     };
-    
     fetchProjects();
-  }, [user, isProjectAdmin, isGlobalAdmin, currentProjectId]);
+  }, [user, isGlobalAdmin]);
 
-  const updateCurrentProjectId = (id: string) => {
-    setCurrentProjectId(id);
-    sessionStorage.setItem('currentProjectId', id);
-  };
+  const combinedLoading = authLoading || loading;
 
   return {
-    currentProjectId,
     projects,
-    setCurrentProjectId: updateCurrentProjectId
+    loading: combinedLoading,
+    currentProjectId,
+    setCurrentProjectId: updateCurrentProject
   };
 }

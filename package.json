@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "build:dev": "vite build --mode development",
     "build:qa": "vite build --mode qa",
-    "build:prod": "vite build --mode production"
+    "build:prod": "vite build --mode production",
+    "supabase:types": "dotenv -e .env -- supabase gen types typescript --schema public > src/integrations/supabase/types.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -50,6 +51,7 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
     "input-otp": "^1.2.4",
+    "loglevel": "^1.9.2",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",

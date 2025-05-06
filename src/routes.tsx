@@ -3,23 +3,25 @@ import AppLayout from "./layouts/AppLayout";
 import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import Projects from "./pages/Projects";
-import Forms from "./pages/Forms";
-import FormsManagement from "./pages/FormsManagement";
-import PrivateFormView from "./pages/PrivateFormView";
-import PublicFormView from "./pages/PublicFormView";
-import PublicFormSuccess from "./pages/PublicFormSuccess";
-import FormEdit from "./pages/FormEdit";
-import FormResponses from "./pages/FormResponses";
-import ProjectUsers from "./pages/ProjectUsers";
-import ProjectRoles from "./pages/ProjectRoles";
-import Tasks from "./pages/Tasks";
-import TaskTemplates from "./pages/TaskTemplates";
-import Notifications from "./pages/Notifications";
+import Projects from "./pages/projects/Projects";
+import Forms from "./pages/forms/Forms";
+import FormsManagement from "./pages/forms/FormsManagement";
+import PrivateFormView from "./pages/forms/PrivateFormView";
+import PublicFormView from "./pages/forms/PublicFormView";
+import PublicFormSuccess from "./pages/forms/PublicFormSuccess";
+import FormEdit from "./pages/forms/FormEdit";
+import CreateForm from "./pages/forms/CreateForm";
+import FormResponses from "./pages/forms/FormResponses";
+import ProjectUsers from "./pages/projects/ProjectUsers";
+import ProjectRoles from "./pages/projects/ProjectRoles";
+import Tasks from "./pages/tasks/Tasks";
+import TaskTemplates from "./pages/tasks/TaskTemplates";
+import Notifications from "./pages/notifications/Notifications";
 import Admin from "./pages/Admin";
 import NoProjectAccess from "./pages/NoProjectAccess";
 import Monitoring from "./pages/Monitoring";
 import ProtectedRoute from "./components/ProtectedRoute";
+import OperationalFormsView from "./pages/forms/OperationalFormsView";
 
 export const routes = createBrowserRouter([
   {
@@ -27,6 +29,24 @@ export const routes = createBrowserRouter([
     element: <AppLayout />,
     errorElement: <NotFound />,
     children: [
+      // Public Routes
+      {
+        path: "/auth",
+        element: <Auth />,
+      },
+      {
+        path: "/no-project-access",
+        element: <NoProjectAccess />,
+      },
+      {
+        path: "/public/forms/:formId",
+        element: <PublicFormView />,
+      },
+      {
+        path: "/public/forms/success",
+        element: <PublicFormSuccess />,
+      },
+      // Required Auth
       {
         path: "/",
         element: (
@@ -36,53 +56,22 @@ export const routes = createBrowserRouter([
         ),
       },
       {
-        path: "/projects",
+        path: "/tasks",
         element: (
           <ProtectedRoute>
-            <Projects />
+            <Tasks />
           </ProtectedRoute>
         ),
       },
       {
-        path: "/forms",
+        path: "/notifications",
         element: (
           <ProtectedRoute>
-            <Forms />
+            <Notifications />
           </ProtectedRoute>
         ),
       },
-      {
-        path: "/forms-management",
-        element: <FormsManagement />,
-      },
-      {
-        path: "/forms-management/:id",
-        element: <FormEdit />,
-      },
-      {
-        path: "/forms/:formId",
-        element: (
-          <ProtectedRoute>
-            <PrivateFormView />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/forms/:formId/edit",
-        element: (
-          <ProtectedRoute>
-            <FormEdit />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/forms/:formId/responses",
-        element: (
-          <ProtectedRoute>
-            <FormResponses />
-          </ProtectedRoute>
-        ),
-      },
+      // Required Auth, ProjectAdmin
       {
         path: "/projects/:projectId/users",
         element: (
@@ -100,10 +89,50 @@ export const routes = createBrowserRouter([
         ),
       },
       {
-        path: "/tasks",
+        path: "/forms",
         element: (
           <ProtectedRoute>
-            <Tasks />
+            <OperationalFormsView />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/forms-management",
+        element: (
+          <ProtectedRoute requireProjectAdmin={true}>
+            <FormsManagement />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/forms-management/new",
+        element: (
+          <ProtectedRoute requireProjectAdmin={true}>
+            <CreateForm />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/forms-management/:id",
+        element: (
+          <ProtectedRoute requireProjectAdmin={true}>
+            <FormEdit />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/forms/:formId",
+        element: (
+          <ProtectedRoute>
+            <PrivateFormView />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/forms/:formId/responses",
+        element: (
+          <ProtectedRoute requireProjectAdmin={true}>
+            <FormResponses />
           </ProtectedRoute>
         ),
       },
@@ -115,11 +144,12 @@ export const routes = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      // Required Auth, ProjectAdmin, GlobalAdmin
       {
-        path: "/notifications",
+        path: "/projects",
         element: (
-          <ProtectedRoute>
-            <Notifications />
+          <ProtectedRoute requireGlobalAdmin={true}>
+            <Projects />
           </ProtectedRoute>
         ),
       },
@@ -138,30 +168,6 @@ export const routes = createBrowserRouter([
             <Monitoring />
           </ProtectedRoute>
         ),
-      },
-      {
-        path: "/forms-editor",
-        element: (
-          <ProtectedRoute requireGlobalAdmin={true}>
-            <FormEdit />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/no-project-access",
-        element: <NoProjectAccess />,
-      },
-      {
-        path: "/auth",
-        element: <Auth />,
-      },
-      {
-        path: "/public/forms/:formId",
-        element: <PublicFormView />,
-      },
-      {
-        path: "/public/forms/success",
-        element: <PublicFormSuccess />,
       },
     ],
   },
