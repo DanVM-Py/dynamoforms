@@ -224,7 +224,6 @@ const ProjectUsers = () => {
               user_id: existingUserProfile.id,
               role_id: values.roleId,
               project_id: projectId,
-              created_by: user.id
             });
 
           if (roleError) {
