@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -7,8 +6,14 @@ import { Loader2, Trash2 } from "lucide-react";
 import GeneralTab from "./tabs/GeneralTab";
 import AssignmentTab from "./tabs/AssignmentTab";
 import InheritanceTab from "./tabs/InheritanceTab";
-import { AssignmentType, Form, TaskTemplate, User } from "@/utils/taskTemplateUtils";
-import { Json } from "@/types/database-entities";
+import { AssignmentType, Form, TaskTemplate, User, FormSchema } from "@/utils/taskTemplateUtils";
+
+// Define a more specific type for the project items if not already globally available
+interface ProjectItem {
+  id: string;
+  name: string;
+  // Add other relevant project properties if needed
+}
 
 interface EditTaskTemplateModalProps {
   open: boolean;
@@ -40,11 +45,11 @@ interface EditTaskTemplateModalProps {
   setAssigneeFormField: (value: string) => void;
   currentEditTab: string;
   setCurrentEditTab: (value: string) => void;
-  projects: any[] | undefined;
+  projects: ProjectItem[] | undefined;
   forms: Form[] | undefined;
   projectUsers: User[] | undefined;
-  sourceFormSchema: Json | null;
-  targetFormSchema: Json | null;
+  sourceFormSchema: FormSchema | null;
+  targetFormSchema: FormSchema | null;
   isLoadingProjects: boolean;
   isLoadingForms: boolean;
   isLoadingProjectUsers: boolean;
@@ -121,10 +126,10 @@ const EditTaskTemplateModal = ({
         <Tabs value={currentEditTab} onValueChange={setCurrentEditTab}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="assignment" disabled={!canAccessAdvancedTabs}>
+            <TabsTrigger value="assignment" disabled={!canAccessAdvancedTabs || hasSchemaError}>
               Asignación
             </TabsTrigger>
-            <TabsTrigger value="inheritance" disabled={!canAccessAdvancedTabs}>
+            <TabsTrigger value="inheritance" disabled={!canAccessAdvancedTabs || hasSchemaError}>
               Herencia
             </TabsTrigger>
           </TabsList>

@@ -1,10 +1,8 @@
-
 import React from "react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { AssignmentType, User } from "@/utils/taskTemplateUtils";
-import { Json } from "@/database-entities";
+import { AssignmentType, User, FormSchema } from "@/utils/taskTemplateUtils";
 import { getEmailFieldsFromForm } from "@/utils/taskTemplateUtils";
 
 interface AssignmentTabProps {
@@ -15,7 +13,7 @@ interface AssignmentTabProps {
   assigneeFormField: string;
   setAssigneeFormField: (value: string) => void;
   sourceFormId: string;
-  sourceFormSchema: Json | null;
+  sourceFormSchema: FormSchema | null | undefined;
   projectUsers: User[] | undefined;
   isLoadingProjectUsers: boolean;
   isLoadingSourceSchema: boolean;
@@ -34,6 +32,11 @@ const AssignmentTab = ({
   isLoadingProjectUsers,
   isLoadingSourceSchema,
 }: AssignmentTabProps) => {
+  const emailFields = React.useMemo(() => 
+    sourceFormSchema ? getEmailFieldsFromForm(sourceFormSchema) : [], 
+    [sourceFormSchema]
+  );
+
   return (
     <div className="space-y-4 pt-4">
       <div className="grid grid-cols-4 items-center gap-4">
@@ -72,7 +75,7 @@ const AssignmentTab = ({
               ) : (
                 projectUsers?.map((user) => (
                   <SelectItem key={user.id} value={user.id}>
-                    {user.name} ({user.email})
+                    {user.name || user.email}
                   </SelectItem>
                 ))
               )}
@@ -106,12 +109,12 @@ const AssignmentTab = ({
                   <Loader2 className="h-4 w-4 animate-spin mr-2" /> 
                   Cargando campos...
                 </div>
-              ) : getEmailFieldsFromForm(sourceFormSchema).length === 0 ? (
+              ) : emailFields.length === 0 ? (
                 <div className="p-2 text-center text-sm text-gray-500">
-                  No hay campos de email disponibles
+                  No hay campos de email disponibles en el formulario origen
                 </div>
               ) : (
-                getEmailFieldsFromForm(sourceFormSchema).map((field) => (
+                emailFields.map((field) => (
                   <SelectItem key={field.key} value={field.key}>
                     {field.label}
                   </SelectItem>
