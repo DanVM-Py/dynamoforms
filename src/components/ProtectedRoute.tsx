@@ -87,9 +87,8 @@ const ProtectedRoute = ({
   // La declaración de needsProjectCheck se hace aquí una sola vez.
   const needsProjectCheck = requireProjectAccess && 
                             !requireGlobalAdmin && 
-                            !requireProjectAdmin && 
-                            location.pathname !== '/'; // Evitar chequeo en la ruta raíz si no se requiere admin
-                            
+                            !requireProjectAdmin;
+
   logger.debug(`[ProtectedRoute DEBUG] General Project Access Check Needed? ${needsProjectCheck} (requireProjectAccess: ${requireProjectAccess}, path: ${location.pathname})`);
 
   if (needsProjectCheck && !currentProjectId) {

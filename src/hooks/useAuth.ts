@@ -81,23 +81,44 @@ export function useAuth() {
 
           logger.debug(`[useAuth] Fetching initial project from table: ${Tables.project_users} for user: ${currentUser.id}`);
 
-          const { data: projectUserData, error: projectUserError } = await supabase
+          const { data: projectUserData, error: projectUserError, status: projectUserStatus, statusText: projectUserStatusText, count: projectUserCount, body: projectUserBody } = await supabase
             .from(Tables.project_users)
             .select('project_id')
             .eq('user_id', currentUser.id)
             .limit(1)
-            .single();
-          logger.debug('[useAuth DEBUG] Project fetch RESULT:', { projectUserData, projectUserError });
 
-          if (projectUserError && projectUserError.code !== 'PGRST116') {
-             logger.error('[useAuth] Error fetching initial project user data:', projectUserError);
-           }
+          // Logs detallados de la respuesta
+          logger.debug('[useAuth DEBUG] Project fetch RAW RESPONSE:', {
+            data: projectUserData,
+            error: projectUserError,
+            status: projectUserStatus,
+            statusText: projectUserStatusText,
+            count: projectUserCount,
+            body: projectUserBody
+          });
 
-          const initialProjectId = projectUserData?.project_id || null;
-          logger.info(`[useAuth] Initial Project ID determined: ${initialProjectId}`);
-          setCurrentProjectId(initialProjectId);
-          if (initialProjectId) {
-             sessionStorage.setItem('currentProjectId', initialProjectId);
+          if (projectUserError) {
+            logger.error('[useAuth] Error fetching initial project:', { 
+                message: projectUserError.message,
+                details: projectUserError.details,
+                hint: projectUserError.hint,
+                code: projectUserError.code,
+                status: projectUserStatus
+            });
+          }
+
+          let determinedProjectId: string | null = null;
+          if (projectUserData && Array.isArray(projectUserData) && projectUserData.length > 0) {
+            determinedProjectId = projectUserData[0].project_id;
+          } else if (projectUserData && !Array.isArray(projectUserData)) {
+            // Si usaste .maybeSingle() y obtuvo un objeto directamente
+            // determinedProjectId = (projectUserData as any).project_id; // Cuidado con el tipado aquí
+          }
+
+          logger.info(`[useAuth] Initial Project ID determined: ${determinedProjectId}`);
+          setCurrentProjectId(determinedProjectId);
+          if (determinedProjectId) {
+             sessionStorage.setItem('currentProjectId', determinedProjectId);
            } else {
              sessionStorage.removeItem('currentProjectId');
            }
