@@ -25,7 +25,7 @@ const ProtectedRoute = ({
   showLoading = true 
 }: ProtectedRouteProps) => {
   const location = useLocation();
-  const { user, session, loading: authContextLoading, isGlobalAdmin, isProjectAdmin, isInitialized, currentProjectId } = useAuth();
+  const { user, loading: authContextLoading, isGlobalAdmin, isProjectAdmin, isInitialized, currentProjectId } = useAuth();
   const { loading: projectsLoading } = useSidebarProjects();
 
   const combinedComponentLoading = authContextLoading || projectsLoading;

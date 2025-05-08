@@ -4,7 +4,6 @@ import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Projects from "./pages/projects/Projects";
-import Forms from "./pages/forms/Forms";
 import FormsManagement from "./pages/forms/FormsManagement";
 import PrivateFormView from "./pages/forms/PrivateFormView";
 import PublicFormView from "./pages/forms/PublicFormView";

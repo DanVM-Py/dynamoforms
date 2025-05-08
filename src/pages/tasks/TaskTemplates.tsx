@@ -27,8 +27,11 @@ import {
 } from "@/utils/taskTemplateUtils";
 import { Tables } from '@/config/environment';
 import { logger } from '@/lib/logger';
+import { PageContainer } from "@/components/layout/PageContainer";
 
 const TaskTemplates = () => {
+  logger.debug("TaskTemplates: Inicio del componente");
+
   const [editOpen, setEditOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | null>(null);
   const [title, setTitle] = useState("");
@@ -69,6 +72,9 @@ const TaskTemplates = () => {
       }
     }
   }, [userProfile, currentProjectId]);
+
+  logger.debug("TaskTemplates: Antes de definir queries");
+  logger.debug("TaskTemplates: Valor de !!projectIdState:", !!projectIdState)
 
   const {
     data: taskTemplatesData,
@@ -480,45 +486,33 @@ const TaskTemplates = () => {
     }
   }, [editOpen, selectedTemplate?.id, sourceFormId, targetFormId, sourceFormSchema, targetFormSchema, isLoadingSourceSchema, isLoadingTargetSchema]);
 
-  if (isLoadingTaskTemplates && !projectIdState) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Selecciona un proyecto para ver las plantillas...
-      </div>
-    );
+  logger.debug("TaskTemplates: Antes del return principal");
+  logger.debug("TaskTemplates: isLoadingTaskTemplates:", isLoadingTaskTemplates);
+  logger.debug("TaskTemplates: projectIdState:", projectIdState);
+
+  if (errorTaskTemplates) {
+     return (
+        <PageContainer title="Error">
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Error al Cargar Plantillas</AlertTitle>
+              <AlertDescription>
+                {errorTaskTemplates.message || "Ocurrió un error inesperado."}
+              </AlertDescription>
+            </Alert>
+        </PageContainer>
+     );
   }
-  if (isLoadingTaskTemplates && projectIdState) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando plantillas de tareas...
-      </div>
-    );
-  }
-  
-  if (errorTaskTemplates) return (
-    <Alert variant="destructive">
-      <AlertTitle>Error</AlertTitle>
-      <AlertDescription>
-        Hubo un error al cargar las plantillas de tareas. {errorTaskTemplates.message}
-      </AlertDescription>
-    </Alert>
-  );
 
   return (
-    <div className="container mx-auto py-10">
+    <PageContainer title="Plantillas de Tareas">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Plantillas de Tareas</h1>
         <div className="flex space-x-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => {
-              refetchTaskTemplates();
-              if (projectIdState) {
-                queryClient.invalidateQueries({ queryKey: ['forms', projectIdState] });
-              }
-            }}
-            disabled={!projectIdState}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { refetchTaskTemplates(); if (projectIdState) { queryClient.invalidateQueries({ queryKey: ['forms', projectIdState] }); } }}
+            disabled={!projectIdState || isLoadingTaskTemplates}
           >
             <RefreshCw className="h-4 w-4 mr-1" />
             Actualizar
@@ -540,31 +534,37 @@ const TaskTemplates = () => {
         </Alert>
       )}
 
-      <TaskTemplateFilter 
-        filter={filter}
-        onFilterChange={handleFilterChange}
-      />
-
-      {projectIdState && taskTemplates.length === 0 && !isLoadingTaskTemplates && (
-        <Alert className="mt-4">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>No hay plantillas</AlertTitle>
-          <AlertDescription>
-            No se encontraron plantillas de tareas para el proyecto actual o filtro seleccionado. 
-            Puedes crear una nueva plantilla usando el botón "Crear Plantilla".
-          </AlertDescription>
-        </Alert>
+      {projectIdState && (
+          <TaskTemplateFilter
+            filter={filter}
+            onFilterChange={handleFilterChange}
+          />
       )}
 
-      {projectIdState && (taskTemplates.length > 0 || isLoadingTaskTemplates) && (
-        <TaskTemplateList 
-          taskTemplates={taskTemplates} 
-          onEdit={handleEdit} 
-        />
-      )}
+      {isLoadingTaskTemplates && projectIdState ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="mr-2 h-6 w-6 animate-spin text-gray-500" />
+            <span className="text-gray-500">Cargando plantillas...</span>
+          </div>
+      ) : projectIdState && taskTemplates.length === 0 ? (
+          <Alert className="mt-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>No hay plantillas</AlertTitle>
+            <AlertDescription>
+              No se encontraron plantillas de tareas para el proyecto actual o filtro seleccionado.
+              Puedes crear una nueva plantilla usando el botón "Crear Plantilla".
+            </AlertDescription>
+          </Alert>
+      ) : projectIdState ? (
+         <TaskTemplateList
+           taskTemplates={taskTemplates}
+           onEdit={handleEdit}
+         />
+      ) : null }
 
       {errorForms && (
         <Alert variant="destructive" className="mt-4">
+          <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Error al cargar formularios</AlertTitle>
           <AlertDescription>
             {(errorForms as Error).message}
@@ -576,59 +576,30 @@ const TaskTemplates = () => {
         open={editOpen}
         onOpenChange={setEditOpen}
         selectedTemplate={selectedTemplate}
-        title={title}
-        setTitle={setTitle}
-        description={description}
-        setDescription={setDescription}
-        sourceFormId={sourceFormId}
-        setSourceFormId={setSourceFormId}
-        targetFormId={targetFormId}
-        setTargetFormId={setTargetFormId}
-        isActive={isActive}
-        setIsActive={setIsActive}
-        projectId={projectIdState}
-        setProjectId={setProjectIdState}
-        inheritanceMapping={inheritanceMapping}
-        setInheritanceMapping={setInheritanceMapping}
-        assignmentType={assignmentType}
-        setAssignmentType={setAssignmentType}
-        defaultAssignee={defaultAssignee}
-        setDefaultAssignee={setDefaultAssignee}
-        minDays={minDays}
-        setMinDays={setMinDays}
-        dueDays={dueDays}
-        setDueDays={setDueDays}
-        assigneeFormField={assigneeFormField}
-        setAssigneeFormField={setAssigneeFormField}
-        currentEditTab={currentEditTab}
-        setCurrentEditTab={setCurrentEditTab}
-        projects={projects}
-        forms={forms}
-        projectUsers={projectUsers}
-        sourceFormSchema={sourceFormSchema}
-        targetFormSchema={targetFormSchema}
-        isLoadingProjects={isLoadingProjects}
-        isLoadingForms={isLoadingForms}
-        isLoadingProjectUsers={isLoadingProjectUsers}
-        isLoadingSourceSchema={isLoadingSourceSchema}
-        isLoadingTargetSchema={isLoadingTargetSchema}
-        errorSourceSchema={errorSourceSchema as Error | null}
-        errorTargetSchema={errorTargetSchema as Error | null}
-        isSaving={isSaving}
-        isDeleting={isDeleting}
-        onUpdateTemplate={handleUpdateTaskTemplate}
-        onDeleteTemplate={handleDeleteTaskTemplate}
+        title={title} setTitle={setTitle} description={description} setDescription={setDescription}
+        sourceFormId={sourceFormId} setSourceFormId={setSourceFormId} targetFormId={targetFormId} setTargetFormId={setTargetFormId}
+        isActive={isActive} setIsActive={setIsActive} projectId={projectIdState} setProjectId={setProjectIdState}
+        inheritanceMapping={inheritanceMapping} setInheritanceMapping={setInheritanceMapping}
+        assignmentType={assignmentType} setAssignmentType={setAssignmentType} defaultAssignee={defaultAssignee} setDefaultAssignee={setDefaultAssignee}
+        minDays={minDays} setMinDays={setMinDays} dueDays={dueDays} setDueDays={setDueDays}
+        assigneeFormField={assigneeFormField} setAssigneeFormField={setAssigneeFormField}
+        currentEditTab={currentEditTab} setCurrentEditTab={setCurrentEditTab}
+        projects={projects} forms={forms} projectUsers={projectUsers}
+        sourceFormSchema={sourceFormSchema} targetFormSchema={targetFormSchema}
+        isLoadingProjects={isLoadingProjects} isLoadingForms={isLoadingForms} isLoadingProjectUsers={isLoadingProjectUsers}
+        isLoadingSourceSchema={isLoadingSourceSchema} isLoadingTargetSchema={isLoadingTargetSchema}
+        errorSourceSchema={errorSourceSchema as Error | null} errorTargetSchema={errorTargetSchema as Error | null}
+        isSaving={isSaving} isDeleting={isDeleting}
+        onUpdateTemplate={handleUpdateTaskTemplate} onDeleteTemplate={handleDeleteTaskTemplate}
       />
-      
       <CreateTaskTemplateModal
         open={createTemplateModalOpen}
         onOpenChange={setCreateTemplateModalOpen}
         projectId={projectIdState}
-        onSuccess={() => {
-          refetchTaskTemplates();
-        }}
+        onSuccess={() => { refetchTaskTemplates(); }}
       />
-    </div>
+
+    </PageContainer>
   );
 };
 
