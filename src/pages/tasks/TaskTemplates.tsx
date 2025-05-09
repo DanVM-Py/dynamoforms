@@ -11,7 +11,6 @@ import { Plus, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { debugFormSchema } from "@/utils/formSchemaUtils";
-import { Json } from "@/types/database-entities";
 import { CreateTaskTemplateModal } from "@/components/task-templates/CreateTaskTemplateModal";
 import TaskTemplateList from "@/components/task-templates/TaskTemplateList";
 import TaskTemplateFilter from "@/components/task-templates/TaskTemplateFilter";
@@ -39,7 +38,6 @@ const TaskTemplates = () => {
   const [sourceFormId, setSourceFormId] = useState("");
   const [targetFormId, setTargetFormId] = useState("");
   const [isActive, setIsActive] = useState(true);
-  const [projectIdState, setProjectIdState] = useState("");
   const [inheritanceMapping, setInheritanceMapping] = useState<Record<string, string>>({});
   const [assignmentType, setAssignmentType] = useState<AssignmentType>("static");
   const [defaultAssignee, setDefaultAssignee] = useState("");
@@ -54,27 +52,8 @@ const TaskTemplates = () => {
   const queryClient = useQueryClient();
   const { userProfile, currentProjectId } = useAuth();
 
-  useEffect(() => {
-    if (currentProjectId) {
-      logger.info("[TaskTemplates] Using project ID from AuthContext:", currentProjectId);
-      setProjectIdState(currentProjectId);
-    } else {
-      const storedProjectId = sessionStorage.getItem('currentProjectId') || localStorage.getItem('currentProjectId');
-      if (storedProjectId) {
-        logger.info("[TaskTemplates] Using project ID from session storage:", storedProjectId);
-        setProjectIdState(storedProjectId);
-      } else if (userProfile?.project_id) {
-        logger.info("[TaskTemplates] Falling back to project ID from user profile:", userProfile.project_id);
-        setProjectIdState(userProfile.project_id);
-      } else {
-        logger.warn("[TaskTemplates] No project ID found. Some features might be limited.");
-        setProjectIdState("");
-      }
-    }
-  }, [userProfile, currentProjectId]);
-
   logger.debug("TaskTemplates: Antes de definir queries");
-  logger.debug("TaskTemplates: Valor de !!projectIdState:", !!projectIdState)
+  logger.debug("TaskTemplates: Valor de !!currentProjectId:", !!currentProjectId);
 
   const {
     data: taskTemplatesData,
@@ -82,10 +61,10 @@ const TaskTemplates = () => {
     error: errorTaskTemplates,
     refetch: refetchTaskTemplates
   } = useQuery<TaskTemplate[], Error>({
-    queryKey: ['taskTemplates', filter, projectIdState],
+    queryKey: ['taskTemplates', filter, currentProjectId],
     queryFn: async () => {
-      if (!projectIdState) {
-        logger.warn("[TaskTemplates] No project ID set, cannot fetch task templates.");
+      if (!currentProjectId) {
+        logger.warn("[TaskTemplates] No project ID set (from context), cannot fetch task templates.");
         return [];
       }
       let query = supabase
@@ -106,7 +85,7 @@ const TaskTemplates = () => {
           assignee_form_field
         `);
         
-      query = query.eq('project_id', projectIdState);
+      query = query.eq('project_id', currentProjectId);
       
       if (filter === "active") {
         query = query.eq('is_active', true);
@@ -125,7 +104,7 @@ const TaskTemplates = () => {
 
       return data || [];
     },
-    enabled: !!projectIdState,
+    enabled: !!currentProjectId,
   });
 
   const {
@@ -133,15 +112,15 @@ const TaskTemplates = () => {
     isLoading: isLoadingForms,
     error: errorForms,
   } = useQuery<Form[], Error>({
-    queryKey: ['forms', projectIdState],
+    queryKey: ['forms', currentProjectId],
     queryFn: async () => {
-      if (!projectIdState) return [];
+      if (!currentProjectId) return [];
       
-      logger.info(`[TaskTemplates] Fetching forms for project: ${projectIdState}`);
+      logger.info(`[TaskTemplates] Fetching forms for project: ${currentProjectId}`);
       const { data, error } = await supabase
         .from(Tables.forms)
         .select('id, title, schema')
-        .eq('project_id', projectIdState)
+        .eq('project_id', currentProjectId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -151,7 +130,7 @@ const TaskTemplates = () => {
 
       return (data?.map(f => ({...f, schema: f.schema as FormSchema | null})) as Form[]) || [];
     },
-    enabled: !!projectIdState,
+    enabled: !!currentProjectId,
     staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 
@@ -183,9 +162,9 @@ const TaskTemplates = () => {
     isLoading: isLoadingProjectUsers,
     error: errorProjectUsers,
   } = useQuery<User[], Error>({
-    queryKey: ['projectUsers', projectIdState],
-    queryFn: () => getProjectUsers(projectIdState),
-    enabled: !!projectIdState,
+    queryKey: ['projectUsers', currentProjectId],
+    queryFn: () => getProjectUsers(currentProjectId!),
+    enabled: !!currentProjectId,
     staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 
@@ -293,7 +272,7 @@ const TaskTemplates = () => {
 
   const taskTemplates = React.useMemo(() => {
     if (!taskTemplatesData) return [];
-    return transformTaskTemplates(taskTemplatesData as unknown as Partial<TaskTemplate>[], formsMap);
+    return transformTaskTemplates(taskTemplatesData as any, formsMap);
   }, [taskTemplatesData, formsMap]);
 
   const updateTaskTemplateMutation = useMutation<unknown, Error, void>({
@@ -314,7 +293,7 @@ const TaskTemplates = () => {
         source_form_id: sourceFormId,
         target_form_id: targetFormId,
         is_active: isActive,
-        project_id: projectIdState,
+        project_id: selectedTemplate.projectId,
         inheritance_mapping: inheritanceMapping,
         assignment_type: assignmentType,
         default_assignee: assignmentType === "static" ? defaultAssignee : null,
@@ -337,7 +316,7 @@ const TaskTemplates = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['taskTemplates'] });
+      queryClient.invalidateQueries({ queryKey: ['taskTemplates', filter, currentProjectId] });
       toast({
         title: "Plantilla actualizada",
         description: "La plantilla de tarea se ha actualizado correctamente.",
@@ -378,7 +357,7 @@ const TaskTemplates = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['taskTemplates'] });
+      queryClient.invalidateQueries({ queryKey: ['taskTemplates', filter, currentProjectId] });
       toast({
         title: "Plantilla eliminada",
         description: "La plantilla de tarea se ha eliminado correctamente.",
@@ -401,8 +380,8 @@ const TaskTemplates = () => {
 
   const handleUpdateTaskTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !description || !sourceFormId || !targetFormId || !projectIdState) {
-        toast({title: "Campos incompletos", description: "Asegúrate de que todos los campos generales estén llenos.", variant: "destructive"});
+    if (!title || !description || !sourceFormId || !targetFormId || !selectedTemplate?.projectId) {
+        toast({title: "Campos incompletos", description: "Asegúrate de que todos los campos generales estén llenos y la plantilla tenga proyecto.", variant: "destructive"});
         setCurrentEditTab("general");
         return;
     }
@@ -424,14 +403,13 @@ const TaskTemplates = () => {
   };
 
   const handleEdit = (template: TaskTemplate) => {
-    logger.info("[TaskTemplates] Editing template:", template.id);
+    logger.info("[TaskTemplates] Editing template:", template.id, "Project:", template.projectId);
     setSelectedTemplate(template);
     setTitle(template.title);
     setDescription(template.description);
     setSourceFormId(template.sourceFormId);
     setTargetFormId(template.targetFormId);
     setIsActive(template.isActive);
-    setProjectIdState(template.projectId);
     setInheritanceMapping(template.inheritanceMapping || {});
     setAssignmentType(template.assignmentType);
     setDefaultAssignee(template.defaultAssignee || "");
@@ -488,7 +466,7 @@ const TaskTemplates = () => {
 
   logger.debug("TaskTemplates: Antes del return principal");
   logger.debug("TaskTemplates: isLoadingTaskTemplates:", isLoadingTaskTemplates);
-  logger.debug("TaskTemplates: projectIdState:", projectIdState);
+  logger.debug("TaskTemplates: currentProjectId:", currentProjectId);
 
   if (errorTaskTemplates) {
      return (
@@ -511,20 +489,23 @@ const TaskTemplates = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => { refetchTaskTemplates(); if (projectIdState) { queryClient.invalidateQueries({ queryKey: ['forms', projectIdState] }); } }}
-            disabled={!projectIdState || isLoadingTaskTemplates}
+            onClick={() => {
+                refetchTaskTemplates();
+                if (currentProjectId) queryClient.invalidateQueries({ queryKey: ['forms', currentProjectId] });
+            }}
+            disabled={!currentProjectId || isLoadingTaskTemplates}
           >
             <RefreshCw className="h-4 w-4 mr-1" />
             Actualizar
           </Button>
-          <Button onClick={() => setCreateTemplateModalOpen(true)} disabled={!projectIdState}>
+          <Button onClick={() => setCreateTemplateModalOpen(true)} disabled={!currentProjectId}>
             <Plus className="mr-2 h-4 w-4" />
             Crear Plantilla
           </Button>
         </div>
       </div>
 
-      {!projectIdState && (
+      {!currentProjectId && (
         <Alert variant="default" className="mb-4">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Selecciona un Proyecto</AlertTitle>
@@ -534,19 +515,19 @@ const TaskTemplates = () => {
         </Alert>
       )}
 
-      {projectIdState && (
+      {currentProjectId && (
           <TaskTemplateFilter
             filter={filter}
             onFilterChange={handleFilterChange}
           />
       )}
 
-      {isLoadingTaskTemplates && projectIdState ? (
+      {isLoadingTaskTemplates && currentProjectId ? (
           <div className="flex items-center justify-center py-10">
             <Loader2 className="mr-2 h-6 w-6 animate-spin text-gray-500" />
             <span className="text-gray-500">Cargando plantillas...</span>
           </div>
-      ) : projectIdState && taskTemplates.length === 0 ? (
+      ) : currentProjectId && taskTemplates.length === 0 ? (
           <Alert className="mt-4">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>No hay plantillas</AlertTitle>
@@ -555,7 +536,7 @@ const TaskTemplates = () => {
               Puedes crear una nueva plantilla usando el botón "Crear Plantilla".
             </AlertDescription>
           </Alert>
-      ) : projectIdState ? (
+      ) : currentProjectId ? (
          <TaskTemplateList
            taskTemplates={taskTemplates}
            onEdit={handleEdit}
@@ -578,7 +559,8 @@ const TaskTemplates = () => {
         selectedTemplate={selectedTemplate}
         title={title} setTitle={setTitle} description={description} setDescription={setDescription}
         sourceFormId={sourceFormId} setSourceFormId={setSourceFormId} targetFormId={targetFormId} setTargetFormId={setTargetFormId}
-        isActive={isActive} setIsActive={setIsActive} projectId={projectIdState} setProjectId={setProjectIdState}
+        isActive={isActive} setIsActive={setIsActive}
+        projectId={selectedTemplate?.projectId || ""}
         inheritanceMapping={inheritanceMapping} setInheritanceMapping={setInheritanceMapping}
         assignmentType={assignmentType} setAssignmentType={setAssignmentType} defaultAssignee={defaultAssignee} setDefaultAssignee={setDefaultAssignee}
         minDays={minDays} setMinDays={setMinDays} dueDays={dueDays} setDueDays={setDueDays}
@@ -595,7 +577,7 @@ const TaskTemplates = () => {
       <CreateTaskTemplateModal
         open={createTemplateModalOpen}
         onOpenChange={setCreateTemplateModalOpen}
-        projectId={projectIdState}
+        projectId={currentProjectId || ""}
         onSuccess={() => { refetchTaskTemplates(); }}
       />
 

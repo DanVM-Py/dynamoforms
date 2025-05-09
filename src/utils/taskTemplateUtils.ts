@@ -47,27 +47,32 @@ export interface TaskTemplate {
 }
 
 export const transformTaskTemplates = (
-  taskTemplatesData: Partial<TaskTemplate>[],
+  taskTemplatesData: any[],
   formsMap: Map<string, Form>
 ): TaskTemplate[] => {
-  return taskTemplatesData.map(tt => ({
-    ...tt,
-    id: tt.id!,
-    title: tt.title || "Untitled Template",
-    description: tt.description || "",
-    sourceFormId: tt.sourceFormId!,
-    targetFormId: tt.targetFormId!,
-    isActive: tt.isActive !== undefined ? tt.isActive : true,
-    projectId: tt.projectId!,
-    inheritanceMapping: tt.inheritanceMapping || {},
-    assignmentType: tt.assignmentType || "static",
-    defaultAssignee: tt.defaultAssignee || "",
-    minDays: tt.minDays !== undefined ? tt.minDays : 0,
-    dueDays: tt.dueDays !== undefined ? tt.dueDays : 7,
-    assigneeFormField: tt.assigneeFormField || "",
-    sourceFormTitle: tt.sourceFormId ? formsMap.get(tt.sourceFormId)?.title : undefined,
-    targetFormTitle: tt.targetFormId ? formsMap.get(tt.targetFormId)?.title : undefined,
-  } as TaskTemplate));
+  if (!Array.isArray(taskTemplatesData)) {
+    return [];
+  }
+  return taskTemplatesData.map(tt => {
+    const transformed = {
+      id: tt.id!,
+      title: tt.title || "Untitled Template",
+      description: tt.description || "",
+      sourceFormId: tt.source_form_id!,
+      targetFormId: tt.target_form_id!,
+      isActive: tt.is_active !== undefined ? tt.is_active : true,
+      projectId: tt.project_id!,
+      inheritanceMapping: tt.inheritance_mapping || {},
+      assignmentType: tt.assignment_type || "static",
+      defaultAssignee: tt.default_assignee || "",
+      minDays: tt.min_days !== undefined ? tt.min_days : 0,
+      dueDays: tt.due_days !== undefined ? tt.due_days : 7,
+      assigneeFormField: tt.assignee_form_field || "",
+      sourceFormTitle: tt.source_form_id ? formsMap.get(tt.source_form_id)?.title : undefined,
+      targetFormTitle: tt.target_form_id ? formsMap.get(tt.target_form_id)?.title : undefined,
+    };
+    return transformed as TaskTemplate;
+  });
 };
 
 export const getProjectUsers = async (projectId: string): Promise<User[]> => {
@@ -123,26 +128,66 @@ export const getProjectUsers = async (projectId: string): Promise<User[]> => {
 
 // Función para obtener los campos del formulario de origen
 export const getSourceFormFields = (formSchema: FormSchema | null | undefined): { key: string, label: string, type: string }[] => {
-  if (!isValidFormSchema(formSchema)) return [];
-  return formSchema.components
-    .filter((component: FormSchemaComponent) => component.key && component.type !== 'button')
-    .map((component: FormSchemaComponent) => ({
-      key: component.key,
-      label: component.label || component.key,
-      type: component.type
-    }));
+  if (!isValidFormSchema(formSchema)) {
+    logger.debug("[getSourceFormFields] isValidFormSchema devolvió false. Retornando array vacío.");
+    return [];
+  }
+
+  logger.debug("[getSourceFormFields] Entrando con formSchema.components. Cantidad inicial:", formSchema.components.length);
+
+  const filteredComponents = formSchema.components
+    .filter((component: FormSchemaComponent, index: number) => { // La interfaz FormSchemaComponent aún usa 'key'
+                                                                 // pero el objeto 'component' real tendrá 'id'
+      const componentActual = component as any; // Usamos 'as any' para acceder a 'id' sin error de TS
+                                                // o modificamos FormSchemaComponent
+      const idValue = componentActual.id;
+      const keyIsNonEmptyString = typeof idValue === 'string' && idValue.trim() !== '';
+      const isNotButton = componentActual.type !== 'button';
+      const shouldKeep = keyIsNonEmptyString && isNotButton;
+
+      logger.debug(`[getSourceFormFields] Filtrando componente #${index}: id='${idValue}' (tipo: ${typeof idValue}), type='${componentActual.type}'. KeyIsNonEmptyString (basado en id): ${keyIsNonEmptyString}, IsNotButton: ${isNotButton}. Se mantiene: ${shouldKeep}`);
+      
+      return shouldKeep;
+    });
+  
+  logger.debug("[getSourceFormFields] Cantidad de componentes después del filtro:", filteredComponents.length);
+
+  if (filteredComponents.length === 0 && formSchema.components.length > 0) {
+    logger.warn("[getSourceFormFields] ¡ADVERTENCIA! Todos los componentes fueron filtrados. Revisa las condiciones del filtro y los datos de 'id' de los componentes.");
+  }
+
+  return filteredComponents.map((component: FormSchemaComponent) => {
+    const componentActual = component as any; // Nuevamente, para acceder a 'id'
+    return {
+      key: componentActual.id, // Usamos 'id' como 'key' para la lógica de herencia
+      label: componentActual.label || componentActual.id, // Si label no existe, usa id
+      type: componentActual.type
+    };
+  });
 };
 
 // Función para obtener los campos del formulario de destino
 export const getTargetFormFields = (formSchema: FormSchema | null | undefined): { key: string, label: string, type: string }[] => {
   if (!isValidFormSchema(formSchema)) return [];
-  return formSchema.components
-    .filter((component: FormSchemaComponent) => component.key && component.type !== 'button')
-    .map((component: FormSchemaComponent) => ({
-      key: component.key,
-      label: component.label || component.key,
-      type: component.type
-    }));
+  logger.debug("[getTargetFormFields] Entrando con formSchema.components. Cantidad inicial:", formSchema.components.length);
+  
+  const filtered = formSchema.components
+    .filter((component: FormSchemaComponent) => {
+        const componentActual = component as any;
+        const idIsValid = typeof componentActual.id === 'string' && componentActual.id.trim() !== '';
+        const typeIsNotButton = componentActual.type !== 'button';
+        // logger.debug(`[getTargetFormFields] Filtrando: id='${componentActual.id}', type='${componentActual.type}', Mantiene: ${idIsValid && typeIsNotButton}`);
+        return idIsValid && typeIsNotButton;
+    });
+  logger.debug("[getTargetFormFields] Cantidad de componentes después del filtro:", filtered.length);
+  return filtered.map((component: FormSchemaComponent) => {
+    const componentActual = component as any;
+    return {
+      key: componentActual.id, // Usamos 'id' como 'key'
+      label: componentActual.label || componentActual.id,
+      type: componentActual.type
+    };
+  });
 };
 
 export const areFieldTypesCompatible = (sourceType: string, targetType: string): boolean => {
@@ -178,8 +223,25 @@ export const getEmailFieldsFromForm = (formSchema: FormSchema | null | undefined
  * Checks if the provided schema is a valid FormSchema object.
  */
 export const isValidFormSchema = (schema: unknown): schema is FormSchema => {
-  return schema !== null &&
-         typeof schema === 'object' &&
-         !Array.isArray(schema) &&
-         Array.isArray((schema as FormSchema).components);
+  if (schema === null) {
+    // logger.debug("[isValidFormSchema] Schema is null.");
+    return false;
+  }
+  if (typeof schema !== 'object') {
+    // logger.debug("[isValidFormSchema] Schema is not an object. Type:", typeof schema);
+    return false;
+  }
+  if (Array.isArray(schema)) {
+    // logger.debug("[isValidFormSchema] Schema itself is an array.");
+    return false;
+  }
+  const componentsProperty = (schema as { components?: unknown }).components;
+  // logger.debug("[isValidFormSchema] Value of 'components' property:", componentsProperty);
+  if (componentsProperty === undefined) {
+    // logger.debug("[isValidFormSchema] 'components' property is undefined on the schema.");
+    return false;
+  }
+  const isComponentsAnArray = Array.isArray(componentsProperty);
+  // logger.debug("[isValidFormSchema] Is 'components' property an array?", isComponentsAnArray);
+  return isComponentsAnArray;
 };
