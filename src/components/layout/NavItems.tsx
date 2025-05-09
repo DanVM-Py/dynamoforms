@@ -148,15 +148,7 @@ const NavItems = ({
         section: 'administration',
         color: "text-gray-600",
       },
-      
-      {
-        title: "Monitoreo",
-        href: "/systems/monitoring",
-        icon: Activity,
-        requiredRoles: ["global_admin"],
-        section: 'systems',
-        color: "text-gray-600",
-      }
+
     );
     
     return navItems;
@@ -226,7 +218,6 @@ const NavItems = ({
 
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.href || 
-      (item.href === "/systems/monitoring" && location.pathname === "/systems/monitoring") ||
       (item.href === "/forms-management" && location.pathname === "/forms-management");
     
     return (

@@ -18,7 +18,6 @@ import TaskTemplates from "./pages/tasks/TaskTemplates";
 import Notifications from "./pages/notifications/Notifications";
 import Admin from "./pages/Admin";
 import NoProjectAccess from "./pages/NoProjectAccess";
-import Monitoring from "./pages/Monitoring";
 import ProtectedRoute from "./components/ProtectedRoute";
 import OperationalFormsView from "./pages/forms/OperationalFormsView";
 
@@ -157,14 +156,6 @@ export const routes = createBrowserRouter([
         element: (
           <ProtectedRoute requireGlobalAdmin={true}>
             <Admin />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/systems/monitoring",
-        element: (
-          <ProtectedRoute requireGlobalAdmin={true}>
-            <Monitoring />
           </ProtectedRoute>
         ),
       },
