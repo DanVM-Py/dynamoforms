@@ -1,13 +1,11 @@
-
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase, customSupabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { logger } from '@/lib/logger';
 
 interface FormResponseHandlerProps {
   formId: string;
-  responseId: string;
+  responseId: string; // Este es el ID de la respuesta del formulario que se acaba de guardar
   isPublic?: boolean;
 }
 
@@ -16,59 +14,35 @@ export const FormResponseHandler = ({ formId, responseId, isPublic = false }: Fo
   const { toast } = useToast();
 
   useEffect(() => {
-    const triggerTaskCreation = async () => {
-      try {
-        // Select the appropriate client based on whether this is a public form
-        const client = isPublic ? customSupabase : supabase;
-        
-        logger.info("[FormResponseHandler] Triggering task creation for form response:", {
-          formResponseId: responseId,
-          sourceFormId: formId,
-          isPublic,
-          usingCustomClient: isPublic
-        });
-        
-        // Trigger the edge function to create chained tasks
-        const { data, error } = await client.functions.invoke('create-chained-task', {
-          body: JSON.stringify({
-            formResponseId: responseId,
-            sourceFormId: formId,
-            isAnonymous: isPublic
-          }),
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+    logger.info(
+      `[FormResponseHandler] Respuesta de formulario con ID: ${responseId} para form: ${formId} ha sido procesada en el frontend.` +
+      ` La creación de tareas encadenadas (si aplica) será gestionada por el backend.`
+    );
 
-        if (error) {
-          logger.error("[FormResponseHandler] Error triggering task creation:", error);
-          toast({
-            title: "Error en el procesamiento",
-            description: "Hubo un problema al procesar su formulario, pero su respuesta fue guardada.",
-            variant: "destructive"
-          });
-        } else {
-          logger.info("[FormResponseHandler] Task creation triggered successfully:", data);
-        }
-      } catch (err) {
-        logger.error("[FormResponseHandler] Failed to trigger task creation:", err);
-      }
-    };
-
-    // Attempt to trigger task creation
-    triggerTaskCreation();
-
-    // Navigate to the appropriate page
+    // Navegación y notificación al usuario de que su envío fue exitoso.
     if (isPublic) {
+      // Para formularios públicos, usualmente se redirige a una página de éxito genérica.
       navigate(`/public/forms/success`);
     } else {
+      // Para formularios internos/privados:
       toast({
-        title: "Formulario enviado",
-        description: "Tu respuesta ha sido guardada correctamente."
+        title: "Formulario Enviado",
+        description: "Tu respuesta ha sido guardada correctamente. Las tareas asociadas se procesarán automáticamente si corresponde."
       });
+      // Navegar a una página relevante, por ejemplo, de vuelta a la lista de respuestas del formulario,
+      // o a la lista de tareas del proyecto, o a un dashboard.
+      // Esto dependerá de la experiencia de usuario deseada.
+      // Ejemplo: navegar a la lista de respuestas del formulario actual.
       navigate(`/forms/${formId}/responses`);
+      // O si tienes un `projectId` disponible y quieres ir a las tareas del proyecto:
+      // navigate(`/projects/${projectId}/tasks`);
     }
+
+    // Las dependencias del useEffect se simplifican ya que no hay llamadas asíncronas
+    // complejas que gestionar aquí para la creación de tareas.
   }, [formId, responseId, isPublic, navigate, toast]);
 
+  // Este componente es principalmente para efectos secundarios (navegación, toasts)
+  // después de que una respuesta de formulario es manejada/guardada, por lo que no renderiza UI.
   return null;
 };
