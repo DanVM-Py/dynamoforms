@@ -7,6 +7,7 @@ import GeneralTab from "./tabs/GeneralTab";
 import AssignmentTab from "./tabs/AssignmentTab";
 import InheritanceTab from "./tabs/InheritanceTab";
 import { AssignmentType, Form, TaskTemplate, User, FormSchema } from "@/utils/taskTemplateUtils";
+import { logger } from '@/lib/logger';
 
 // Define a more specific type for the project items if not already globally available
 interface ProjectItem {
@@ -113,6 +114,14 @@ const EditTaskTemplateModal = ({
   const hasSchemaError = !!errorSourceSchema || !!errorTargetSchema;
   const canAccessAdvancedTabs = !!sourceFormId && !!targetFormId;
 
+  logger.info(`[EditTaskTemplateModal] Rendering. Current Tab: ${currentEditTab}, SourceFormID: ${sourceFormId}, TargetFormID: ${targetFormId}`);
+  logger.info(`[EditTaskTemplateModal] Props status for InheritanceTab: 
+    sourceFormSchema exists: ${!!sourceFormSchema}, 
+    targetFormSchema exists: ${!!targetFormSchema},
+    isLoadingSchemas: ${isLoadingSchemas}, 
+    hasSchemaError: ${hasSchemaError}
+  `);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[650px]">
@@ -176,16 +185,21 @@ const EditTaskTemplateModal = ({
           </TabsContent>
           
           <TabsContent value="inheritance">
-            <InheritanceTab 
-              sourceFormId={sourceFormId}
-              targetFormId={targetFormId}
-              sourceFormSchema={sourceFormSchema}
-              targetFormSchema={targetFormSchema}
-              inheritanceMapping={inheritanceMapping}
-              setInheritanceMapping={setInheritanceMapping}
-              isLoadingSchemas={isLoadingSchemas}
-              hasSchemaError={hasSchemaError}
-            />
+            {currentEditTab === 'inheritance' && logger.info("[EditTaskTemplateModal] Attempting to render InheritanceTab.")}
+            {currentEditTab === 'inheritance' ? (
+              <InheritanceTab 
+                sourceFormId={sourceFormId}
+                targetFormId={targetFormId}
+                sourceFormSchema={sourceFormSchema}
+                targetFormSchema={targetFormSchema}
+                inheritanceMapping={inheritanceMapping}
+                setInheritanceMapping={setInheritanceMapping}
+                isLoadingSchemas={isLoadingSchemas}
+                hasSchemaError={hasSchemaError}
+              />
+            ) : (
+              logger.info("[EditTaskTemplateModal] InheritanceTab NOT rendering because currentEditTab is not 'inheritance'.")
+            )}
           </TabsContent>
         </Tabs>
         

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
@@ -58,6 +58,7 @@ import {
   getTargetFormFields,
   getProjectUsers as fetchProjectUsersUtility
 } from '@/utils/taskTemplateUtils';
+import InheritanceTab from './tabs/InheritanceTab';
 
 interface CreateTaskTemplateModalProps {
   open: boolean;
@@ -79,7 +80,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
   const [dueDays, setDueDays] = useState(7);
   const [assigneeDynamic, setAssigneeDynamic] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [currentEditTab, setCurrentEditTab] = useState("general");
+  const [currentTab, setCurrentTab] = useState<string>("general");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, userProfile } = useAuth();
@@ -264,7 +265,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
         description: "Por favor, completa todos los campos obligatorios en la pestaña General.",
         variant: "destructive"
       });
-      setCurrentEditTab("general");
+      setCurrentTab("general");
       return;
     }
     if (assignmentType === "static" && !staticAssignee) {
@@ -273,7 +274,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
         description: "Por favor, selecciona un usuario asignado en la pestaña Asignación.",
         variant: "destructive"
       });
-      setCurrentEditTab("assignment");
+      setCurrentTab("assignment");
       return;
     }
     if (assignmentType === "dynamic" && !assigneeDynamic) {
@@ -282,7 +283,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
         description: "Por favor, selecciona un campo de email en la pestaña Asignación.",
         variant: "destructive"
       });
-      setCurrentEditTab("assignment");
+      setCurrentTab("assignment");
       return;
     }
     await createTaskTemplateMutation.mutateAsync();
@@ -300,30 +301,24 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
     setMinDays(0);
     setDueDays(7);
     setAssigneeDynamic("");
-    setCurrentEditTab("general");
-  };
-
-  const handleFieldMapping = (sourceKey: string, targetKey: string) => {
-    const newMapping = { ...inheritanceMapping };
-    if (sourceKey === "") {
-      const currentSourceKey = Object.keys(newMapping).find(key => newMapping[key] === targetKey);
-      if (currentSourceKey) {
-        delete newMapping[currentSourceKey];
-      }
-    } else {
-      Object.keys(newMapping).forEach(key => {
-        if (newMapping[key] === targetKey) {
-          delete newMapping[key];
-        }
-      });
-      newMapping[sourceKey] = targetKey;
-    }
-    setInheritanceMapping(newMapping);
+    setCurrentTab("general");
   };
 
   const isLoadingSchemas = isLoadingSourceSchema || isLoadingTargetSchema;
   const hasSchemaError = !!errorSourceSchema || !!errorTargetSchema;
   const canAccessAdvancedTabs = !!sourceFormId && !!targetFormId;
+
+  const sourceFields = useMemo(() => {
+    if (!sourceFormSchema) return [];
+    logger.info('[CreateTaskTemplateModal] Recalculating sourceFields via useMemo');
+    return getSourceFormFields(sourceFormSchema);
+  }, [sourceFormSchema]);
+
+  const targetFields = useMemo(() => {
+    if (!targetFormSchema) return [];
+    logger.info('[CreateTaskTemplateModal] Recalculating targetFields via useMemo');
+    return getTargetFormFields(targetFormSchema);
+  }, [targetFormSchema]);
 
   useEffect(() => {
     logger.trace("[CreateTaskTemplateModal] Modal state changed:", {
@@ -337,6 +332,10 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
     });
   }, [open, projectId, sourceFormId, targetFormId, sourceFormSchema, targetFormSchema, isLoadingSchemas]);
 
+  useEffect(() => {
+    logger.debug("[CreateTaskTemplateModal] inheritanceMapping STATE CHANGED:", inheritanceMapping);
+  }, [inheritanceMapping]);
+  
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
       if (!isOpen) clearForm();
@@ -350,7 +349,10 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={currentEditTab} onValueChange={setCurrentEditTab}>
+        <Tabs value={currentTab} onValueChange={(newTab) => {
+          logger.info(`[CreateTaskTemplateModal] Tab changed to: ${newTab}`);
+          setCurrentTab(newTab);
+        }}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="assignment" disabled={!canAccessAdvancedTabs || hasSchemaError}>
@@ -575,81 +577,26 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
           </TabsContent>
 
           <TabsContent value="inheritance" className="space-y-4 pt-4">
-            <div className="text-sm mb-4">
-              <div className="font-medium">Mapeo de Campos</div>
-              <p className="text-gray-500">
-                Selecciona qué campos del formulario de origen se copiarán a cada campo del formulario de destino.
-              </p>
-            </div>
-
-            {hasSchemaError && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Error al cargar esquemas</AlertTitle>
-                <AlertDescription>
-                  Hubo un problema al cargar los esquemas de formularios. Verifica los formularios seleccionados o intenta nuevamente.
-                </AlertDescription>
-              </Alert>
+            {/* ESTE LOG ESTÁ BIEN, PUEDES MANTENERLO SI QUIERES */}
+            {currentTab === 'inheritance' && logger.info(`[CreateTaskTemplateModal] Rendering InheritanceTab check. Props: 
+               sourceFormId=${sourceFormId}, targetFormId=${targetFormId}, 
+               sourceFormSchema exists=${!!sourceFormSchema}, targetFormSchema exists=${!!targetFormSchema}, 
+               isLoadingSchemas=${isLoadingSchemas}, hasSchemaError=${hasSchemaError}`
             )}
 
-            {canAccessAdvancedTabs && !hasSchemaError ? (
-              isLoadingSchemas ? (
-                <div className="text-center p-6 border rounded-md">
-                  <div className="flex flex-col items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin mb-2" />
-                    <span>Cargando esquemas de formularios...</span>
-                  </div>
-                </div>
-              ) : getTargetFormFields(targetFormSchema).length > 0 ? (
-                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                  {getTargetFormFields(targetFormSchema).map((targetField) => {
-                    const mappedSourceKey = Object.keys(inheritanceMapping)
-                      .find(key => inheritanceMapping[key] === targetField.key) || "";
-                    const compatibleSourceFields = getSourceFormFields(sourceFormSchema)
-                      .filter(sourceField => areFieldTypesCompatible(sourceField.type, targetField.type));
-                    return (
-                      <div key={targetField.key} className="grid grid-cols-2 gap-4 p-3 border rounded-md">
-                        <div>
-                          <Label className="font-medium">{targetField.label}</Label>
-                          <div className="text-xs text-gray-500">Campo destino ({targetField.type})</div>
-                        </div>
-                        <div>
-                          <Select
-                            value={mappedSourceKey}
-                            onValueChange={(sourceValue) => handleFieldMapping(sourceValue, targetField.key)}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="No heredar" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">No heredar</SelectItem>
-                              {compatibleSourceFields.map((sourceField) => (
-                                <SelectItem key={sourceField.key} value={sourceField.key}>
-                                  {sourceField.label} ({sourceField.type})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center p-6 border rounded-md">
-                  <AlertTriangle className="h-6 w-6 text-amber-500 mx-auto mb-2" />
-                  <p className="text-gray-500">No se encontraron campos en los formularios seleccionados o los esquemas no son válidos.</p>
-                </div>
-              )
-            ) : (
-              !hasSchemaError && (
-                <div className="text-center p-6 border rounded-md">
-                  <div>
-                    <p className="text-gray-500">Selecciona formularios de origen y destino primero en la pestaña "General".</p>
-                  </div>
-                </div>
-              )
-            )}
+            {/* RENDERIZA ÚNICAMENTE InheritanceTab CUANDO LA PESTAÑA ESTÉ ACTIVA */}
+            {currentTab === 'inheritance' && ( 
+               <InheritanceTab 
+                 sourceFormId={sourceFormId}
+                 targetFormId={targetFormId}
+                 sourceFormSchema={sourceFormSchema}
+                 targetFormSchema={targetFormSchema}
+                 inheritanceMapping={inheritanceMapping}
+                 setInheritanceMapping={setInheritanceMapping}
+                 isLoadingSchemas={isLoadingSchemas}
+                 hasSchemaError={hasSchemaError}
+               />
+             )}
           </TabsContent>
         </Tabs>
 

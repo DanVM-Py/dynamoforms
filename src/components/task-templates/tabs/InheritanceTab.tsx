@@ -59,7 +59,6 @@ const InheritanceTab = ({
         }
       });
       
-      // Luego agregar el nuevo mapeo
       newMapping[sourceKey] = targetKey;
     }
     
@@ -70,16 +69,24 @@ const InheritanceTab = ({
   // Obtenemos los campos de origen y destino
   const sourceFields = React.useMemo(() => {
     const fields = getSourceFormFields(sourceFormSchema);
-    logger.debug("[InheritanceTab] Source Fields:", fields.length, fields);
+    logger.info("[InheritanceTab] Raw sourceFields from getSourceFormFields:", fields.map(f => ({ key: f.key, label: f.label, type: f.type })));
+    const emptyKeyFields = fields.filter(f => f.key === "");
+    if (emptyKeyFields.length > 0) {
+      logger.warn("[InheritanceTab] WARNING: sourceFields contains fields with empty string keys:", emptyKeyFields.map(f => ({ label: f.label, key: f.key, type: f.type })));
+    }
     return fields;
   }, [sourceFormSchema]);
   
   const targetFields = React.useMemo(() => {
+    logger.info("[InheritanceTab] Calculating targetFields. targetFormSchema present:", !!targetFormSchema);
     const fields = getTargetFormFields(targetFormSchema);
-    logger.debug("[InheritanceTab] Target Fields:", fields.length, fields);
+    logger.info("[InheritanceTab] Calculated targetFields:", fields.map(f => ({ key: f.key, label: f.label, type: f.type })));
     return fields;
   }, [targetFormSchema]);
   
+  // --- NUEVOS LOGS PARA CONDICIONES ---
+  logger.info(`[InheritanceTab] Pre-render checks: canAccessAdvancedTabs=${canAccessAdvancedTabs}, hasSchemaError=${hasSchemaError}, isLoadingSchemas=${isLoadingSchemas}, targetFields.length=${targetFields.length}`);
+
   return (
     <div className="space-y-4 pt-4">
       <div className="text-sm mb-4">
@@ -110,14 +117,17 @@ const InheritanceTab = ({
         ) : targetFields.length > 0 ? (
           <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
             {targetFields.map((targetField) => {
-              // Encontrar si hay algún campo de origen mapeado a este destino
               const mappedSourceKey = Object.entries(inheritanceMapping)
                 .find(([_, value]) => value === targetField.key)?.[0] || "no-inheritance";
                 
-              // Filtrar los campos de origen compatibles con este tipo de destino
-              const compatibleSourceFields = sourceFields
+              let compatibleSourceFields = sourceFields
                 .filter(sourceField => areFieldTypesCompatible(sourceField.type, targetField.type));
-                
+
+              logger.info(
+                `[InheritanceTab] About to map compatibleSourceFields for target "${targetField.label} (${targetField.key})". Count: ${compatibleSourceFields.length}`, 
+                compatibleSourceFields.map(f => ({ key: f.key, label: f.label }))
+              );
+
               return (
                 <div key={targetField.key} className="grid grid-cols-2 gap-4 p-3 border rounded-md">
                   <div>
@@ -127,18 +137,30 @@ const InheritanceTab = ({
                   <div>
                     <Select
                       value={mappedSourceKey}
-                      onValueChange={(selectedSourceKey) => handleFieldMapping(selectedSourceKey, targetField.key)}
+                      onValueChange={(selectedSourceKeyValue) => handleFieldMapping(selectedSourceKeyValue, targetField.key)}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="No heredar" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="no-inheritance">No heredar</SelectItem>
-                        {compatibleSourceFields.map((sourceField) => (
-                          <SelectItem key={sourceField.key} value={sourceField.key}>
-                            {sourceField.label} ({sourceField.type})
-                          </SelectItem>
-                        ))}
+                        {compatibleSourceFields.map((sourceField) => {
+                          logger.info(`[InheritanceTab] INSIDE MAP - Creating SelectItem for sourceField: key="${sourceField.key}", label="${sourceField.label}"`);
+                          
+                          const itemValue = sourceField.key ? sourceField.key : "no-inheritance-fallback";
+                          if (itemValue === "") {
+                            logger.error(`[InheritanceTab] CRITICAL: Empty string value detected for label "${sourceField.label}". Original key: "${sourceField.key}"`);
+                          }
+
+                          return (
+                            <SelectItem 
+                              key={sourceField.key || `fallback-key-${sourceField.label}`}
+                              value={itemValue}
+                            >
+                              {sourceField.label} ({sourceField.type})
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -148,13 +170,15 @@ const InheritanceTab = ({
           </div>
         ) : (
           <div className="text-center p-6 border rounded-md">
+            {logger.warn("[InheritanceTab] Rendering 'No target fields found' message because targetFields.length is not > 0.")}
             <AlertTriangle className="h-6 w-6 text-amber-500 mx-auto mb-2" />
-            <p className="text-gray-500">No se encontraron campos en los formularios de origen/destino o los esquemas no son válidos.</p>
+            <p className="text-gray-500">No se encontraron campos en el formulario de destino o el esquema no es válido.</p>
           </div>
         )
       ) : (
         !hasSchemaError && (
           <div className="text-center p-6 border rounded-md">
+            {logger.warn("[InheritanceTab] Rendering 'Select source/target forms' message because canAccessAdvancedTabs is false.")}
             <div>
               <p className="text-gray-500">Selecciona formularios de origen y destino primero en la pestaña "General".</p>
             </div>
