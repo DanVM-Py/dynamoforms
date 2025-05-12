@@ -390,57 +390,12 @@ export type Database = {
           },
         ]
       }
-      dev_service_metrics: {
-        Row: {
-          checked_at: string
-          cpu_usage: number
-          error_rate: number
-          id: string
-          memory_usage: number
-          message: string | null
-          metrics_data: Json | null
-          request_count: number
-          response_time: number
-          service_id: string
-          status: string
-          trends: Json | null
-        }
-        Insert: {
-          checked_at?: string
-          cpu_usage: number
-          error_rate: number
-          id?: string
-          memory_usage: number
-          message?: string | null
-          metrics_data?: Json | null
-          request_count: number
-          response_time: number
-          service_id: string
-          status: string
-          trends?: Json | null
-        }
-        Update: {
-          checked_at?: string
-          cpu_usage?: number
-          error_rate?: number
-          id?: string
-          memory_usage?: number
-          message?: string | null
-          metrics_data?: Json | null
-          request_count?: number
-          response_time?: number
-          service_id?: string
-          status?: string
-          trends?: Json | null
-        }
-        Relationships: []
-      }
       dev_task_templates: {
         Row: {
-          assignee_form_field: string | null
+          assignee_dynamic: string | null
+          assignee_static: string | null
           assignment_type: string
           created_at: string
-          default_assignee: string | null
           description: string | null
           due_days: number | null
           id: string
@@ -453,10 +408,10 @@ export type Database = {
           title: string
         }
         Insert: {
-          assignee_form_field?: string | null
+          assignee_dynamic?: string | null
+          assignee_static?: string | null
           assignment_type: string
           created_at?: string
-          default_assignee?: string | null
           description?: string | null
           due_days?: number | null
           id?: string
@@ -469,10 +424,10 @@ export type Database = {
           title: string
         }
         Update: {
-          assignee_form_field?: string | null
+          assignee_dynamic?: string | null
+          assignee_static?: string | null
           assignment_type?: string
           created_at?: string
-          default_assignee?: string | null
           description?: string | null
           due_days?: number | null
           id?: string
@@ -487,7 +442,7 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "dev_task_templates_default_assignee_fkey"
-            columns: ["default_assignee"]
+            columns: ["assignee_static"]
             isOneToOne: false
             referencedRelation: "dev_profiles"
             referencedColumns: ["id"]
@@ -528,6 +483,7 @@ export type Database = {
           project_id: string | null
           source_form_id: string | null
           status: Database["public"]["Enums"]["task_status"]
+          template_id: string | null
           title: string
           updated_at: string
         }
@@ -543,6 +499,7 @@ export type Database = {
           project_id?: string | null
           source_form_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
+          template_id?: string | null
           title: string
           updated_at?: string
         }
@@ -558,6 +515,7 @@ export type Database = {
           project_id?: string | null
           source_form_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
+          template_id?: string | null
           title?: string
           updated_at?: string
         }
@@ -595,6 +553,13 @@ export type Database = {
             columns: ["source_form_id"]
             isOneToOne: false
             referencedRelation: "dev_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dev_tasks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "dev_task_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -1026,57 +991,12 @@ export type Database = {
           },
         ]
       }
-      service_metrics: {
-        Row: {
-          checked_at: string
-          cpu_usage: number
-          error_rate: number
-          id: string
-          memory_usage: number
-          message: string | null
-          metrics_data: Json | null
-          request_count: number
-          response_time: number
-          service_id: string
-          status: string
-          trends: Json | null
-        }
-        Insert: {
-          checked_at?: string
-          cpu_usage: number
-          error_rate: number
-          id?: string
-          memory_usage: number
-          message?: string | null
-          metrics_data?: Json | null
-          request_count: number
-          response_time: number
-          service_id: string
-          status: string
-          trends?: Json | null
-        }
-        Update: {
-          checked_at?: string
-          cpu_usage?: number
-          error_rate?: number
-          id?: string
-          memory_usage?: number
-          message?: string | null
-          metrics_data?: Json | null
-          request_count?: number
-          response_time?: number
-          service_id?: string
-          status?: string
-          trends?: Json | null
-        }
-        Relationships: []
-      }
       task_templates: {
         Row: {
-          assignee_form_field: string | null
+          assignee_dynamic: string | null
+          assignee_static: string | null
           assignment_type: string
           created_at: string
-          default_assignee: string | null
           description: string | null
           due_days: number | null
           id: string
@@ -1089,10 +1009,10 @@ export type Database = {
           title: string
         }
         Insert: {
-          assignee_form_field?: string | null
+          assignee_dynamic?: string | null
+          assignee_static?: string | null
           assignment_type: string
           created_at?: string
-          default_assignee?: string | null
           description?: string | null
           due_days?: number | null
           id?: string
@@ -1105,10 +1025,10 @@ export type Database = {
           title: string
         }
         Update: {
-          assignee_form_field?: string | null
+          assignee_dynamic?: string | null
+          assignee_static?: string | null
           assignment_type?: string
           created_at?: string
-          default_assignee?: string | null
           description?: string | null
           due_days?: number | null
           id?: string
@@ -1123,7 +1043,7 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "task_templates_default_assignee_fkey"
-            columns: ["default_assignee"]
+            columns: ["assignee_static"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1164,6 +1084,7 @@ export type Database = {
           project_id: string | null
           source_form_id: string | null
           status: Database["public"]["Enums"]["task_status"]
+          template_id: string | null
           title: string
           updated_at: string
         }
@@ -1179,6 +1100,7 @@ export type Database = {
           project_id?: string | null
           source_form_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
+          template_id?: string | null
           title: string
           updated_at?: string
         }
@@ -1194,6 +1116,7 @@ export type Database = {
           project_id?: string | null
           source_form_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
+          template_id?: string | null
           title?: string
           updated_at?: string
         }
@@ -1231,6 +1154,13 @@ export type Database = {
             columns: ["source_form_id"]
             isOneToOne: false
             referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "task_templates"
             referencedColumns: ["id"]
           },
         ]

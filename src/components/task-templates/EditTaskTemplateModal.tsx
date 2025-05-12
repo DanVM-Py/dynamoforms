@@ -35,14 +35,14 @@ interface EditTaskTemplateModalProps {
   setInheritanceMapping: (value: Record<string, string>) => void;
   assignmentType: AssignmentType;
   setAssignmentType: (value: AssignmentType) => void;
-  defaultAssignee: string;
-  setDefaultAssignee: (value: string) => void;
+  staticAssignee: string;
+  setStaticAssignee: (value: string) => void;
+  assigneeDynamic: string;
+  setAssigneeDynamic: (value: string) => void;
   minDays: number;
   setMinDays: (value: number) => void;
   dueDays: number;
   setDueDays: (value: number) => void;
-  assigneeFormField: string;
-  setAssigneeFormField: (value: string) => void;
   currentEditTab: string;
   setCurrentEditTab: (value: string) => void;
   projects: ProjectItem[] | undefined;
@@ -82,14 +82,14 @@ const EditTaskTemplateModal = ({
   setInheritanceMapping,
   assignmentType,
   setAssignmentType,
-  defaultAssignee,
-  setDefaultAssignee,
+  staticAssignee,
+  setStaticAssignee,
+  assigneeDynamic,
+  setAssigneeDynamic,
   minDays,
   setMinDays,
   dueDays,
   setDueDays,
-  assigneeFormField,
-  setAssigneeFormField,
   currentEditTab,
   setCurrentEditTab,
   projects,
@@ -163,10 +163,10 @@ const EditTaskTemplateModal = ({
             <AssignmentTab 
               assignmentType={assignmentType}
               setAssignmentType={setAssignmentType}
-              defaultAssignee={defaultAssignee}
-              setDefaultAssignee={setDefaultAssignee}
-              assigneeFormField={assigneeFormField}
-              setAssigneeFormField={setAssigneeFormField}
+              staticAssignee={staticAssignee}
+              setStaticAssignee={setStaticAssignee}
+              assigneeDynamic={assigneeDynamic}
+              setAssigneeDynamic={setAssigneeDynamic}
               sourceFormId={sourceFormId}
               sourceFormSchema={sourceFormSchema}
               projectUsers={projectUsers}

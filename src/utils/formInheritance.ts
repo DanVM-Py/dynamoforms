@@ -75,10 +75,10 @@ const createTaskFromTemplate = async (
     logger.debug(`Proyecto de la plantilla: ${template.project_id}, Proyecto del contexto: ${projectId}`);
     
     // Determine the assignee
-    let assigneeId = template.default_assignee;
+    let assigneeId = template.assignee_static;
     
-    if (template.assignment_type === 'dynamic' && template.assignee_form_field) {
-      const emailField = template.assignee_form_field;
+    if (template.assignment_type === 'dynamic' && template.assignee_dynamic) {
+      const emailField = template.assignee_dynamic;
       const userEmail = responseData[emailField];
       
       if (userEmail) {

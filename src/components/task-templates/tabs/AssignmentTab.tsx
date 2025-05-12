@@ -8,10 +8,10 @@ import { getEmailFieldsFromForm } from "@/utils/taskTemplateUtils";
 interface AssignmentTabProps {
   assignmentType: AssignmentType;
   setAssignmentType: (value: AssignmentType) => void;
-  defaultAssignee: string;
-  setDefaultAssignee: (value: string) => void;
-  assigneeFormField: string;
-  setAssigneeFormField: (value: string) => void;
+  staticAssignee: string;
+  setStaticAssignee: (value: string) => void;
+  assigneeDynamic: string;
+  setAssigneeDynamic: (value: string) => void;
   sourceFormId: string;
   sourceFormSchema: FormSchema | null | undefined;
   projectUsers: User[] | undefined;
@@ -22,10 +22,10 @@ interface AssignmentTabProps {
 const AssignmentTab = ({
   assignmentType,
   setAssignmentType,
-  defaultAssignee,
-  setDefaultAssignee,
-  assigneeFormField,
-  setAssigneeFormField,
+  staticAssignee,
+  setStaticAssignee,
+  assigneeDynamic,
+  setAssigneeDynamic,
   sourceFormId,
   sourceFormSchema,
   projectUsers,
@@ -55,11 +55,11 @@ const AssignmentTab = ({
       </div>
       {assignmentType === "static" && (
         <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="defaultAssignee" className="text-right">
+          <Label htmlFor="staticAssignee" className="text-right">
             Usuario Asignado <span className="text-red-500">*</span>
           </Label>
-          <Select onValueChange={setDefaultAssignee} value={defaultAssignee} required>
-            <SelectTrigger id="defaultAssignee" className="col-span-3">
+          <Select onValueChange={setStaticAssignee} value={staticAssignee} required>
+            <SelectTrigger id="staticAssignee" className="col-span-3">
               <SelectValue placeholder="Selecciona un usuario" />
             </SelectTrigger>
             <SelectContent>
@@ -85,16 +85,16 @@ const AssignmentTab = ({
       )}
       {assignmentType === "dynamic" && (
         <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="assigneeFormField" className="text-right">
+          <Label htmlFor="assigneeDynamic" className="text-right">
             Campo de Email <span className="text-red-500">*</span>
           </Label>
           <Select 
-            onValueChange={setAssigneeFormField} 
-            value={assigneeFormField}
+            onValueChange={setAssigneeDynamic} 
+            value={assigneeDynamic}
             disabled={!sourceFormId || isLoadingSourceSchema}
             required
           >
-            <SelectTrigger id="assigneeFormField" className="col-span-3">
+            <SelectTrigger id="assigneeDynamic" className="col-span-3">
               <SelectValue placeholder={
                 !sourceFormId 
                   ? "Selecciona un formulario origen primero" 

@@ -40,10 +40,10 @@ export interface TaskTemplate {
   projectId: string;
   inheritanceMapping: Record<string, string>; // Specific type
   assignmentType: AssignmentType;
-  defaultAssignee: string; // User ID
+  staticAssignee: string; // User ID
   minDays: number;
   dueDays: number;
-  assigneeFormField: string; // Form field key
+  assigneeDynamic: string; // Form field key
 }
 
 export const transformTaskTemplates = (
@@ -64,10 +64,10 @@ export const transformTaskTemplates = (
       projectId: tt.project_id!,
       inheritanceMapping: tt.inheritance_mapping || {},
       assignmentType: tt.assignment_type || "static",
-      defaultAssignee: tt.default_assignee || "",
+      staticAssignee: tt.assignee_static || "",
       minDays: tt.min_days !== undefined ? tt.min_days : 0,
       dueDays: tt.due_days !== undefined ? tt.due_days : 7,
-      assigneeFormField: tt.assignee_form_field || "",
+      assigneeDynamic: tt.assignee_dynamic || "",
       sourceFormTitle: tt.source_form_id ? formsMap.get(tt.source_form_id)?.title : undefined,
       targetFormTitle: tt.target_form_id ? formsMap.get(tt.target_form_id)?.title : undefined,
     };

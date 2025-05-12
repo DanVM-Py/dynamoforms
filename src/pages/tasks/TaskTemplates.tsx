@@ -40,10 +40,10 @@ const TaskTemplates = () => {
   const [isActive, setIsActive] = useState(true);
   const [inheritanceMapping, setInheritanceMapping] = useState<Record<string, string>>({});
   const [assignmentType, setAssignmentType] = useState<AssignmentType>("static");
-  const [defaultAssignee, setDefaultAssignee] = useState("");
+  const [staticAssignee, setStaticAssignee] = useState("");
   const [minDays, setMinDays] = useState(0);
   const [dueDays, setDueDays] = useState(7);
-  const [assigneeFormField, setAssigneeFormField] = useState("");
+  const [assigneeDynamic, setAssigneeDynamic] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [filter, setFilter] = useState<"active" | "inactive" | "all">("all");
@@ -79,10 +79,10 @@ const TaskTemplates = () => {
           project_id,
           inheritance_mapping,
           assignment_type,
-          default_assignee,
+          assignee_static,
           min_days,
           due_days,
-          assignee_form_field
+          assignee_dynamic
         `);
         
       query = query.eq('project_id', currentProjectId);
@@ -296,10 +296,10 @@ const TaskTemplates = () => {
         project_id: selectedTemplate.projectId,
         inheritance_mapping: inheritanceMapping,
         assignment_type: assignmentType,
-        default_assignee: assignmentType === "static" ? defaultAssignee : null,
+        assignee_static: assignmentType === "static" ? staticAssignee : null,
         min_days: minDays,
         due_days: dueDays,
-        assignee_form_field: assignmentType === "dynamic" ? assigneeFormField : null
+        assignee_dynamic: assignmentType === "dynamic" ? assigneeDynamic : null
       };
 
       const { data, error } = await supabase
@@ -385,12 +385,12 @@ const TaskTemplates = () => {
         setCurrentEditTab("general");
         return;
     }
-    if (assignmentType === "static" && !defaultAssignee) {
+    if (assignmentType === "static" && !staticAssignee) {
         toast({title: "Asignación incompleta", description: "Por favor, selecciona un usuario para asignación estática.", variant: "destructive"});
         setCurrentEditTab("assignment");
         return;
     }
-    if (assignmentType === "dynamic" && !assigneeFormField) {
+    if (assignmentType === "dynamic" && !assigneeDynamic) {
         toast({title: "Asignación incompleta", description: "Por favor, selecciona un campo de formulario para asignación dinámica.", variant: "destructive"});
         setCurrentEditTab("assignment");
         return;
@@ -412,10 +412,10 @@ const TaskTemplates = () => {
     setIsActive(template.isActive);
     setInheritanceMapping(template.inheritanceMapping || {});
     setAssignmentType(template.assignmentType);
-    setDefaultAssignee(template.defaultAssignee || "");
+    setStaticAssignee(template.staticAssignee || "");
     setMinDays(template.minDays || 0);
     setDueDays(template.dueDays || 7);
-    setAssigneeFormField(template.assigneeFormField || "");
+    setAssigneeDynamic(template.assigneeDynamic || "");
     setCurrentEditTab("general");
     setEditOpen(true);
   };
@@ -428,10 +428,10 @@ const TaskTemplates = () => {
     setIsActive(true);
     setInheritanceMapping({});
     setAssignmentType("static");
-    setDefaultAssignee("");
+    setStaticAssignee("");
     setMinDays(0);
     setDueDays(7);
-    setAssigneeFormField("");
+    setAssigneeDynamic("");
     setSelectedTemplate(null);
     setCurrentEditTab("general");
   };
@@ -562,9 +562,9 @@ const TaskTemplates = () => {
         isActive={isActive} setIsActive={setIsActive}
         projectId={selectedTemplate?.projectId || ""}
         inheritanceMapping={inheritanceMapping} setInheritanceMapping={setInheritanceMapping}
-        assignmentType={assignmentType} setAssignmentType={setAssignmentType} defaultAssignee={defaultAssignee} setDefaultAssignee={setDefaultAssignee}
+        assignmentType={assignmentType} setAssignmentType={setAssignmentType} staticAssignee={staticAssignee} setStaticAssignee={setStaticAssignee}
         minDays={minDays} setMinDays={setMinDays} dueDays={dueDays} setDueDays={setDueDays}
-        assigneeFormField={assigneeFormField} setAssigneeFormField={setAssigneeFormField}
+        assigneeDynamic={assigneeDynamic} setAssigneeDynamic={setAssigneeDynamic}
         currentEditTab={currentEditTab} setCurrentEditTab={setCurrentEditTab}
         projects={projects} forms={forms} projectUsers={projectUsers}
         sourceFormSchema={sourceFormSchema} targetFormSchema={targetFormSchema}

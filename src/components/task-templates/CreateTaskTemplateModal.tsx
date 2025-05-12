@@ -74,10 +74,10 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
   const [isActive, setIsActive] = useState(true);
   const [inheritanceMapping, setInheritanceMapping] = useState<Record<string, string>>({});
   const [assignmentType, setAssignmentType] = useState<AssignmentType>("static");
-  const [defaultAssignee, setDefaultAssignee] = useState("");
+  const [staticAssignee, setStaticAssignee] = useState("");
   const [minDays, setMinDays] = useState(0);
   const [dueDays, setDueDays] = useState(7);
-  const [assigneeFormField, setAssigneeFormField] = useState("");
+  const [assigneeDynamic, setAssigneeDynamic] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [currentEditTab, setCurrentEditTab] = useState("general");
   const navigate = useNavigate();
@@ -212,10 +212,10 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
         project_id: projectId,
         inheritance_mapping: inheritanceMapping,
         assignment_type: assignmentType,
-        default_assignee: assignmentType === "static" ? defaultAssignee : null,
+        assignee_static: assignmentType === "static" ? staticAssignee : null,
         min_days: minDays,
         due_days: dueDays,
-        assignee_form_field: assignmentType === "dynamic" ? assigneeFormField : null,
+        assignee_dynamic: assignmentType === "dynamic" ? assigneeDynamic : null,
       };
 
       const { data, error } = await supabase
@@ -267,7 +267,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
       setCurrentEditTab("general");
       return;
     }
-    if (assignmentType === "static" && !defaultAssignee) {
+    if (assignmentType === "static" && !staticAssignee) {
       toast({
         title: "Campos requeridos",
         description: "Por favor, selecciona un usuario asignado en la pestaña Asignación.",
@@ -276,7 +276,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
       setCurrentEditTab("assignment");
       return;
     }
-    if (assignmentType === "dynamic" && !assigneeFormField) {
+    if (assignmentType === "dynamic" && !assigneeDynamic) {
       toast({
         title: "Campos requeridos",
         description: "Por favor, selecciona un campo de email en la pestaña Asignación.",
@@ -296,10 +296,10 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
     setIsActive(true);
     setInheritanceMapping({});
     setAssignmentType("static");
-    setDefaultAssignee("");
+    setStaticAssignee("");
     setMinDays(0);
     setDueDays(7);
-    setAssigneeFormField("");
+    setAssigneeDynamic("");
     setCurrentEditTab("general");
   };
 
@@ -506,7 +506,7 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
                 <Label htmlFor="defaultAssignee-create" className="text-right">
                   Usuario Asignado <span className="text-red-500">*</span>
                 </Label>
-                <Select onValueChange={setDefaultAssignee} value={defaultAssignee} required>
+                <Select onValueChange={setStaticAssignee} value={staticAssignee} required>
                   <SelectTrigger id="defaultAssignee-create" className="col-span-3">
                     <SelectValue placeholder="Selecciona un usuario" />
                   </SelectTrigger>
@@ -537,12 +537,12 @@ export const CreateTaskTemplateModal: React.FC<CreateTaskTemplateModalProps> = (
                   Campo de Email <span className="text-red-500">*</span>
                 </Label>
                 <Select
-                  onValueChange={setAssigneeFormField}
-                  value={assigneeFormField}
+                  onValueChange={setAssigneeDynamic}
+                  value={assigneeDynamic}
                   disabled={!sourceFormId || isLoadingSourceSchema}
                   required
                 >
-                  <SelectTrigger id="assigneeFormField-create" className="col-span-3">
+                  <SelectTrigger id="assigneeDynamic-create" className="col-span-3">
                     <SelectValue placeholder={
                       !sourceFormId 
                         ? "Selecciona un formulario origen primero" 
