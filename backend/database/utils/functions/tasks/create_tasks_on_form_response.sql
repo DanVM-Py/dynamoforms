@@ -1,5 +1,6 @@
 CREATE OR REPLACE FUNCTION public.create_tasks_on_form_response()
 RETURNS trigger
+SECURITY DEFINER
 SET search_path TO public
 LANGUAGE plpgsql
 AS $$
@@ -43,24 +44,24 @@ BEGIN
     -- Construir e insertar la tarea dinámica
     query_text := format(
       'INSERT INTO %I (
-         title,
-         description,
-         form_id,
-         form_response_id,
-         assigned_to,
-         template_id,
-         status,
-         created_at,
-         updated_at,
-         due_date,
-         project_id,
-         source_form_id,
-         priority
-       ) VALUES (
-         $1, $2, $3, $4,
-         $5, $6, $7,
-         now(), now(), $8,
-         $9, $3, $10
+        title,
+        description,
+        form_id,
+        form_response_id,
+        assigned_to,
+        template_id,
+        status,
+        created_at,
+        updated_at,
+        due_date,
+        project_id,
+        source_form_id,
+        priority
+      ) VALUES (
+        $1, $2, $3, $4,
+        $5, $6, $7,
+        now(), now(), $8,
+        $9, $3, $10
        )',
       task_tbl
     );
@@ -82,3 +83,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+ALTER FUNCTION public.create_tasks_on_form_response()
+  OWNER TO service_role;
