@@ -62,6 +62,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DateRange } from "react-day-picker"
 import { Input as InputUi } from "@/components/ui/input"
 import { Tables } from '@/config/environment';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Define Task type to match what we're getting from Supabase
 interface Task {
@@ -86,7 +87,7 @@ interface Task {
 const TasksPage = () => {
   const [currentFilter, setCurrentFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const { projectId } = useParams<{ projectId?: string }>();
+  const { currentProjectId: projectId, user } = useAuth();
   const [searchParams] = useSearchParams();
   const statusFilter = searchParams.get('status') || 'pending'; // Default to pending
   const { toast } = useToast();
@@ -98,10 +99,11 @@ const TasksPage = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!projectId) {
-      logger.warn("Project ID is missing, viewing all tasks.");
+    logger.debug(`[TasksPage] Initializing/Project ID changed. Current Project ID from useAuth: ${projectId}`);
+    if (!projectId && user) {
+      logger.warn("[TasksPage] Project ID is missing from useAuth context. Tasks might not be filtered correctly or fetched.");
     }
-  }, [projectId]);
+  }, [projectId, user]);
 
   const taskSchema = z.object({
     title: z.string().min(2, {
@@ -135,7 +137,7 @@ const TasksPage = () => {
     queryKey: ['tasks', projectId, currentFilter, searchQuery],
     queryFn: async () => {
       if (!projectId) {
-        logger.warn("Project ID is missing, fetching tasks across all projects for user.");
+        logger.warn("[TasksPage] Project ID is missing from context, cannot fetch tasks.");
         return [];
       }
 
@@ -160,42 +162,45 @@ const TasksPage = () => {
         query = query.ilike('title', `%${searchQuery}%`);
       }
 
-      // Order by due date, with nulls at the end
       query = query.order('due_date', { ascending: true, nullsFirst: false });
 
       const { data, error } = await query;
 
       if (error) {
-        logger.error("Error fetching tasks:", error);
+        logger.error("[TasksPage] Error fetching raw tasks from Supabase:", error);
         throw error;
       }
 
-      // Get source form information for tasks with source_form_id
-      const enhancedTasks = await Promise.all((data || []).map(async (task) => {
-        // Add assignee name from profiles join
-        const assigneeName = task.profiles?.name || task.profiles?.email || 'Unknown';
+      logger.info("[TasksPage] Raw tasks data fetched from Supabase:", data);
 
-        // Get source form info if available
+      if (!data || data.length === 0) {
+        logger.info("[TasksPage] No tasks found for the current filters from Supabase.");
+        return [];
+      }
+
+      const enhancedTasks = await Promise.all((data || []).map(async (task) => {
+        const assigneeName = task.profiles?.name || task.profiles?.email || 'Unknown';
         let sourceForm = undefined;
         if (task.source_form_id) {
-          const { data: formData } = await supabase
-            .from(Tables.forms)
-            .select('id, title')
-            .eq('id', task.source_form_id)
-            .single();
-            
-          if (formData) {
-            sourceForm = formData;
+          try {
+            const { data: formData, error: formError } = await supabase
+              .from(Tables.forms)
+              .select('id, title')
+              .eq('id', task.source_form_id)
+              .single();
+            if (formError) {
+              logger.warn(`[TasksPage] Error fetching source form ${task.source_form_id} for task ${task.id}:`, formError);
+            } else if (formData) {
+              sourceForm = formData;
+            }
+          } catch (e) {
+            logger.error(`[TasksPage] Exception fetching source form ${task.source_form_id} for task ${task.id}:`, e);
           }
         }
-
-        return {
-          ...task,
-          assignee_name: assigneeName,
-          source_form: sourceForm
-        } as Task;
+        return { ...task, assignee_name: assigneeName, source_form: sourceForm } as Task;
       }));
 
+      logger.info("[TasksPage] Enhanced tasks data prepared:", enhancedTasks);
       return enhancedTasks;
     },
     enabled: !!projectId,
@@ -286,7 +291,18 @@ const TasksPage = () => {
             value={searchQuery}
             onChange={handleSearchChange}
           />
-          <Button onClick={() => navigate(`/projects/${projectId}/create-task`)}>Crear Tarea</Button>
+          <Button onClick={() => {
+            if (projectId) {
+              navigate(`/projects/${projectId}/create-task`);
+            } else {
+              toast({
+                title: "Proyecto no seleccionado",
+                description: "Por favor, selecciona un proyecto para crear una tarea.",
+                variant: "destructive",
+              });
+              logger.warn("[TasksPage] Attempted to navigate to create-task without a projectId.");
+            }
+          }}>Crear Tarea</Button>
         </div>
       </div>
 
