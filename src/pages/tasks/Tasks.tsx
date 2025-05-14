@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { PageContainer } from "@/components/layout/PageContainer";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,46 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Calendar } from "@/components/ui/calendar"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose,
-} from "@/components/ui/dialog"
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { cn } from "@/lib/utils"
-import { format } from "date-fns"
-import { CalendarIcon, ChevronLeft, ChevronRight, Loader2, MapPin } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { DateRange } from "react-day-picker"
-import { Input as InputUi } from "@/components/ui/input"
+import { Loader2 } from 'lucide-react';
 import { Tables } from '@/config/environment';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -69,7 +38,7 @@ interface Task {
   id: string;
   title: string;
   description: string | null;
-  status: 'pending' | 'in_progress' | 'completed';
+  status: 'Pendiente' | 'En Progreso' | 'Completado';
   assigned_to: string;
   due_date: string | null;
   form_id: string | null;
@@ -79,24 +48,14 @@ interface Task {
   created_at: string;
   updated_at: string;
   source_form_id: string | null;
-  // These fields come from joins but aren't guaranteed
   source_form?: { id: string; title: string };
   assignee_name?: string;
 }
 
 const TasksPage = () => {
-  const [currentFilter, setCurrentFilter] = useState<string>('Todas');
+  const [currentFilter, setCurrentFilter] = useState<string>('Pendiente');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const { currentProjectId: projectId, user } = useAuth();
-  const [searchParams] = useSearchParams();
-  const statusFilter = searchParams.get('status') || 'pending'; // Default to pending
-  const { toast } = useToast();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [date, setDate] = useState<DateRange | undefined>(undefined);
-  const [isSaving, setIsSaving] = useState(false);
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   useEffect(() => {
     logger.debug(`[TasksPage] Initializing/Project ID changed. Current Project ID from useAuth: ${projectId}`);
@@ -104,33 +63,6 @@ const TasksPage = () => {
       logger.warn("[TasksPage] Project ID is missing from useAuth context. Tasks might not be filtered correctly or fetched.");
     }
   }, [projectId, user]);
-
-  const taskSchema = z.object({
-    title: z.string().min(2, {
-      message: "El título debe tener al menos 2 caracteres.",
-    }),
-    description: z.string().optional(),
-    status: z.enum(["pending", "in_progress", "completed"]),
-    due_date: z.date().optional(),
-  })
-
-  const form = useForm<z.infer<typeof taskSchema>>({
-    resolver: zodResolver(taskSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      status: "pending",
-      due_date: undefined,
-    },
-    mode: "onChange"
-  })
-
-  const { data: statuses } = useQuery({
-    queryKey: ['statuses'],
-    queryFn: async () => {
-      return ['pending', 'in_progress', 'completed'];
-    },
-  })
 
   // Fetch tasks
   const { data: tasks, isLoading, refetch } = useQuery({
@@ -184,7 +116,7 @@ const TasksPage = () => {
         logger.info("[TasksPage] No tasks found for the current filters from Supabase.");
         return [];
       }
-
+      
       const enhancedTasks = await Promise.all((data || []).map(async (task) => {
         const assigneeName = task.profiles?.name || task.profiles?.email || 'Unknown';
         let sourceForm = undefined;
@@ -213,12 +145,6 @@ const TasksPage = () => {
     enabled: !!projectId,
   });
 
-  useEffect(() => {
-    if (date?.from && date?.to) {
-      form.setValue("due_date", date?.from)
-    }
-  }, [date?.from, date?.to, form])
-
   const handleFilterChange = (filter: string) => {
     setCurrentFilter(filter);
   };
@@ -227,112 +153,51 @@ const TasksPage = () => {
     setSearchQuery(e.target.value);
   };
 
-  const handleDialogOpen = (task: Task) => {
-    setSelectedTask(task);
-    form.setValue("title", task.title);
-    form.setValue("description", task.description || "");
-    form.setValue("status", task.status);
-    setIsDialogOpen(true);
-  };
-
-  const handleDialogClose = () => {
-    setIsDialogOpen(false);
-    setSelectedTask(null);
-    form.reset();
-  };
-
-  const onSubmit = async (values: z.infer<typeof taskSchema>) => {
-    if (!selectedTask) return;
-
-    setIsSaving(true);
-    try {
-      const { error } = await supabase
-        .from(Tables.tasks)
-        .update({
-          title: values.title,
-          description: values.description,
-          status: values.status,
-          due_date: values.due_date?.toISOString() || null,
-        })
-        .eq('id', selectedTask.id);
-
-      if (error) {
-        logger.error("Error updating task:", error);
-        toast({
-          title: "Error",
-          description: "Failed to update task.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      toast({
-        title: "Success",
-        description: "Task updated successfully.",
-      });
-      handleDialogClose();
-      queryClient.invalidateQueries({ queryKey: ['tasks', projectId, currentFilter, searchQuery] });
-    } catch (error) {
-      logger.error("Error updating task:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update task.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   return (
     <PageContainer>
-      <div className="md:flex md:items-center md:justify-between space-y-4 md:space-y-0">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Tareas</h1>
-          <p className="text-gray-500 mt-1">Gestiona las tareas de este proyecto</p>
+          <h1 className="text-3xl font-bold text-gray-900">Mis Tareas</h1>
+          <p className="text-gray-500 mt-1">Aquí puedes ver las tareas que te han sido asignadas en este proyecto.</p>
         </div>
-        <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
-          <Input
-            type="text"
-            placeholder="Buscar tareas..."
-            value={searchQuery}
-            onChange={handleSearchChange}
-          />
-          <Button onClick={() => {
-            if (projectId) {
-              navigate(`/projects/${projectId}/create-task`);
-            } else {
-              toast({
-                title: "Proyecto no seleccionado",
-                description: "Por favor, selecciona un proyecto para crear una tarea.",
-                variant: "destructive",
-              });
-              logger.warn("[TasksPage] Attempted to navigate to create-task without a projectId.");
-            }
-          }}>Crear Tarea</Button>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full md:w-auto">
+          <Label htmlFor="status-filter-top" className="sm:mb-0 whitespace-nowrap">
+            Filtrar por estado:
+          </Label>
+          <Select value={currentFilter} onValueChange={handleFilterChange} name="status-filter-top">
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Todas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Todas">Todas</SelectItem>
+              <SelectItem value="Pendiente">Pendientes</SelectItem>
+              <SelectItem value="En Progreso">En Progreso</SelectItem>
+              <SelectItem value="Completado">Completadas</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      <Card className="mt-4">
+      <Card>
         <CardHeader>
-          <CardTitle>Lista de Tareas</CardTitle>
-          <CardDescription>Aquí puedes ver y gestionar las tareas.</CardDescription>
+          <CardTitle>Lista de Tareas Asignadas</CardTitle>
+          <CardDescription className="pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <Label htmlFor="title-search-card" className="sm:mb-0 whitespace-nowrap">
+                Buscar por título:
+              </Label>
+              <Input
+                id="title-search-card"
+                type="text"
+                placeholder="Escribe para buscar..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                className="w-full sm:w-auto sm:min-w-[200px] sm:flex-grow"
+              />
+            </div>
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="py-2 flex items-center space-x-2">
-            <Label>Filtrar por:</Label>
-            <Select value={currentFilter} onValueChange={handleFilterChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Todas">Todas</SelectItem>
-                <SelectItem value="Pendiente">Pendientes</SelectItem>
-                <SelectItem value="En Progreso">En Progreso</SelectItem>
-                <SelectItem value="Completado">Completadas</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -340,13 +205,12 @@ const TasksPage = () => {
                 <TableHead>Asignado a</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Fecha de Vencimiento</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center">
+                  <TableCell colSpan={4} className="text-center">
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   </TableCell>
                 </TableRow>
@@ -359,126 +223,17 @@ const TasksPage = () => {
                     <TableCell>
                       {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'Sin fecha'}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" onClick={() => handleDialogOpen(task)}>
-                        Editar
-                      </Button>
-                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center">No hay tareas disponibles</TableCell>
+                  <TableCell colSpan={4} className="text-center">No tienes tareas asignadas que coincidan con los filtros actuales.</TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Editar Tarea</DialogTitle>
-            <DialogDescription>
-              Modifica los detalles de la tarea.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Título</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Título de la tarea" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descripción</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Descripción de la tarea" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Estado</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona un estado" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {statuses?.map((status) => (
-                          <SelectItem key={status} value={status}>{status}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="due_date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col space-y-3">
-                    <FormLabel>Fecha de vencimiento</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <InputUi
-                            placeholder={field.value ? format(field.value, "PPP") : "Pick a date"}
-                            className={cn(
-                              "pl-3 font-medium",
-                              !date && "text-muted-foreground"
-                            )}
-                          />
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          defaultMonth={field.value}
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) =>
-                            date < new Date()
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogClose asChild>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Guardar cambios
-                </Button>
-              </DialogClose>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
     </PageContainer>
   );
 };
