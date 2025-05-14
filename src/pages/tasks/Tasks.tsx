@@ -85,7 +85,7 @@ interface Task {
 }
 
 const TasksPage = () => {
-  const [currentFilter, setCurrentFilter] = useState<string>('all');
+  const [currentFilter, setCurrentFilter] = useState<string>('Todas');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const { currentProjectId: projectId, user } = useAuth();
   const [searchParams] = useSearchParams();
@@ -134,11 +134,14 @@ const TasksPage = () => {
 
   // Fetch tasks
   const { data: tasks, isLoading, refetch } = useQuery({
-    queryKey: ['tasks', projectId, currentFilter, searchQuery],
+    queryKey: ['tasks', projectId, user?.id, currentFilter, searchQuery],
     queryFn: async () => {
       if (!projectId) {
         logger.warn("[TasksPage] Project ID is missing from context, cannot fetch tasks.");
         return [];
+      }
+      if (!user?.id) {
+        logger.warn("[TasksPage] User ID is missing from context, cannot filter by assigned_to. Fetching all tasks for project.");
       }
 
       let query = supabase
@@ -149,13 +152,17 @@ const TasksPage = () => {
         `)
         .eq('project_id', projectId);
 
+      if (user?.id) {
+        query = query.eq('assigned_to', user.id);
+      }
+
       // Apply filters
-      if (currentFilter === 'pending') {
-        query = query.eq('status', 'pending');
-      } else if (currentFilter === 'in_progress') {
-        query = query.eq('status', 'in_progress');
-      } else if (currentFilter === 'completed') {
-        query = query.eq('status', 'completed');
+      if (currentFilter === 'Pendiente') {
+        query = query.eq('status', 'Pendiente');
+      } else if (currentFilter === 'En Progreso') {
+        query = query.eq('status', 'En Progreso');
+      } else if (currentFilter === 'Completado') {
+        query = query.eq('status', 'Completado');
       }
 
       if (searchQuery) {
@@ -319,10 +326,10 @@ const TasksPage = () => {
                 <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                <SelectItem value="pending">Pendientes</SelectItem>
-                <SelectItem value="in_progress">En Progreso</SelectItem>
-                <SelectItem value="completed">Completadas</SelectItem>
+                <SelectItem value="Todas">Todas</SelectItem>
+                <SelectItem value="Pendiente">Pendientes</SelectItem>
+                <SelectItem value="En Progreso">En Progreso</SelectItem>
+                <SelectItem value="Completado">Completadas</SelectItem>
               </SelectContent>
             </Select>
           </div>

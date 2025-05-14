@@ -6,7 +6,7 @@ create table public.tasks (
   form_response_id uuid null,
   assigned_to uuid not null, 
   template_id uuid NULL,
-  status public.task_status not null default 'pending'::task_status,
+  status public.task_status not null default 'Pendiente'::task_status,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now(),
   due_date timestamp with time zone null,

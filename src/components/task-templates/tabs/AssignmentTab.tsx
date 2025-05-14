@@ -75,7 +75,7 @@ const AssignmentTab = ({
               ) : (
                 projectUsers?.map((user) => (
                   <SelectItem key={user.id} value={user.id}>
-                    {user.name || user.email}
+                    {user.name && user.email ? `${user.name} (${user.email})` : user.name || user.email}
                   </SelectItem>
                 ))
               )}
